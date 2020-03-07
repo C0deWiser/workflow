@@ -1,0 +1,21 @@
+{
+    "name": "codewiser/workflow",
+    "description": "Model Workflow Laravel package",
+    "keywords": ["workflow", "laravel", "illuminate"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Michael Pogrebnikov",
+            "email": "mpogreb@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.1.3",
+        "laravel/framework": ">=5.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "Codewiser\\Workflow\\": "src"
+        }
+    }
+}
