@@ -30,6 +30,16 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 }
 ```
 
+The idea is that you can not change `state` attribute arbitrary.
+The model always will be created with initial `state=new`.
+Next value will be `review`. And so on.
+
+Depending on `state` value you provide various business logic.
+For example, one user creates article, 
+second user reviews article 
+and publish it or returns it back to the author.
+First user corrects the mistakes and sends article for review again.
+
 Second, apply workflow to your model.
 
 ```php
