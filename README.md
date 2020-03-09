@@ -26,7 +26,6 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             new Transition('correcting', 'review')
         ];
     }
-
 }
 ```
 
