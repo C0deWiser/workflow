@@ -20,11 +20,5 @@
             "Codewiser\\Workflow\\": "src"
         }
     },
-    "minimum-stability": "dev",
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../journalism"
-        }
-    ]
+    "minimum-stability": "dev"
 }
