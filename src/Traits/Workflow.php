@@ -1,6 +1,7 @@
 <?php
 namespace Codewiser\Workflow\Traits;
 
+use Codewiser\Journalism\Journal;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\WorkflowBlueprint;
@@ -19,30 +20,37 @@ trait Workflow
     {
         static::creating(function (Model $model) {
             /* @var Workflow $model */
-            $model->setAttribute($model->workflow()->getAttribute(), $model->workflow()->getInitialState());
+            $model->setAttribute($model->workflow()->getAttributeName(), $model->workflow()->getInitialState());
         });
 
         static::updating(function (Model $model) {
             /* @var Workflow $model */
+            $workflow = $model->workflow();
 
-            if ($model->isDirty($model->workflow()->getAttribute())) {
+            if ($model->isDirty($workflow->getAttributeName())) {
 
-                $source = $model->getOriginal($model->workflow()->getAttribute());
-                $target = $model->getAttribute($model->workflow()->getAttribute());
+                $source = $model->getOriginal($workflow->getAttributeName());
+                $target = $model->getAttribute($workflow->getAttributeName());
 
-                foreach ($model->workflow()->getTransitions() as $i) {
-                    if ($i->getSource() == $source && $i->getTarget() == $target) {
+                $foundSuchTransition = false;
+                foreach ($workflow->getTransitions() as $transition) {
+                    if ($transition->getSource() == $source && $transition->getTarget() == $target) {
                         // We found transition from source to target
-                        return $i->execute();
+                        $foundSuchTransition = $transition;
+                        $transition->execute();
                     }
                 }
-                throw new WorkflowException('Model can not be transited to given state');
+                if (!$foundSuchTransition) {
+                    throw new WorkflowException('Model can not be transited to given state');
+                }
+
+                Journal::log('transited', $model, json_encode($workflow->getTransitionComment()));
             }
         });
     }
 
     public function scopeWorkflow(Builder $query, $state)
     {
-        return $query->where($this->workflow()->getAttribute(), $state);
+        return $query->where($this->workflow()->getAttributeName(), $state);
     }
 }

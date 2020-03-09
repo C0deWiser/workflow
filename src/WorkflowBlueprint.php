@@ -2,6 +2,8 @@
 
 namespace Codewiser\Workflow;
 
+use Cassandra\Cluster\Builder;
+use Codewiser\Journalism\Journal;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Codewiser\Workflow\Exceptions\WorkflowException;
@@ -12,10 +14,29 @@ abstract class WorkflowBlueprint
      * @var Model
      */
     protected $model;
+
+    private $transition_comment;
+
     /**
      * Attribute name. It keeps workflow state
      */
     const ATTRIBUTE = 'workflow';
+
+    /**
+     * @return string|null
+     */
+    public function getTransitionComment()
+    {
+        return $this->transition_comment;
+    }
+
+    /**
+     * @param string $comment
+     */
+    public function setTransitionComment($comment)
+    {
+        $this->transition_comment = $comment;
+    }
 
     /**
      * Array of available Model Workflow steps. First one is initial
@@ -65,7 +86,7 @@ abstract class WorkflowBlueprint
      */
     public function getRelevantTransitions()
     {
-        $state = $this->model->getAttribute($this->getAttribute());
+        $state = $this->model->getAttribute($this->getAttributeName());
         $transitions = new Collection();
         foreach ($this->getTransitions() as $transition) {
             if ($state == $transition->getSource()) {
@@ -79,7 +100,7 @@ abstract class WorkflowBlueprint
      * Workflow attribute name
      * @return string
      */
-    public function getAttribute()
+    public function getAttributeName()
     {
         return self::ATTRIBUTE;
     }
@@ -91,5 +112,14 @@ abstract class WorkflowBlueprint
     protected function getInitialState()
     {
         return $this->getStates()->first();
+    }
+
+    /**
+     * Workflow history
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function journal()
+    {
+        return Journal::get($this->model, 'transited');
     }
 }

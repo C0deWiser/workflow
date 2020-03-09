@@ -8,5 +8,19 @@ foreach ($transitions as $transition) {
     $problem = $transition->hasProblem();
 }
 
-$article->techWorkflow()->transit($article->workflow()->getRelevantTransitions()->first()->getTarget());
+try {
+    $article->fill($request->all());
+    $article->workflow()->setTransitionComment('comment');
+} catch (\Codewiser\Workflow\Exceptions\WorkflowException $exception) {
+    echo $exception->getMessage();
+}
+
+/** @var \Codewiser\Journalism\Journal[] $history */
+$history = $article->workflow()->journal()->limit(15)->get();
+foreach ($history as $item) {
+    $item->created_at;
+    $item->event;
+    $item->user;
+    $item->payload;
+}
 

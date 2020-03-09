@@ -12,16 +12,22 @@ class Transition
 {
     protected $source;
     protected $target;
+    /**
+     * @var Model
+     */
     protected $model;
     /**
-     * @var Precondition
+     * @var Collection|Precondition[]
      */
-    protected $precondition;
+    protected $preconditions;
     public function __construct($source, $target, $precondition = null)
     {
         $this->source = $source;
         $this->target = $target;
-        $this->precondition = $precondition;
+        $this->preconditions = new Collection();
+        if ($precondition) {
+            $this->preconditions->push($precondition);
+        }
     }
 
     /**
@@ -44,11 +50,11 @@ class Transition
 
     /**
      * Precondition
-     * @return Precondition
+     * @return Collection|Precondition[]
      */
-    public function getPrecondition()
+    public function getPreconditions()
     {
-        return $this->precondition;
+        return $this->preconditions;
     }
 
     public function __call($name, $arguments)
@@ -66,7 +72,7 @@ class Transition
      */
     public function hasProblem()
     {
-        if ($precondition = $this->getPrecondition()) {
+        foreach ($this->getPreconditions() as $precondition) {
             if ($problem = $precondition->validate($this->model)) {
                 return $problem;
             }

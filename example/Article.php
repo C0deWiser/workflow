@@ -41,6 +41,6 @@ class Article extends \Illuminate\Database\Eloquent\Model
 
     public function scopeTechWorkflow(Builder $query, $state)
     {
-        return $query->where($this->techWorkflow()->getAttribute(), $state);
+        return $query->where($this->techWorkflow()->getAttributeName(), $state);
     }
 }
