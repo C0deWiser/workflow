@@ -73,7 +73,7 @@ and you may catch a `WorkflowException`.
 ```php
 try {
     // You may provide user comment for transition
-    $article->workflow()->setTransitionComment('comment');
+    $article->journalMemo('comment');
     $article->fill($request->all());
     $article->save();
 } catch (\Codewiser\Workflow\Exceptions\WorkflowException $exception) {
@@ -85,9 +85,7 @@ try {
 You may show to the User full history of transitions.
 
 ```php
-/** @var \Codewiser\Journalism\Journal[] $history */
-$history = $article->workflow()->journal()->limit(15)->get();
-foreach ($history as $item) {
+foreach ($article->journal as $item) {
     $item->created_at;
     $item->event;
     $item->user;

@@ -9,14 +9,14 @@ foreach ($transitions as $transition) {
 }
 
 try {
+    $article->journalMemo('comment');
     $article->fill($request->all());
-    $article->workflow()->setTransitionComment('comment');
 } catch (\Codewiser\Workflow\Exceptions\WorkflowException $exception) {
     echo $exception->getMessage();
 }
 
 /** @var \Codewiser\Journalism\Journal[] $history */
-$history = $article->workflow()->journal()->limit(15)->get();
+$history = $article->journal()->limit(15)->get();
 foreach ($history as $item) {
     $item->created_at;
     $item->event;

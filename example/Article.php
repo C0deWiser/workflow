@@ -15,6 +15,7 @@ class Article extends \Illuminate\Database\Eloquent\Model
     use Workflow {
         booted as protected workflowBooted;
     }
+    use \Codewiser\Journalism\Journalised;
 
     protected static function booted()
     {
