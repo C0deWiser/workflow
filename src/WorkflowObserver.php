@@ -3,44 +3,40 @@
 
 namespace Codewiser\Workflow;
 
-
-use Codewiser\Journalism\Journal;
-use Codewiser\Journalism\Journalised;
-use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 
 class WorkflowObserver
 {
-    public function creating(Model $model) {
-        /* @var Model|Workflow $model */
-        $model->setAttribute($model->workflow()->getAttributeName(), $model->workflow()->getInitialState());
+    /**
+     * @param Model|Workflow $model
+     */
+    public function creating(Model $model)
+    {
+        foreach (array_keys($model->getAttributes()) as $attribute) {
+            if ($workflow = $model->workflow($attribute)) {
+                // Set initial value for every column that holds workflow state
+                $model->setAttribute($attribute, $workflow->getInitialState());
+            }
+        }
     }
 
-    public function updating(Model $model) {
-        /* @var Model|Workflow $model */
-        $workflow = $model->workflow();
+    /**
+     * @param Model|Workflow $model
+     * @throws Exceptions\WorkflowException
+     */
+    public function updating(Model $model)
+    {
+        foreach ($model->getDirty() as $attribute => $value) {
+            if ($workflow = $model->workflow($attribute)) {
+                // Workflow attribute is dirty
 
-        if ($model->isDirty($workflow->getAttributeName())) {
-
-            $source = $model->getOriginal($workflow->getAttributeName());
-            $target = $model->getAttribute($workflow->getAttributeName());
-
-            $foundSuchTransition = false;
-            foreach ($workflow->getTransitions() as $transition) {
-                if ($transition->getSource() == $source && $transition->getTarget() == $target) {
-                    // We found transition from source to target
-                    $foundSuchTransition = $transition;
-                    // Check if transition can be performed
-                    $transition->execute();
-                }
+                // Rollback to original value
+                $model->setAttribute($attribute, $model->getOriginal($attribute));
+                // And utilize workflow transit() method
+                // It will check state machine consistency and preconditions
+                $workflow->transit($value);
             }
-            if (!$foundSuchTransition) {
-                throw new WorkflowException('Model can not be transited to given state');
-            }
-
-            // Journal this event before `updated`, so the `journalMemo` will be us )
-            $model->journalise('transited', [$workflow->getAttributeName() => $target]);
         }
     }
 }

@@ -1,21 +1,25 @@
 <?php
 
-
 namespace Codewiser\Workflow;
 
-
-use Codewiser\Workflow\Exceptions\WorkflowException;
+use Codewiser\Workflow\Exceptions\WorkflowInvalidTransitionException;
+use Codewiser\Workflow\Traits\Workflow;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
-class Transition
+class Transition implements Arrayable
 {
     protected $source;
     protected $target;
     /**
-     * @var Model
+     * @var Model|Workflow
      */
     protected $model;
+    /**
+     * @var string
+     */
+    protected $attribute;
     /**
      * @var Collection|Precondition[]
      */
@@ -28,6 +32,15 @@ class Transition
         if ($precondition) {
             $this->preconditions->push($precondition);
         }
+    }
+
+    public function toArray()
+    {
+        return [
+            'source' => $this->getSource(),
+            'target' => $this->getTarget(),
+            'problem' => $this->hasProblem()
+        ];
     }
 
     /**
@@ -62,6 +75,7 @@ class Transition
         switch ($name) {
             case 'inject':
                 $this->model = $arguments[0];
+                $this->attribute = $arguments[1];
                 break;
         }
     }
@@ -72,21 +86,32 @@ class Transition
      */
     public function hasProblem()
     {
-        foreach ($this->getPreconditions() as $precondition) {
-            if ($problem = $precondition->validate($this->model)) {
-                return $problem;
+        if ($this->model) {
+            foreach ($this->getPreconditions() as $precondition) {
+                if ($problem = $precondition->validate($this->model, $this->attribute)) {
+                    return $problem;
+                }
             }
         }
     }
 
     /**
-     * Execute transition: check preconditions
-     * @throws WorkflowException
+     * Parent context of this transition
+     * @return WorkflowBlueprint|null
      */
-    public function execute()
+    protected function workflow()
+    {
+        return $this->model->workflow($this->attribute);
+    }
+
+    /**
+     * Execute transition: check preconditions
+     * @throws WorkflowInvalidTransitionException
+     */
+    public function validate()
     {
         if ($problem = $this->hasProblem()) {
-            throw new WorkflowException($problem);
+            throw new WorkflowInvalidTransitionException($problem);
         }
     }
 

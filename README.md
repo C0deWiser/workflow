@@ -44,21 +44,60 @@ Second, apply workflow to your model.
 ```php
 class Article extends Model
 {
-    use Workflow;
+    use Codewiser\Workflow\Traits\Workflow;
     
-    public function workflow(): WorkflowBlueprint
+    protected function stateMachine()
     {
-        return new ArticleWorkflow($this);
+        return [
+            // do not add workflow attribute to $fillable !!!
+            'workflow' => ArticleWorkflow::class
+        ];
     }
 }
 ```
 
-Workflow keeps its state in model attribute named `workflow` by default.
-You should migrate model schema to add this column.
+Workflow keeps its state in model attribute you provide as a key of array.
+You should migrate model schema to add this column (string, not null).
+
+You may define few workflow schemas as the same time, each in its own attribute.
+
+```php
+class Article extends Model
+{
+    use Workflow;
+    
+    protected function stateMachine()
+    {
+        return [
+            'editorial_workflow' => EditorialWorkflow::class,
+            'technical_workflow' => TechnicalWorkflow::class,
+        ];
+    }
+}
+```
 
 ## Usage
 
-Show to the User possible transitions from current state of the Article:
+You may access workflow service class through the model.
+
+```php
+
+$article = Article::find(1);
+
+// Will return first defined workflow
+$article->workflow(); 
+
+// Will return workflow binded to `editorial_workflow` attribute
+$article->workflow('editorial_workflow'); 
+
+// Will return EditorialWorkflow
+$article->workflow(EditorialWorkflow::class); 
+
+```
+
+So, if your model has few workflow schemas, you may get the exact you need. 
+
+Now show to the User possible transitions from current state of the Article:
 
 ```php
 $transitions = $article->workflow()->getRelevantTransitions();
@@ -70,26 +109,98 @@ If you try to update model with new `state` value,
 package will examine it, 
 and you may catch a `WorkflowException`.
 
+### Direct saving
+
+You may call workflow methods to initialize or update workflow.
+
 ```php
-try {
-    // You may provide user comment for transition
-    $article->journalMemo('comment');
-    $article->fill($request->all());
-    $article->save();
-} catch (\Codewiser\Workflow\Exceptions\WorkflowException $exception) {
-    // Show to the user the reason he can't change Article state
-    echo $exception->getMessage();
+class ArticleController extends Controller
+{
+    public function store(Request $request)
+    {
+        $article = new App\Article();
+        $article->fill($request->all);
+        // set workflow attribute to initial state
+        $article->workflow()->init();
+        $article->save();
+    }
+
+    public function update(Request $request, $id)
+    {
+        $article = App\Article::find($id);
+        $article->fill($request->except('workflow'));
+        // change workflow state 
+        // `transition_comment` will be saved to journal
+        $article->worflow()->transit(
+            $request->get('workflow'), 
+            $request->get('transition_comment')
+        );
+        $article->save();
+    }
 }
 ```
 
-You may show to the User full history of transitions.
+### Using observer
+
+You may apply `WorkflowObserver` to your model. 
+Then you do not need to call workflow methods.
+
+The only thing — is to save transition comment.
+
+```php
+class ArticleController extends Controller
+{
+    public function store(Request $request)
+    {
+        $article = new App\Article();
+        $article->fill($request->all);
+                ->save();
+        
+        // `creating observer` will initialize every workflow
+    }
+
+    public function update(Request $request, $id)
+    {
+        $article = App\Article::find($id);
+        // this will add user memo to the next journalized event
+        $article->journalMemo($request->get('transition_comment'));
+        $article->update($request->all());
+    
+        // `updating observer` will check 
+        // state machine consitency and transition preconditions 
+    }
+}
+```
+
+### Journal
+
+You may use `journal` package to store more than only transition history.
+It may log every eloquent events. And even any user comments about model.
+
+So you may craft user chat about every model.
+
+```php
+$article->journalMemo($request->get('comment'));
+$article->journal('comment');
+```
+
+You may show full history of model updates, transitions and user conversations.
 
 ```php
 foreach ($article->journal as $item) {
-    $item->created_at;
-    $item->event;
-    $item->user;
-    $item->payload;
+    $item->created_at;  // when
+    $item->event;       // what
+    $item->user;        // who
+    $item->payload;     // model changeset
+    $item->memo;        // user comment
+    
+    switch($item->event) {
+        case 'created':
+        case 'updated':
+        case 'transited':
+        case 'comment':
+        // etc
+    }
 }
 
 ```
@@ -120,17 +231,14 @@ Here is the precondition, that requires an article to has body with at least 100
 ```php
 class BodySizePrecondition extends \Codewiser\Workflow\Precondition
 {
-
-    /**
-     * Returns problem description or null if no there are no problems
-     * @param Article $article
-     * @return string|null
-     */
-    public function validate($article)
+    public function validate($model, $attribute)
     {
-        if (strlen($article->body) < 1000) {
+        if (strlen($model->body) < 1000) {
             return 'Your Article should contain at least 1000 symbols';
         }
+        
+        // you may use $attribute to identify workflow schema
+        $model->workflow($attribute);
     }
 }
 ```
@@ -148,44 +256,4 @@ foreach ($transitions as $transition) {
     // we may show to the User $problem with description
 }
 
-```
-
-### Executing transition
-
-When you change model `state`, it calls `execute` method of proper Transition.
-
-By default this method just checks the preconditions and throws an Exception, if some requirements were not met.
-
-```php
-public function execute()
-{
-    if ($problem = $this->hasProblem()) {
-        throw new WorkflowException($problem);
-    }
-}
-```
-
-You may override this method to perform more complex logic.
-
-```php
-public function execute()
-{
-    parent::execute();
-    
-    // For example
-    // We need at least 3 votes from different users 
-    // to complete the transition
-    
-    // Every attempt we count as a voice
-    $voices->addVoice();
-
-    if ($voices->count() < 3) {
-        // revert model state
-        $attrName = $this->model->workflow()->getAttributeName();
-        $this->model->setAttribute(
-            $attrName,
-            $this->model->getOriginal($attrName)
-        );
-    }
-}
 ```
