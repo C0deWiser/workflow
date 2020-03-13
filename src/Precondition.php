@@ -4,6 +4,10 @@ namespace Codewiser\Workflow;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Precondition may prevent transition to be performed
+ * @package Codewiser\Workflow
+ */
 abstract class Precondition
 {
     /**

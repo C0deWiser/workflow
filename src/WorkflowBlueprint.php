@@ -8,6 +8,10 @@ use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Workflow (aka State Machine) blueprint
+ * @package Codewiser\Workflow
+ */
 abstract class WorkflowBlueprint
 {
     /**
@@ -40,7 +44,7 @@ abstract class WorkflowBlueprint
      */
     public function getStates()
     {
-        return new Collection($this->states());
+        return collect($this->states());
     }
 
     /**
@@ -49,7 +53,7 @@ abstract class WorkflowBlueprint
      */
     public function getTransitions()
     {
-        $transitions = new Collection();
+        $transitions = collect();
         foreach ($this->transitions() as $transition) {
             $transition->inject($this->model, $this->attribute);
             $transitions->push($transition);

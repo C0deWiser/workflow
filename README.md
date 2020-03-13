@@ -5,6 +5,9 @@ Package provides workflow functionality to Models.
 Workflow is a sequence of states, document evolve through. 
 Transitions between states inflicts the evolution road.
 
+## Installation
+
+Follow instructions from `journalism` package.
 
 ## Setup
 

@@ -8,6 +8,10 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
+/**
+ * Transition between states in State Machine
+ * @package Codewiser\Workflow
+ */
 class Transition implements Arrayable
 {
     protected $source;

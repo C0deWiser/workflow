@@ -5,7 +5,12 @@ use Codewiser\Journalism\Journalised;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
+/**
+ * Trait adds Workflow to Model
+ * @package Codewiser\Workflow\Traits
+ */
 trait Workflow
 {
     use Journalised;
@@ -18,20 +23,30 @@ trait Workflow
     abstract protected function stateMachine();
 
     /**
-     * Returns model workflow
+     * Get the model workflow
      * @param string $what attribute name or workflow class (if null, then first Workflow will be returned)
      * @return WorkflowBlueprint|null
      */
     public function workflow($what = null)
     {
-        foreach ((array)$this->state_machine as $attr => $class) {
-            if (!$what) {
-                return new $class($this, $attr);
-            }
-            if ($class == $what || $attr == $what) {
+        foreach ((array)$this->stateMachine() as $attr => $class) {
+            if (!$what || $class == $what || $attr == $what) {
                 return new $class($this, $attr);
             }
         }
+    }
+
+    /**
+     * Get listing of workflow, applied to the model
+     * @return Collection|WorkflowBlueprint[]
+     */
+    public function getWorkflowListing()
+    {
+        $list = collect();
+        foreach ((array)$this->stateMachine() as $workflow) {
+            $list->push($this->workflow($workflow));
+        }
+        return $list;
     }
 
     public function scopeWorkflow(Builder $query, $workflow, $state)

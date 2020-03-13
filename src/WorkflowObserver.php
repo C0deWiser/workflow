@@ -6,6 +6,10 @@ namespace Codewiser\Workflow;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Watch for State Machine consistency
+ * @package Codewiser\Workflow
+ */
 class WorkflowObserver
 {
     /**
@@ -13,11 +17,9 @@ class WorkflowObserver
      */
     public function creating(Model $model)
     {
-        foreach (array_keys($model->getAttributes()) as $attribute) {
-            if ($workflow = $model->workflow($attribute)) {
-                // Set initial value for every column that holds workflow state
-                $model->setAttribute($attribute, $workflow->getInitialState());
-            }
+        foreach ($model->getWorkflowListing() as $workflow) {
+            // Set initial value for every column that holds workflow state
+            $model->setAttribute($workflow->getAttributeName(), $workflow->getInitialState());
         }
     }
 
