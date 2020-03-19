@@ -18,6 +18,5 @@
         "psr-4": {
             "Codewiser\\Workflow\\": "src"
         }
-    },
-    "minimum-stability": "dev"
+    }
 }
