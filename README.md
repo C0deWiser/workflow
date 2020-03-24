@@ -112,6 +112,17 @@ If you try to update model with new `state` value,
 package will examine it, 
 and you may catch a `WorkflowException`.
 
+`Workflow` trait provides scope.
+
+```php
+
+// Articles with new state
+Article::query()->workflow('new');
+
+// Articles with new state of editorial_workflow
+Article::query()->workflow('new', 'editorial_workflow');
+```
+
 ### Direct saving
 
 You may call workflow methods to initialize or update workflow.

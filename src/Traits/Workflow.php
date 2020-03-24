@@ -49,8 +49,11 @@ trait Workflow
         return $list;
     }
 
-    public function scopeWorkflow(Builder $query, $workflow, $state)
+    public function scopeWorkflow(Builder $query, $state, $workflow = null)
     {
+        if (is_null($workflow)) {
+            $workflow = $this->workflow();
+        }
         if (is_string($workflow)) {
             $workflow = $this->workflow($workflow);
         }

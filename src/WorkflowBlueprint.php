@@ -38,6 +38,11 @@ abstract class WorkflowBlueprint
      */
     abstract protected function transitions(): array;
 
+    public function __toString()
+    {
+        return $this->getAttributeName();
+    }
+
     /**
      * Array of available Model workflow states
      * @return Collection|string[]
