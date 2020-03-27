@@ -5,10 +5,6 @@ Package provides workflow functionality to Models.
 Workflow is a sequence of states, document evolve through. 
 Transitions between states inflicts the evolution road.
 
-## Installation
-
-Follow instructions from `journalism` package.
-
 ## Setup
 
 First, describe your model workflow.
@@ -144,11 +140,7 @@ class ArticleController extends Controller
         $article = App\Article::find($id);
         $article->fill($request->except('workflow'));
         // change workflow state 
-        // `transition_comment` will be saved to journal
-        $article->worflow()->transit(
-            $request->get('workflow'), 
-            $request->get('transition_comment')
-        );
+        $article->worflow()->transit($request->get('workflow'));
         $article->save();
     }
 }
@@ -176,8 +168,6 @@ class ArticleController extends Controller
     public function update(Request $request, $id)
     {
         $article = App\Article::find($id);
-        // this will add user memo to the next journalized event
-        $article->journalMemo($request->get('transition_comment'));
         $article->update($request->all());
     
         // `updating observer` will check 
@@ -186,38 +176,9 @@ class ArticleController extends Controller
 }
 ```
 
-### Journal
+### Event
 
-You may use `journal` package to store more than only transition history.
-It may log every eloquent events. And even any user comments about model.
-
-So you may craft user chat about every model.
-
-```php
-$article->journalMemo($request->get('comment'));
-$article->journal('comment');
-```
-
-You may show full history of model updates, transitions and user conversations.
-
-```php
-foreach ($article->journal as $item) {
-    $item->created_at;  // when
-    $item->event;       // what
-    $item->user;        // who
-    $item->payload;     // model changeset
-    $item->memo;        // user comment
-    
-    switch($item->event) {
-        case 'created':
-        case 'updated':
-        case 'transited':
-        case 'comment':
-        // etc
-    }
-}
-
-```
+After transition will be generated event `\Codewiser\Workflow\Events\ModelTransited`.
 
 ## Business Logic
 

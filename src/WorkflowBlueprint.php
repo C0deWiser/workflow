@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Exceptions\WorkflowConsistencyException;
 use Codewiser\Workflow\Exceptions\WorkflowInvalidTransitionException;
 use Codewiser\Workflow\Traits\Workflow;
@@ -157,7 +158,7 @@ abstract class WorkflowBlueprint
 
         $this->model->setAttribute($this->getAttributeName(), $target);
 
-        $this->model->journalise('transited', [$this->getAttributeName() => $target]);
+        event(new ModelTransited($this->model, $this->getAttributeName(), $target));
 
         return $this->model;
     }

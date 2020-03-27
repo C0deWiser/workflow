@@ -13,8 +13,6 @@ use Illuminate\Support\Collection;
  */
 trait Workflow
 {
-    use Journalised;
-
     /**
      * Set of Workflow this model follows
      * attribute_name => Workflow::class

@@ -1,6 +1,6 @@
 {
     "name": "codewiser/workflow",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "description": "Model Workflow Laravel package",
     "keywords": ["workflow", "laravel", "illuminate"],
     "license": "MIT",
@@ -12,7 +12,6 @@
     ],
     "require": {
         "laravel/framework": ">=5.8",
-        "codewiser/journalism": "^1.0",
         "ext-json": "*"
     },
     "autoload": {
