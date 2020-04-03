@@ -41,6 +41,7 @@ class Transition implements Arrayable
     public function toArray()
     {
         return [
+            'caption' => trans("workflow.".class_basename($this->workflow()).".transitions.{$this->getSource()}.{$this->getTarget()}"),
             'source' => $this->getSource(),
             'target' => $this->getTarget(),
             'problem' => $this->hasProblem()

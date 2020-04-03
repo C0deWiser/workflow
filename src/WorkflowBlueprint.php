@@ -41,7 +41,18 @@ abstract class WorkflowBlueprint
 
     public function __toString()
     {
-        return $this->getAttributeName();
+        return $this->getStateCaption();
+    }
+
+    /**
+     * Get human readable [current] state caption
+     * @param null|string $state
+     * @return array|\Illuminate\Contracts\Translation\Translator|string|null
+     */
+    public function getStateCaption($state = null)
+    {
+        $state = $state ?:$this->getState();
+        return trans("workflow.".class_basename($this).".states.{$state}");
     }
 
     /**
