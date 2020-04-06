@@ -11,6 +11,7 @@ class ModelTransited
     public $model;
     public $workflow;
     public $state;
+    public $comment;
 
     /**
      * Create a new event instance.
@@ -18,12 +19,13 @@ class ModelTransited
      * @param Model $model
      * @param string $workflow
      * @param string $state
-     * @return void
+     * @param string|null $comment
      */
-    public function __construct(Model $model, $workflow, $state)
+    public function __construct(Model $model, $workflow, $state, $comment = null)
     {
         $this->model = $model;
         $this->workflow = $workflow;
         $this->state = $state;
+        $this->comment = $comment;
     }
 }

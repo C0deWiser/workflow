@@ -2,7 +2,7 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Exceptions\WorkflowInvalidTransitionException;
+use Codewiser\Workflow\Exceptions\InvalidTransitionException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
@@ -111,12 +111,12 @@ class Transition implements Arrayable
 
     /**
      * Execute transition: check preconditions
-     * @throws WorkflowInvalidTransitionException
+     * @throws InvalidTransitionException
      */
     public function validate()
     {
         if ($problem = $this->hasProblem()) {
-            throw new WorkflowInvalidTransitionException($problem);
+            throw new InvalidTransitionException($problem);
         }
     }
 

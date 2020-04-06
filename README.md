@@ -7,7 +7,7 @@ Transitions between states inflicts the evolution road.
 
 ## Setup
 
-First, describe your model workflow.
+First, describe your model workflow blueprint.
 
 ```php
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
@@ -45,10 +45,9 @@ class Article extends Model
 {
     use Codewiser\Workflow\Traits\Workflow;
     
-    protected function stateMachine()
+    protected function workflowBlueprint()
     {
         return [
-            // do not add workflow attribute to $fillable !!!
             'workflow' => ArticleWorkflow::class
         ];
     }
@@ -65,7 +64,7 @@ class Article extends Model
 {
     use Workflow;
     
-    protected function stateMachine()
+    protected function workflowBlueprint()
     {
         return [
             'editorial_workflow' => EditorialWorkflow::class,
@@ -102,6 +101,18 @@ Now show to the User possible transitions from current state of the Article:
 $transitions = $article->workflow()->getRelevantTransitions();
 ```
 
+You may convert transition to array.
+
+```php
+[
+    'caption'   => 'Translateable string you may use as button caption',
+    'source'    => 'Source state',
+    'target'    => 'Target state',
+    'problem'   => 'User can not perform transition while described problem not solved. See business-logic',
+    'need_motivation' => 'User should provide comment to perform transition'
+]
+```
+
 User decides where to transit model. And you will update model with new `state` value.
 
 If you try to update model with new `state` value, 
@@ -113,74 +124,82 @@ and you may catch a `WorkflowException`.
 ```php
 
 // Articles with new state
-Article::query()->workflow('new');
+Article::query()->onlyState('new');
 
 // Articles with new state of editorial_workflow
-Article::query()->workflow('new', 'editorial_workflow');
+Article::query()->onlyState('new', 'editorial_workflow');
+```
+### Changing state
+
+You may initiate or update state directly
+
+```php
+// creating
+$article = new Article();
+$article->state = 'new';
+// or
+$article->workflow()->init();
+$article->save();
+
+// updating
+$article->state = 'review';
+$article->save();
+// or
+$article->workflow()->transit('review'); // autosaving
 ```
 
-### Direct saving
+You may apply `StateMachineObserver` observer to the Model, and model will be created with proper initial state.
 
-You may call workflow methods to initialize or update workflow.
+```php
+// creating
+$article = new Article();
+$article->save();
+```
+
+With `StateMachineProtector` observer on your Model, you may not change state attribute.
+Then you should call workflow methods to update workflow.
+This is useful if you need to set apart `update` and `transit` events.
 
 ```php
 class ArticleController extends Controller
 {
-    public function store(Request $request)
+    public function update(Request $request, Article $article)
     {
-        $article = new App\Article();
-        $article->fill($request->all);
-        // set workflow attribute to initial state
-        $article->workflow()->init();
+        // update model properties except state attribute
+        $article->fill($request->except('state'));
+        // save model to fire update event
         $article->save();
-    }
-
-    public function update(Request $request, $id)
-    {
-        $article = App\Article::find($id);
-        $article->fill($request->except('workflow'));
-        // change workflow state 
-        $article->worflow()->transit($request->get('workflow'));
-        $article->save();
-    }
-}
-```
-
-### Using observer
-
-You may apply `WorkflowObserver` to your model. 
-Then you do not need to call workflow methods.
-
-The only thing — is to save transition comment.
-
-```php
-class ArticleController extends Controller
-{
-    public function store(Request $request)
-    {
-        $article = new App\Article();
-        $article->fill($request->all);
-                ->save();
         
-        // `creating observer` will initialize every workflow
-    }
-
-    public function update(Request $request, $id)
-    {
-        $article = App\Article::find($id);
-        $article->update($request->all());
-    
-        // `updating observer` will check 
-        // state machine consitency and transition preconditions 
+        // change workflow state 
+        // it saves model and fires transit event
+        $article->worflow()->transit($request->get('state'));
     }
 }
 ```
 
 ### Event
 
-After transition will be generated event `\Codewiser\Workflow\Events\ModelTransited`.
+Observed transition generates `ModelTransited` event.
 
 ## Business Logic
+
+### User comments
+
+You may collect user comments about transitions.
+
+```php
+class ArticleController extends Controller
+{
+    public function update(Request $request, $id)
+    {
+        $article->worflow()->transit($request->get('state'), $request->get('comment'));
+    }
+}
+```
+
+Then you dispatch `ModelTransited` event you may store user comment to the Model history.
+
+With `MotivatedTransition` instead of `Transition` user comment is required.
 
 ### Preconditions
 

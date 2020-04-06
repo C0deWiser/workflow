@@ -1,9 +1,8 @@
 <?php
 namespace Codewiser\Workflow\Traits;
 
-use Codewiser\Journalism\Journalised;
 use Codewiser\Workflow\Exceptions\WorkflowException;
-use Codewiser\Workflow\WorkflowBlueprint;
+use Codewiser\Workflow\StateMachineEngine;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -18,36 +17,37 @@ trait Workflow
      * attribute_name => Workflow::class
      * @return array
      */
-    abstract protected function stateMachine();
+    abstract protected function workflowBlueprint();
 
     /**
      * Get the model workflow
      * @param string $what attribute name or workflow class (if null, then first Workflow will be returned)
-     * @return WorkflowBlueprint|null
+     * @return StateMachineEngine|null
      */
     public function workflow($what = null)
     {
-        foreach ((array)$this->stateMachine() as $attr => $class) {
+        foreach ((array)$this->workflowBlueprint() as $attr => $class) {
             if (!$what || $class == $what || $attr == $what) {
-                return new $class($this, $attr);
+                return new StateMachineEngine(new $class(), $this, $attr);
             }
         }
+        return null;
     }
 
     /**
      * Get listing of workflow, applied to the model
-     * @return Collection|WorkflowBlueprint[]
+     * @return Collection|StateMachineEngine[]
      */
     public function getWorkflowListing()
     {
         $list = collect();
-        foreach ((array)$this->stateMachine() as $workflow) {
+        foreach ((array)$this->workflowBlueprint() as $workflow) {
             $list->push($this->workflow($workflow));
         }
         return $list;
     }
 
-    public function scopeWorkflow(Builder $query, $state, $workflow = null)
+    public function scopeOnlyState(Builder $query, $state, $workflow = null)
     {
         if (is_null($workflow)) {
             $workflow = $this->workflow();

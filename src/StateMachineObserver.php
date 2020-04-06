@@ -3,6 +3,7 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * Watch for State Machine consistency
  * @package Codewiser\Workflow
  */
-class WorkflowObserver
+class StateMachineObserver
 {
     /**
      * @param Model|Workflow $model
@@ -25,19 +26,13 @@ class WorkflowObserver
 
     /**
      * @param Model|Workflow $model
-     * @throws Exceptions\WorkflowException
      */
     public function updating(Model $model)
     {
         foreach ($model->getDirty() as $attribute => $value) {
             if ($workflow = $model->workflow($attribute)) {
                 // Workflow attribute is dirty
-
-                // Rollback to original value
-                $model->setAttribute($attribute, $model->getOriginal($attribute));
-                // And utilize workflow transit() method
-                // It will check state machine consistency and preconditions
-                $workflow->transit($value);
+                event(new ModelTransited($model, $attribute, $value));
             }
         }
     }
