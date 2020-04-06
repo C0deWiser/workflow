@@ -211,30 +211,17 @@ Precondition defines requirement for a model. If model fits the requirement the 
 new Transition('review', 'published');
 
 // One precondition
-new Transition('new', 'review', new BodySizePrecondition());
+new Transition('new', 'review', function($model, $attribute) {
+    if (strlen($model->body) < 1000) {
+        return 'Your Article should contain at least 1000 symbols';
+    }
+});
 
 // Few preconditions 
 new Transition('correcting', 'review', [
-    new BodySizePrecondition(),
-    new DateTimePrecondition()
+    function($model, $attribute) {...},
+    function($model, $attribute) {...}
 ]); 
-```
-
-Here is the precondition, that requires an article to has body with at least 1000 symbols.
-
-```php
-class BodySizePrecondition extends \Codewiser\Workflow\Precondition
-{
-    public function validate($model, $attribute)
-    {
-        if (strlen($model->body) < 1000) {
-            return 'Your Article should contain at least 1000 symbols';
-        }
-        
-        // you may use $attribute to identify workflow schema
-        $model->workflow($attribute);
-    }
-}
 ```
 
 Now, if you try to change state of Article from `new` to `review` 

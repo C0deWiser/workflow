@@ -25,7 +25,7 @@ class Transition implements Arrayable
      */
     protected $attribute;
     /**
-     * @var Collection|Precondition[]
+     * @var Collection|callable[]|Precondition[]
      */
     protected $preconditions;
     public function __construct($source, $target, $precondition = null)
@@ -93,7 +93,10 @@ class Transition implements Arrayable
     {
         if ($this->model) {
             foreach ($this->getPreconditions() as $precondition) {
-                if ($problem = $precondition->validate($this->model, $this->attribute)) {
+                if (is_callable($precondition) && $problem = $precondition($this->model, $this->attribute)) {
+                    return $problem;
+                }
+                if ($precondition instanceof Precondition && $problem = $precondition->validate($this->model, $this->attribute)) {
                     return $problem;
                 }
             }
