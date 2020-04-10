@@ -53,14 +53,14 @@ class StateMachineEngine
     }
 
     /**
-     * Get human readable [current] state caption
+     * Get human readable [current or any] state caption
      * @param null|string $state
      * @return array|\Illuminate\Contracts\Translation\Translator|string|null
      */
     public function getStateCaption($state = null)
     {
-        $state = $state ?:$this->getState();
-        return trans("workflow.".class_basename($this->blueprint).".states.{$state}");
+        $state = $state ?: $this->getState();
+        return trans("workflow." . class_basename($this->blueprint) . ".states.{$state}");
     }
 
     /**
@@ -182,7 +182,7 @@ class StateMachineEngine
         $this->model->setAttribute($this->getAttributeName(), $target);
 
         // Will not fire any eloquent events
-        $class::withoutEvents(function() use ($target) {
+        $class::withoutEvents(function () use ($target) {
             $this->model->save();
         });
 

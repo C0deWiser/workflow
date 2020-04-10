@@ -5,6 +5,7 @@ namespace Codewiser\Workflow;
 use Codewiser\Workflow\Exceptions\InvalidTransitionException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -28,6 +29,7 @@ class Transition implements Arrayable
      * @var Collection|callable[]|Precondition[]
      */
     protected $preconditions;
+
     public function __construct($source, $target, $precondition = null)
     {
         $this->source = $source;
@@ -41,11 +43,20 @@ class Transition implements Arrayable
     public function toArray()
     {
         return [
-            'caption' => trans("workflow.".class_basename($this->workflow()).".transitions.{$this->getSource()}.{$this->getTarget()}"),
+            'caption' => $this->getCaption(),
             'source' => $this->getSource(),
             'target' => $this->getTarget(),
-            'problem' => $this->hasProblem()
+            'problem' => $this->hasProblem() ?: false
         ];
+    }
+
+    /**
+     * Get human readable transition caption
+     * @return array|Translator|string|null
+     */
+    public function getCaption()
+    {
+        return trans("workflow." . class_basename($this->workflow()->getBlueprint()) . ".transitions.{$this->getSource()}.{$this->getTarget()}");
     }
 
     /**
@@ -105,7 +116,7 @@ class Transition implements Arrayable
 
     /**
      * Parent context of this transition
-     * @return WorkflowBlueprint|null
+     * @return StateMachineEngine|null
      */
     protected function workflow()
     {
