@@ -105,11 +105,11 @@ You may convert transition to array.
 
 ```php
 [
-    'caption'   => 'Translateable string you may use as button caption',
-    'source'    => 'Source state',
-    'target'    => 'Target state',
-    'problem'   => 'User can not perform transition while described problem not solved. See business-logic',
-    'need_motivation' => 'User should provide comment to perform transition'
+    'caption'   => string       // Translateable string you may use as button caption
+    'source'    => string       // Source state
+    'target'    => string       // Target state
+    'problem'   => string|null  // User can not perform transition while described problem not solved. See business-logic
+    'motivated' => boolean      // User should provide comment to perform transition
 ]
 ```
 
@@ -197,44 +197,75 @@ class ArticleController extends Controller
 }
 ```
 
-Then you dispatch `ModelTransited` event you may store user comment to the Model history.
+You may dispatch `ModelTransited` event where you may store user comment to the Model history.
 
 With `MotivatedTransition` instead of `Transition` user comment is required.
 
-### Preconditions
+```php
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+{
+    protected function states(): array
+    {
+        return ['new', 'review', 'published', 'correcting'];
+    }
+    protected function transitions(): array
+    {
+        return [
+            new Transition('new', 'review'),
+            new Transition('review', 'published'),
+            // Reviewer must describe issue
+            new MotivatedTransition('review', 'correcting'), 
+            new Transition('correcting', 'review')
+        ];
+    }
+}
+```
 
-Additionally, `Transition` may has precondition. 
-Precondition defines requirement for a model. If model fits the requirement the transition can be performed.
+### Conditions
+
+Additionally, `Transition` may has condition. 
+Condition defines requirements to a model. If model fits the requirement the transition can be performed.
+
+Condition is a `callable` with `Model` argument. Condition may throw an exception.
+There are two types of transition exceptions — recoverable and not.
+
+#### Transitions with recoverable problems 
+
+Throw `TransitionRecoverableException` if you suppose user to resolve the problem. Leave helping instructions in exception message. 
+Here is an example of problem user may resolve.
 
 ```php
-// Without precondition
-new Transition('review', 'published');
-
-// One precondition
-new Transition('new', 'review', function($model, $attribute) {
+new Transition('new', 'review', function(Model $model) {
     if (strlen($model->body) < 1000) {
-        return 'Your Article should contain at least 1000 symbols';
+        throw new TransitionRecoverableException('Your Article should contain at least 1000 symbols');
     }
 });
-
-// Few preconditions 
-new Transition('correcting', 'review', [
-    function($model, $attribute) {...},
-    function($model, $attribute) {...}
-]); 
 ```
 
-Now, if you try to change state of Article from `new` to `review` 
-with Article body less then 1000 symbols, you will catch a `WorkflowException`.
+User may see transition with problem in list of available transitions. User follows instructions to resolve a problem and performs the transition then. 
+
+#### Hiding transitions
+
+In some cases workflow routes may divide into branches. What route to go decides business logic, not user.
+So user even shouldn't know about other branch.
 
 ```php
-$transitions = $article->workflow()->getRelevantTransitions();
-
-foreach ($transitions as $transition) {
-    $targetState = $transition->getTarget();
-    $problem = $transition->hasProblem(); 
-    // If transition failed to meet the requiremetns 
-    // we may show to the User $problem with description
-}
-
+new Transition('new', 'to-local-manager', function($model) {
+    if ($model->orderAmount >= 1000000) {
+        throw new TransitionFatalException();
+    }
+}); 
+new Transition('new', 'to-region-manager', function($model) {
+    if ($model->orderAmount < 1000000) {
+        throw new TransitionFatalException();
+    }
+}); 
 ```
+
+So user will see only one possible transition depending on order amount value.
+
+#### Warning
+
+You shouldn't use `Transition` classes without context. 
+Access transitions only using `Model->workflow()->getTransitions()` or `Model->workflow()->getRelevantTransitions()`.
+So transitions will have context and may be properly validated.

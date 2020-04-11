@@ -1,7 +1,9 @@
 <?php
 
 
+use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Transition;
+use Illuminate\Database\Eloquent\Model;
 
 class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
 {
@@ -24,9 +26,9 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
     protected function transitions(): array
     {
         return [
-            new Transition('new', 'old', function (\Illuminate\Database\Eloquent\Model $model, $attribute) {
+            new Transition('new', 'old', function (Model $model) {
                 if (strlen($model->body) < 1000) {
-                    return 'Post body too small. At least 1000 symbols required';
+                    throw new TransitionRecoverableException('Post body too small. At least 1000 symbols required');
                 }
             }
             )

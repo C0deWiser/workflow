@@ -6,8 +6,10 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Exceptions\StateMachineConsistencyException;
-use Codewiser\Workflow\Exceptions\InvalidTransitionException;
-use Codewiser\Workflow\Exceptions\UnmotivatedTransitionException;
+use Codewiser\Workflow\Exceptions\TransitionException;
+use Codewiser\Workflow\Exceptions\TransitionFatalException;
+use Codewiser\Workflow\Exceptions\TransitionMotivationException;
+use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Collection;
@@ -95,6 +97,14 @@ class StateMachineEngine
         $transitions = new Collection();
         foreach ($this->getTransitions() as $transition) {
             if ($state == $transition->getSource()) {
+                try {
+                    $transition->validate();
+                } catch (TransitionFatalException $e) {
+                    // Transition is irrelevant due to business logic
+                    continue;
+                } catch (TransitionRecoverableException $e) {
+                    // User may resolve issues
+                }
                 $transitions->push($transition);
             }
         }
@@ -160,8 +170,8 @@ class StateMachineEngine
      * @param string|null $comment optional user comment
      * @return Workflow|Model
      * @throws StateMachineConsistencyException
-     * @throws InvalidTransitionException
-     * @throws UnmotivatedTransitionException
+     * @throws TransitionException
+     * @throws TransitionMotivationException
      * @throws WorkflowException
      */
     public function transit($target, $comment = null)
@@ -172,7 +182,7 @@ class StateMachineEngine
         if ($transition = $this->findTransitionTo($target)) {
             $transition->validate();
             if ($transition instanceof MotivatedTransition && !$comment) {
-                throw new UnmotivatedTransitionException("Transition requires user comment");
+                throw new TransitionMotivationException("Transition requires user comment");
             }
         } else {
             throw new StateMachineConsistencyException("There is no transition from `{$this->getState()}` to `{$target}`");

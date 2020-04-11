@@ -14,7 +14,7 @@ class MotivatedTransition extends Transition
     public function toArray()
     {
         $data = parent::toArray();
-        $data['need_motivation'] = true;
+        $data['motivated'] = true;
         return $data;
     }
 }

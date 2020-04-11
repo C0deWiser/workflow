@@ -9,7 +9,7 @@ use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Watch for State Machine consistency
+ * Forbid State Machine changes
  * @package Codewiser\Workflow
  */
 class StateMachineProtector extends StateMachineObserver

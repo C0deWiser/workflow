@@ -2,7 +2,9 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Exceptions\InvalidTransitionException;
+use Codewiser\Workflow\Exceptions\TransitionException;
+use Codewiser\Workflow\Exceptions\TransitionFatalException;
+use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Translation\Translator;
@@ -26,7 +28,7 @@ class Transition implements Arrayable
      */
     protected $attribute;
     /**
-     * @var Collection|callable[]|Precondition[]
+     * @var Collection|callable[]
      */
     protected $preconditions;
 
@@ -34,10 +36,7 @@ class Transition implements Arrayable
     {
         $this->source = $source;
         $this->target = $target;
-        $this->preconditions = new Collection();
-        if ($precondition) {
-            $this->preconditions->push($precondition);
-        }
+        $this->preconditions = collect($precondition ?: []);
     }
 
     public function toArray()
@@ -79,7 +78,7 @@ class Transition implements Arrayable
 
     /**
      * Precondition
-     * @return Collection|Precondition[]
+     * @return Collection|callable[]
      */
     public function getPreconditions()
     {
@@ -102,15 +101,11 @@ class Transition implements Arrayable
      */
     public function hasProblem()
     {
-        if ($this->model) {
-            foreach ($this->getPreconditions() as $precondition) {
-                if (is_callable($precondition) && $problem = $precondition($this->model, $this->attribute)) {
-                    return $problem;
-                }
-                if ($precondition instanceof Precondition && $problem = $precondition->validate($this->model, $this->attribute)) {
-                    return $problem;
-                }
-            }
+        try {
+            $this->validate();
+            return null;
+        } catch (TransitionException $e) {
+            return $e->getMessage();
         }
     }
 
@@ -124,14 +119,16 @@ class Transition implements Arrayable
     }
 
     /**
-     * Execute transition: check preconditions
-     * @throws InvalidTransitionException
+     * Examine transition preconditions
+     * @throws TransitionRecoverableException
+     * @throws TransitionFatalException
      */
     public function validate()
     {
-        if ($problem = $this->hasProblem()) {
-            throw new InvalidTransitionException($problem);
+        foreach ($this->getPreconditions() as $precondition) {
+            if (is_callable($precondition)) {
+                $precondition($this->model);
+            }
         }
     }
-
 }

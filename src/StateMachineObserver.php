@@ -8,7 +8,7 @@ use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Watch for State Machine consistency
+ * Initiates State Machine, watch for changes, fires Event
  * @package Codewiser\Workflow
  */
 class StateMachineObserver
