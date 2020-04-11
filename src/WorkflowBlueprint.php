@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Exceptions\WorkflowException;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -10,6 +11,11 @@ use Illuminate\Database\Eloquent\Collection;
  */
 abstract class WorkflowBlueprint
 {
+    public function __construct()
+    {
+        $this->validate();
+    }
+
     /**
      * Array of available Model Workflow steps. First one is initial
      * @return array|string[]
@@ -23,6 +29,31 @@ abstract class WorkflowBlueprint
      * @example [[new, review], [review, published], [review, correcting], [correcting, review]]
      */
     abstract protected function transitions(): array;
+
+    /**
+     * Validates State Machine Blueprint
+     * @throws WorkflowException
+     */
+    protected function validate()
+    {
+        $states = $this->getStates();
+        $transitions = collect();
+        foreach ($this->getTransitions() as $transition) {
+            $s = $transition->getSource();
+            $t = $transition->getTarget();
+
+            if (!$states->contains($s)) {
+                throw new WorkflowException("Buggy blueprint: transition from nowhere");
+            }
+            if (!$states->contains($t)) {
+                throw new WorkflowException("Buggy blueprint: transition to nowhere");
+            }
+            if ($transitions->contains($s.$t)) {
+                throw new WorkflowException("Buggy blueprint: transition duplicate");
+            }
+            $transitions->push($s.$t);
+        }
+    }
 
     /**
      * Array of states
