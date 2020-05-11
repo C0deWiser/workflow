@@ -51,11 +51,12 @@ class Transition implements Arrayable
 
     /**
      * Get human readable transition caption
+     * @param bool $pastPerfect get caption for completed transition
      * @return array|Translator|string|null
      */
-    public function getCaption()
+    public function getCaption($pastPerfect = false)
     {
-        return trans("workflow." . class_basename($this->workflow()->getBlueprint()) . ".transitions.{$this->getSource()}.{$this->getTarget()}");
+        return trans("workflow." . class_basename($this->workflow()->getBlueprint()) . "." . ($pastPerfect ? 'transited' : 'transitions') . ".{$this->getSource()}.{$this->getTarget()}");
     }
 
     /**
