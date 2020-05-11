@@ -42,7 +42,7 @@ class StateMachineEngine
 
     public function __toString()
     {
-        return $this->getStateCaption();
+        return $this->getState();
     }
 
     /**
