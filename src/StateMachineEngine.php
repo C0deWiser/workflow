@@ -128,6 +128,22 @@ class StateMachineEngine
     }
 
     /**
+     * Find transition
+     * @param $source
+     * @param $target
+     * @return Transition|null
+     */
+    public function findTransition($source, $target)
+    {
+        foreach ($this->getTransitions() as $transition) {
+            if ($transition->getSource() == $source && $transition->getTarget() == $target) {
+                return $transition;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Workflow attribute name
      * @return string
      */
