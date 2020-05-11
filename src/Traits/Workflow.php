@@ -9,6 +9,8 @@ use Illuminate\Support\Collection;
 /**
  * Trait adds Workflow to Model
  * @package Codewiser\Workflow\Traits
+ *
+ * @method static static|\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder onlyState($state, $workflow = null)
  */
 trait Workflow
 {
