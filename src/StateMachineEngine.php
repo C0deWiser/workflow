@@ -12,8 +12,9 @@ use Codewiser\Workflow\Exceptions\TransitionMotivationException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class StateMachineEngine
 {
@@ -62,7 +63,7 @@ class StateMachineEngine
     public function getStateCaption($state = null)
     {
         $state = $state ?: $this->getState();
-        return trans("workflow." . class_basename($this->blueprint) . ".states.{$state}");
+        return trans(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
     }
 
     /**
@@ -76,7 +77,7 @@ class StateMachineEngine
 
     /**
      * Array of allowed transitions between states
-     * @return Transition[]|Collection
+     * @return Collection|Transition[]
      */
     public function getTransitions()
     {
@@ -89,7 +90,7 @@ class StateMachineEngine
 
     /**
      * Possible transitions from current state
-     * @return Transition[]|Collection
+     * @return Collection|Transition[]
      */
     public function getRelevantTransitions()
     {

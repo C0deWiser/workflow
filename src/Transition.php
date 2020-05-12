@@ -10,6 +10,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Transition between states in State Machine
@@ -56,7 +57,7 @@ class Transition implements Arrayable
      */
     public function getCaption($pastPerfect = false)
     {
-        return trans("workflow." . class_basename($this->workflow()->getBlueprint()) . "." . ($pastPerfect ? 'transited' : 'transitions') . ".{$this->getSource()}.{$this->getTarget()}");
+        return trans(Str::snake(class_basename($this->workflow()->getBlueprint())) . "." . ($pastPerfect ? 'transited' : 'transitions') . ".{$this->getSource()}.{$this->getTarget()}");
     }
 
     /**
