@@ -205,16 +205,17 @@ class StateMachineEngine
             throw new StateMachineConsistencyException("There is no transition from `{$this->getState()}` to `{$target}`");
         }
 
-        $class = get_class($this->model);
+        $source = $this->model->getAttribute($this->getAttributeName());
         $this->model->setAttribute($this->getAttributeName(), $target);
 
         // Will not fire any eloquent events
+        $class = get_class($this->model);
         $class::withoutEvents(function () use ($target) {
             $this->model->save();
         });
 
         // Fire our event
-        event(new ModelTransited($this->model, $this->getAttributeName(), $target, $comment));
+        event(new ModelTransited($this->model, $this->getAttributeName(), $source, $target, $comment));
 
         return $this->model;
     }
