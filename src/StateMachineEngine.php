@@ -193,9 +193,6 @@ class StateMachineEngine
      */
     public function transit($target, $comment = null)
     {
-        if ($this->model->isDirty()) {
-            throw new WorkflowException("Model shouldn't be dirty then you call transit method.");
-        }
         if ($transition = $this->findTransitionTo($target)) {
             $transition->validate();
             if ($transition instanceof MotivatedTransition && !$comment) {

@@ -1,6 +1,6 @@
 {
     "name": "codewiser/workflow",
-    "version": "1.3.7",
+    "version": "1.3.8",
     "description": "Model Workflow Laravel package",
     "keywords": ["workflow", "laravel", "illuminate"],
     "license": "MIT",
