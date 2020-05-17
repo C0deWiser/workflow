@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Events;
 
+use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
 
 class ModelTransited
@@ -10,9 +11,7 @@ class ModelTransited
 
     public $model;
     public $workflow;
-    public $source;
-    public $target;
-    public $payload;
+    public $transition;
 
     /**
      * Create a new event instance.
@@ -23,12 +22,10 @@ class ModelTransited
      * @param $target
      * @param array $payload
      */
-    public function __construct(Model $model, $workflow, $source, $target, $payload = [])
+    public function __construct(Model $model, $workflow, Transition $transition)
     {
         $this->model = $model;
         $this->workflow = $workflow;
-        $this->source = $source;
-        $this->target = $target;
-        $this->payload = $payload;
+        $this->transition = $transition;
     }
 }
