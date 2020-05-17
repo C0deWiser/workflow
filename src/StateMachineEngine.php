@@ -9,6 +9,7 @@ use Codewiser\Workflow\Exceptions\StateMachineConsistencyException;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionMotivationException;
+use Codewiser\Workflow\Exceptions\TransitionPayloadException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
@@ -184,19 +185,23 @@ class StateMachineEngine
     /**
      * Perform transition to $target state
      * @param string $target target state
-     * @param string|null $comment optional user comment
+     * @param array $payload optional user payload
      * @return Workflow|Model
      * @throws StateMachineConsistencyException
      * @throws TransitionException
-     * @throws TransitionMotivationException
+     * @throws TransitionPayloadException
      * @throws WorkflowException
      */
-    public function transit($target, $comment = null)
+    public function transit($target, $payload = [])
     {
         if ($transition = $this->findTransitionTo($target)) {
             $transition->validate();
-            if ($transition instanceof MotivatedTransition && !$comment) {
-                throw new TransitionMotivationException("Transition requires user comment");
+            if ($transition instanceof HeavyTransition) {
+                foreach ($transition->getRequiredAttributes() as $attribute) {
+                    if (!isset($payload[$attribute])) {
+                        throw new TransitionPayloadException("Transition requires additional data [{$attribute}]");
+                    }
+                }
             }
         } else {
             throw new StateMachineConsistencyException("There is no transition from `{$this->getState()}` to `{$target}`");
@@ -212,8 +217,23 @@ class StateMachineEngine
         });
 
         // Fire our event
-        event(new ModelTransited($this->model, $this->getAttributeName(), $source, $target, $comment));
+        event(new ModelTransited($this->model, $this->getAttributeName(), $source, $target, $payload));
 
         return $this->model;
+    }
+
+    /**
+     * Alias for transit
+     */
+    public function setState($state, $payload = []) {
+        return $this->transit($state, $payload);
+    }
+
+    /**
+     * Rollback workflow state to initial state
+     */
+    public function reset()
+    {
+        $this->model->setAttribute($this->getAttributeName(), $this->getInitialState());
     }
 }

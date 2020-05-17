@@ -130,6 +130,10 @@ class Transition implements Arrayable
         foreach ($this->getPreconditions() as $precondition) {
             if (is_callable($precondition)) {
                 $precondition($this->model);
+            } elseif (is_array($precondition) && is_object($precondition[0])) {
+                $object = $precondition[0];
+                $method = $precondition[1];
+                $object->$method($this->model);
             }
         }
     }

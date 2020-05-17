@@ -32,7 +32,7 @@ class StateMachineObserver
         foreach ($model->getDirty() as $attribute => $value) {
             if ($workflow = $model->workflow($attribute)) {
                 // Workflow attribute is dirty
-                event(new ModelTransited($model, $attribute, $value));
+                event(new ModelTransited($model, $attribute, $model->getOriginal($attribute), $value));
             }
         }
     }

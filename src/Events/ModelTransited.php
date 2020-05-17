@@ -12,7 +12,7 @@ class ModelTransited
     public $workflow;
     public $source;
     public $target;
-    public $comment;
+    public $payload;
 
     /**
      * Create a new event instance.
@@ -21,14 +21,14 @@ class ModelTransited
      * @param string $workflow
      * @param $source
      * @param $target
-     * @param string|null $comment
+     * @param array $payload
      */
-    public function __construct(Model $model, $workflow, $source, $target, $comment = null)
+    public function __construct(Model $model, $workflow, $source, $target, $payload = [])
     {
         $this->model = $model;
         $this->workflow = $workflow;
         $this->source = $source;
         $this->target = $target;
-        $this->comment = $comment;
+        $this->payload = $payload;
     }
 }
