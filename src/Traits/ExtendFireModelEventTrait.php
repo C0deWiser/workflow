@@ -3,6 +3,8 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -18,13 +20,12 @@ trait ExtendFireModelEventTrait
      * @param string $event
      * @param bool $halt
      *
-     * @param null|string $workflowAttr name of workflow being updated
-     * @param null|string $source previous state
-     * @param null|string $target target state
+     * @param null|StateMachineEngine $workflow workflow being transited
+     * @param null|Transition $transition transition
      * @param array $payload any additional transition payload
      * @return mixed
      */
-    public function fireTransitionEvent($event, $halt = true, $workflowAttr = null, $source = null, $target = null, $payload = [])
+    public function fireTransitionEvent($event, $halt = true, $workflow = null, $transition = null, $payload = [])
     {
         if (!isset(static::$dispatcher)) {
             return true;
@@ -43,7 +44,7 @@ trait ExtendFireModelEventTrait
             return false;
         }
 
-        $payload = ['model' => $this, 'workflow' => $workflowAttr, 'source' => $source, 'target' => $target, 'payload' => $payload];
+        $payload = ['model' => $this, 'workflow' => $workflow, 'transition' => $transition, 'payload' => $payload];
 
         return !empty($result) ? $result : static::$dispatcher->{$method}(
             "eloquent.{$event}: ".static::class, $payload

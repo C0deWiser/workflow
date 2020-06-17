@@ -207,7 +207,7 @@ class StateMachineEngine
         $source = $this->model->getAttribute($this->getAttributeName());
         $this->model->setAttribute($this->getAttributeName(), $target);
 
-        if ($this->model->fireTransitionEvent('transiting', true, $this->getAttributeName(), $source, $target, $payload) === false) {
+        if ($this->model->fireTransitionEvent('transiting', true, $this, $transition, $payload) === false) {
             return false;
         }
 
@@ -217,10 +217,10 @@ class StateMachineEngine
             $this->model->save();
         });
 
-        $this->model->fireTransitionEvent('transited', false, $this->getAttributeName(), $source, $target, $payload);
+        $this->model->fireTransitionEvent('transited', false, $this, $transition, $payload);
 
         // Fire our event
-        event(new ModelTransited($this->model, $this->getAttributeName(), $source, $target, $payload));
+        event(new ModelTransited($this->model, $this, $transition, $payload));
 
         return true;
     }
