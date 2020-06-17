@@ -109,7 +109,7 @@ You may convert transition to array.
     'source'    => string       // Source state
     'target'    => string       // Target state
     'problem'   => string|null  // User can not perform transition while described problem not solved. See business-logic
-    'motivated' => boolean      // User should provide comment to perform transition
+    'requires'  => []           // User should provide extra data to perform transition
 ]
 ```
 
@@ -131,75 +131,22 @@ Article::query()->onlyState('new', 'editorial_workflow');
 ```
 ### Changing state
 
-You may initiate or update state directly
+Apply `StateMachineObserver` observer to the Model to keep model state machine consistency healthy.
 
 ```php
-// creating
-$article = new Article();
-$article->state = 'new';
-// or
-$article->workflow()->init();
-$article->save();
-
-// updating
-$article->state = 'review';
-$article->save();
-// or
-$article->workflow()->transit('review'); // autosaving
-```
-
-You may apply `StateMachineObserver` observer to the Model, and model will be created with proper initial state.
-
-```php
-// creating
+// creating: will set proper initial state
 $article = new Article();
 $article->save();
+
+// transiting: will fire transition event
+$article->workflow()->transit('review');
 ```
-
-With `StateMachineProtector` observer on your Model, you may not change state attribute.
-Then you should call workflow methods to update workflow.
-This is useful if you need to set apart `update` and `transit` events.
-
-```php
-class ArticleController extends Controller
-{
-    public function update(Request $request, Article $article)
-    {
-        // update model properties except state attribute
-        $article->fill($request->except('state'));
-        // save model to fire update event
-        $article->save();
-        
-        // change workflow state 
-        // it saves model and fires transit event
-        $article->worflow()->transit($request->get('state'));
-    }
-}
-```
-
-### Event
-
-Observed transition generates `ModelTransited` event.
 
 ## Business Logic
 
-### User comments
+### Transition extra data
 
-You may collect user comments about transitions.
-
-```php
-class ArticleController extends Controller
-{
-    public function update(Request $request, $id)
-    {
-        $article->worflow()->transit($request->get('state'), $request->get('comment'));
-    }
-}
-```
-
-You may dispatch `ModelTransited` event where you may store user comment to the Model history.
-
-With `MotivatedTransition` instead of `Transition` user comment is required.
+Transition may require some additional information.
 
 ```php
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
@@ -211,15 +158,46 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
     protected function transitions(): array
     {
         return [
-            new Transition('new', 'review'),
-            new Transition('review', 'published'),
-            // Reviewer must describe issue
-            new MotivatedTransition('review', 'correcting'), 
-            new Transition('correcting', 'review')
+            Transition::define('new', 'review'),
+            Transition::define('review', 'published'),
+            Transition::define('review', 'correcting')->requires('reason'),
+            Transition::define('correcting', 'review')
         ];
     }
 }
 ```
+
+User can not perform transition from `review` to `correcting` without providing information with name `reason`. 
+
+```php
+class ArticleController extends Controller
+{
+    public function update(Request $request, $id)
+    {
+        $target = $request->get('state');
+        $reason = $request->get('reason');
+
+        $article->worflow()->transit($target, ['reason' => $reason]);
+    }
+}
+```
+
+Generally, you may add any extra fields, even if it is not required, then performing transition:
+
+```php
+class ArticleController extends Controller
+{
+    public function update(Request $request, $id)
+    {
+        $target = $request->get('state');
+
+        $article->worflow()->transit($target, $request->all());
+    }
+}
+```
+
+Do remember, that workflow model doesn't do anything with these additional information: 
+you need to store it yourself by catching event or using observer.
 
 ### Conditions
 
@@ -235,14 +213,16 @@ Throw `TransitionRecoverableException` if you suppose user to resolve the proble
 Here is an example of problem user may resolve.
 
 ```php
-new Transition('new', 'review', function(Model $model) {
-    if (strlen($model->body) < 1000) {
-        throw new TransitionRecoverableException('Your Article should contain at least 1000 symbols');
-    }
-});
+Transition::define('new', 'review')
+    ->condition(function(Article $model) {
+       if (strlen($model->body) < 1000) {
+           throw new TransitionRecoverableException('Your Article should contain at least 1000 symbols');
+       }
+   });
 ```
 
-User may see transition with problem in list of available transitions. User follows instructions to resolve a problem and performs the transition then. 
+User may see transition with problem in list of available transitions. 
+User follows instructions to resolve a problem and tries to perform the transition again. 
 
 #### Hiding transitions
 
@@ -250,22 +230,60 @@ In some cases workflow routes may divide into branches. What route to go decides
 So user even shouldn't know about other branch.
 
 ```php
-new Transition('new', 'to-local-manager', function($model) {
-    if ($model->orderAmount >= 1000000) {
-        throw new TransitionFatalException();
-    }
-}); 
-new Transition('new', 'to-region-manager', function($model) {
-    if ($model->orderAmount < 1000000) {
-        throw new TransitionFatalException();
-    }
-}); 
+Transition::define('new', 'to-local-manager')
+    ->condition(function($model) {
+        if ($model->orderAmount >= 1000000) {
+            throw new TransitionFatalException();
+        }
+    }); 
+
+Transition::define('new', 'to-region-manager')
+    ->condition(function($model) {
+        if ($model->orderAmount < 1000000) {
+            throw new TransitionFatalException();
+        }
+    }); 
 ```
 
 So user will see only one possible transition depending on order amount value.
 
-#### Warning
+## Events
 
-You shouldn't use `Transition` classes without context. 
-Access transitions only using `Model->workflow()->getTransitions()` or `Model->workflow()->getRelevantTransitions()`.
-So transitions will have context and may be properly validated.
+Transition generates `ModelTransited` event. You may define EventListener to detect it.
+
+```php
+class ModelTransited
+{
+    public function handle(ModelTransited $event)
+    {
+        if ($event->model instanceof Article) {
+            $article = $event->model;
+
+            if ($event->target === 'correcting') {
+                $article->author->notify(new ArticleHasProblem($article, $event->payload['reason']));
+            }
+        }
+    }
+}
+```
+
+## Observers
+
+Instead of using Listener you may use Observer.
+
+```php
+class ArticleObserver
+{
+    public function transiting(Article $article, $workflow, $source, $target, $payload)
+    {
+        // return false to interrupt transition
+    }
+
+    public function transited(Article $article, $workflow, $source, $target, $payload)
+    {
+        if ($target === 'correcting') {
+            $article->author->notify(new ArticleHasProblem($article, $payload['reason']));
+        }
+    }
+}
+```

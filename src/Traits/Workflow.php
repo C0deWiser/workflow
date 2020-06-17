@@ -14,6 +14,8 @@ use Illuminate\Support\Collection;
  */
 trait Workflow
 {
+    use WorkflowTransitEventTrait;
+
     /**
      * Set of Workflow this model follows
      * attribute_name => Workflow::class

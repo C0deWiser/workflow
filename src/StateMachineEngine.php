@@ -8,7 +8,6 @@ use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Exceptions\StateMachineConsistencyException;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
-use Codewiser\Workflow\Exceptions\TransitionMotivationException;
 use Codewiser\Workflow\Exceptions\TransitionPayloadException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Exceptions\WorkflowException;
@@ -186,7 +185,7 @@ class StateMachineEngine
      * Perform transition to $target state
      * @param string $target target state
      * @param array $payload optional user payload
-     * @return Workflow|Model
+     * @return Workflow|Model|false
      * @throws StateMachineConsistencyException
      * @throws TransitionException
      * @throws TransitionPayloadException
@@ -196,11 +195,9 @@ class StateMachineEngine
     {
         if ($transition = $this->findTransitionTo($target)) {
             $transition->validate();
-            if ($transition instanceof HeavyTransition) {
-                foreach ($transition->getRequiredAttributes() as $attribute) {
-                    if (!isset($payload[$attribute])) {
-                        throw new TransitionPayloadException("Transition requires additional data [{$attribute}]");
-                    }
+            foreach ($transition->getRequirements() as $attribute) {
+                if (!isset($payload[$attribute])) {
+                    throw new TransitionPayloadException("Transition requires additional data [{$attribute}]");
                 }
             }
         } else {
@@ -210,11 +207,19 @@ class StateMachineEngine
         $source = $this->model->getAttribute($this->getAttributeName());
         $this->model->setAttribute($this->getAttributeName(), $target);
 
-        // Will not fire any eloquent events
+        $this->model->addObservableEvents('transiting', 'transited');
+
+        if ($this->model->fireTransitionEvent('transiting', true, $this->getAttributeName(), $source, $target, $payload) === false) {
+            return false;
+        }
+
+        // Direct change of workflow state is prohibited
         $class = get_class($this->model);
         $class::withoutEvents(function () use ($target) {
             $this->model->save();
         });
+
+        $this->model->fireTransitionEvent('transited', false, $this->getAttributeName(), $source, $target, $payload);
 
         // Fire our event
         event(new ModelTransited($this->model, $this->getAttributeName(), $source, $target, $payload));
@@ -225,7 +230,8 @@ class StateMachineEngine
     /**
      * Alias for transit
      */
-    public function setState($state, $payload = []) {
+    public function setState($state, $payload = [])
+    {
         return $this->transit($state, $payload);
     }
 

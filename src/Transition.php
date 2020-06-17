@@ -33,11 +33,57 @@ class Transition implements Arrayable
      */
     protected $preconditions;
 
-    public function __construct($source, $target, $precondition = null)
+    /**
+     * These attributes must be provided into transit() method
+     * @var Collection
+     */
+    protected $attributes;
+
+    /**
+     * Instantiate new transition
+     * @param $source
+     * @param $target
+     * @return static
+     */
+    public static function define($source, $target)
+    {
+        return new static($source, $target);
+    }
+
+    public function __construct($source, $target)
     {
         $this->source = $source;
         $this->target = $target;
-        $this->preconditions = collect($precondition ?: []);
+        $this->preconditions = new Collection();
+        $this->attributes = new Collection();
+    }
+
+    /**
+     * Add condition to the transition
+     * @param callable $precondition
+     * @return static
+     */
+    public function condition(callable $precondition)
+    {
+        $this->preconditions->push($precondition);
+        return $this;
+    }
+
+    /**
+     * Add requirement(s) to transition payload
+     * @param string|string[] $attributes
+     * @return static
+     */
+    public function requires($attributes)
+    {
+        if (is_string($attributes)) {
+            $this->attributes->push($attributes);
+        }
+        if (is_array($attributes)) {
+            $this->attributes->merge($attributes);
+        }
+
+        return $this;
     }
 
     public function toArray()
@@ -46,7 +92,8 @@ class Transition implements Arrayable
             'caption' => $this->getCaption(),
             'source' => $this->getSource(),
             'target' => $this->getTarget(),
-            'problem' => $this->hasProblem() ?: false
+            'problem' => $this->hasProblem() ?: false,
+            'requires' => $this->attributes->count() ? $this->attributes->toArray() : []
         ];
     }
 
@@ -109,6 +156,15 @@ class Transition implements Arrayable
         } catch (TransitionException $e) {
             return $e->getMessage();
         }
+    }
+
+    /**
+     * Get attributes, that must be provided into transit() method
+     * @return Collection
+     */
+    public function getRequirements()
+    {
+        return $this->attributes;
     }
 
     /**
