@@ -15,13 +15,29 @@ trait WorkflowTransitEventTrait
 {
     use ExtendFireModelEventTrait;
 
-    public static function transiting($callback, $priority = 0)
+    /**
+     * Get the observable event names.
+     *
+     * @return array
+     */
+    public function getObservableEvents()
     {
-        static::registerModelEvent('transiting', $callback, $priority);
+        return array_merge(
+            parent::getObservableEvents(),
+            [
+                'transiting', 'transited'
+            ],
+            $this->observables
+        );
     }
 
-    public static function transited($callback, $priority = 0)
+    public static function transiting($callback)
     {
-        static::registerModelEvent('transited', $callback, $priority);
+        static::registerModelEvent('transiting', $callback);
+    }
+
+    public static function transited($callback)
+    {
+        static::registerModelEvent('transited', $callback);
     }
 }

@@ -185,10 +185,10 @@ class StateMachineEngine
      * Perform transition to $target state
      * @param string $target target state
      * @param array $payload optional user payload
-     * @return Workflow|Model|false
-     * @throws StateMachineConsistencyException
+     * @return boolean transited or not
+     * @throws StateMachineConsistencyException impossible transition
      * @throws TransitionException
-     * @throws TransitionPayloadException
+     * @throws TransitionPayloadException missing required payload data
      * @throws WorkflowException
      */
     public function transit($target, $payload = [])
@@ -207,8 +207,6 @@ class StateMachineEngine
         $source = $this->model->getAttribute($this->getAttributeName());
         $this->model->setAttribute($this->getAttributeName(), $target);
 
-        $this->model->addObservableEvents('transiting', 'transited');
-
         if ($this->model->fireTransitionEvent('transiting', true, $this->getAttributeName(), $source, $target, $payload) === false) {
             return false;
         }
@@ -224,7 +222,7 @@ class StateMachineEngine
         // Fire our event
         event(new ModelTransited($this->model, $this->getAttributeName(), $source, $target, $payload));
 
-        return $this->model;
+        return true;
     }
 
     /**
