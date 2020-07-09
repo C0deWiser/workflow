@@ -197,7 +197,9 @@ class ArticleController extends Controller
 ```
 
 Do remember, that workflow model doesn't do anything with these additional information: 
-you need to store it yourself by catching event or using observer.
+you need to store it yourself by catching event, using observer or transition callback (read later).
+
+Transition doesn't validate provided data. Validate it yourself.
 
 ### Conditions
 
@@ -259,7 +261,7 @@ class ModelTransited
         if ($event->model instanceof Article) {
             $article = $event->model;
 
-            if ($event->target === 'correcting') {
+            if ($event->transition->getTarget() === 'correcting') {
                 $article->author->notify(new ArticleHasProblem($article, $event->payload['reason']));
             }
         }
@@ -274,16 +276,29 @@ Instead of using Listener you may use Observer.
 ```php
 class ArticleObserver
 {
-    public function transiting(Article $article, $workflow, $source, $target, $payload)
+    public function transiting(Article $article, StateMachineEngine $workflow, Transition $transition, array $payload)
     {
         // return false to interrupt transition
     }
 
-    public function transited(Article $article, $workflow, $source, $target, $payload)
+    public function transited(Article $article, StateMachineEngine $workflow, Transition $transition, array $payload)
     {
-        if ($target === 'correcting') {
+        if ($transition->getTarget() === 'correcting') {
             $article->author->notify(new ArticleHasProblem($article, $payload['reason']));
         }
     }
 }
+```
+
+## Transition Callback
+
+Otherwise you may define transition callback(s), that will be called after transition were successfully performed.
+
+```php
+```php
+Transition::define('review', 'correcting')
+    ->requires('reason')
+    ->callback(function(Article $article, $payload) {
+        $article->author->notify(new ArticleHasProblem($article, $payload['reason']));
+    }); 
 ```

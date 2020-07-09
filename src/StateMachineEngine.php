@@ -204,7 +204,6 @@ class StateMachineEngine
             throw new StateMachineConsistencyException("There is no transition from `{$this->getState()}` to `{$target}`");
         }
 
-        $source = $this->model->getAttribute($this->getAttributeName());
         $this->model->setAttribute($this->getAttributeName(), $target);
 
         if ($this->model->fireTransitionEvent('transiting', true, $this, $transition, $payload) === false) {
@@ -221,6 +220,16 @@ class StateMachineEngine
 
         // Fire our event
         event(new ModelTransited($this->model, $this, $transition, $payload));
+
+        foreach ($transition->getCallbacks() as $callback) {
+            if (is_callable($callback)) {
+                $callback($this->model, $payload);
+            } elseif (is_array($callback) && is_object($callback[0])) {
+                $object = $callback[0];
+                $method = $callback[1];
+                $object->$method($this->model, $payload);
+            }
+        }
 
         return true;
     }

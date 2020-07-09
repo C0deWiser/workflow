@@ -26,12 +26,15 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
     protected function transitions(): array
     {
         return [
-            new Transition('new', 'old', function (Model $model) {
-                if (strlen($model->body) < 1000) {
-                    throw new TransitionRecoverableException('Post body too small. At least 1000 symbols required');
-                }
-            }
-            )
+            Transition::define('new', 'old')
+                ->condition(function (Model $model) {
+                    if (strlen($model->body) < 1000) {
+                        throw new TransitionRecoverableException('Post body is too small. At least 1000 symbols required');
+                    }
+                })
+                ->callback(function (Model $model, $payload) {
+                    $model->user->notify(new Notification($model, $payload['attr']));
+                })
         ];
     }
 }

@@ -31,7 +31,11 @@ class Transition implements Arrayable
     /**
      * @var Collection|callable[]
      */
-    protected $preconditions;
+    protected $conditions;
+    /**
+     * @var Collection|callable[]
+     */
+    protected $callbacks;
 
     /**
      * These attributes must be provided into transit() method
@@ -54,18 +58,30 @@ class Transition implements Arrayable
     {
         $this->source = $source;
         $this->target = $target;
-        $this->preconditions = new Collection();
+        $this->conditions = new Collection();
         $this->attributes = new Collection();
+        $this->callbacks = new Collection();
     }
 
     /**
      * Add condition to the transition
-     * @param callable $precondition
+     * @param callable $condition
      * @return static
      */
-    public function condition(callable $precondition)
+    public function condition(callable $condition)
     {
-        $this->preconditions->push($precondition);
+        $this->conditions->push($condition);
+        return $this;
+    }
+
+    /**
+     * Callback(s) will run after transition is done
+     * @param callable $callback
+     * @return $this
+     */
+    public function callback(callable $callback)
+    {
+        $this->callbacks->push($callback);
         return $this;
     }
 
@@ -126,12 +142,21 @@ class Transition implements Arrayable
     }
 
     /**
-     * Precondition
+     * Get registered preconditions
      * @return Collection|callable[]
      */
-    public function getPreconditions()
+    public function getConditions()
     {
-        return $this->preconditions;
+        return $this->conditions;
+    }
+
+    /**
+     * Get registered transition callbacks
+     * @return callable[]|Collection
+     */
+    public function getCallbacks()
+    {
+        return $this->callbacks;
     }
 
     public function __call($name, $arguments)
@@ -183,12 +208,12 @@ class Transition implements Arrayable
      */
     public function validate()
     {
-        foreach ($this->getPreconditions() as $precondition) {
-            if (is_callable($precondition)) {
-                $precondition($this->model);
-            } elseif (is_array($precondition) && is_object($precondition[0])) {
-                $object = $precondition[0];
-                $method = $precondition[1];
+        foreach ($this->getConditions() as $condition) {
+            if (is_callable($condition)) {
+                $condition($this->model);
+            } elseif (is_array($condition) && is_object($condition[0])) {
+                $object = $condition[0];
+                $method = $condition[1];
                 $object->$method($this->model);
             }
         }
