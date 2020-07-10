@@ -185,7 +185,7 @@ class StateMachineEngine
      * Perform transition to $target state
      * @param string $target target state
      * @param array $payload optional user payload
-     * @return boolean transited or not
+     * @return boolean|Transition transited or not
      * @throws StateMachineConsistencyException impossible transition
      * @throws TransitionException
      * @throws TransitionPayloadException missing required payload data
@@ -206,8 +206,11 @@ class StateMachineEngine
 
         $this->model->setAttribute($this->getAttributeName(), $target);
 
-        if ($this->model->fireTransitionEvent('transiting', true, $this, $transition, $payload) === false) {
-            return false;
+        // For Model Observer
+        if (method_exists($this->model, 'fireTransitionEvent')) {
+            if ($this->model->fireTransitionEvent('transiting', true, $this, $transition, $payload) === false) {
+                return false;
+            }
         }
 
         // Direct change of workflow state is prohibited
@@ -216,11 +219,15 @@ class StateMachineEngine
             $this->model->save();
         });
 
-        $this->model->fireTransitionEvent('transited', false, $this, $transition, $payload);
+        // For Model Observer
+        if (method_exists($this->model, 'fireTransitionEvent')) {
+            $this->model->fireTransitionEvent('transited', false, $this, $transition, $payload);
+        }
 
-        // Fire our event
+        // For Event Listener
         event(new ModelTransited($this->model, $this, $transition, $payload));
 
+        // For Transition Callback
         foreach ($transition->getCallbacks() as $callback) {
             if (is_callable($callback)) {
                 $callback($this->model, $payload);
@@ -231,7 +238,7 @@ class StateMachineEngine
             }
         }
 
-        return true;
+        return $transition;
     }
 
     /**

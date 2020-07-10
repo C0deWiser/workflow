@@ -273,6 +273,18 @@ class ModelTransited
 
 Instead of using Listener you may use Observer.
 
+First, you should add trait to the model.
+
+```php
+class Article 
+{
+    use WorkflowTransitEventTrait;
+    protected $observables = ['transiting', 'transited'];
+}
+```
+
+Now you may observe these events.
+
 ```php
 class ArticleObserver
 {
@@ -294,7 +306,6 @@ class ArticleObserver
 
 Otherwise you may define transition callback(s), that will be called after transition were successfully performed.
 
-```php
 ```php
 Transition::define('review', 'correcting')
     ->requires('reason')
