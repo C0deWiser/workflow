@@ -278,7 +278,7 @@ First, you should add trait to the model.
 ```php
 class Article 
 {
-    use WorkflowTransitEventTrait;
+    use WorkflowObserver;
     protected $observables = ['transiting', 'transited'];
 }
 ```

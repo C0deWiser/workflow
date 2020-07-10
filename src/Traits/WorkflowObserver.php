@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * @package Codewiser\Workflow\Traits
  * @mixin Model
  */
-trait WorkflowTransitEventTrait
+trait WorkflowObserver
 {
     use ExtendFireModelEventTrait;
 
