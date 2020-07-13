@@ -108,8 +108,8 @@ class Transition implements Arrayable
             'caption' => $this->getCaption(),
             'source' => $this->getSource(),
             'target' => $this->getTarget(),
-            'problem' => $this->hasProblem() ?: false,
-            'requires' => $this->attributes->count() ? $this->attributes->toArray() : []
+            'problems' => $this->getProblems(),
+            'requires' => $this->attributes->toArray()
         ];
     }
 
@@ -170,17 +170,22 @@ class Transition implements Arrayable
     }
 
     /**
-     * Returns reason (if some) the transition can not be executed
-     * @return string|null
+     * Get list of problems with the transition
+     * @return array|string[]
      */
-    public function hasProblem()
+    public function getProblems()
     {
-        try {
-            $this->validate();
-            return null;
-        } catch (TransitionException $e) {
-            return $e->getMessage();
+        $problems = [];
+        foreach ($this->getConditions() as $condition) {
+            try {
+                call_user_func($condition, $this->model);
+            } catch (TransitionFatalException $e) {
+                continue;
+            } catch (TransitionRecoverableException $e) {
+                $problems[] = $e->getMessage();
+            }
         }
+        return $problems;
     }
 
     /**
@@ -209,13 +214,7 @@ class Transition implements Arrayable
     public function validate()
     {
         foreach ($this->getConditions() as $condition) {
-            if (is_callable($condition)) {
-                $condition($this->model);
-            } elseif (is_array($condition) && is_object($condition[0])) {
-                $object = $condition[0];
-                $method = $condition[1];
-                $object->$method($this->model);
-            }
+            call_user_func($condition, $this->model);
         }
     }
 }

@@ -32,6 +32,7 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
                         throw new TransitionRecoverableException('Post body is too small. At least 1000 symbols required');
                     }
                 })
+                ->condition([$this, 'states'])
                 ->callback(function (Model $model, $payload) {
                     $model->user->notify(new Notification($model, $payload['attr']));
                 })

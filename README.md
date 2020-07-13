@@ -105,11 +105,11 @@ You may convert transition to array.
 
 ```php
 [
-    'caption'   => string       // Translateable string you may use as button caption
-    'source'    => string       // Source state
-    'target'    => string       // Target state
-    'problem'   => string|null  // User can not perform transition while described problem not solved. See business-logic
-    'requires'  => []           // User should provide extra data to perform transition
+    'caption'   => string   // Translateable string you may use as button caption
+    'source'    => string   // Source state
+    'target'    => string   // Target state
+    'problems'  => []       // User can not perform transition while described problems not solved. See business-logic
+    'requires'  => []       // User should provide extra data to perform transition
 ]
 ```
 
@@ -206,8 +206,10 @@ Transition doesn't validate provided data. Validate it yourself.
 Additionally, `Transition` may has condition. 
 Condition defines requirements to a model. If model fits the requirement the transition can be performed.
 
-Condition is a `callable` with `Model` argument. Condition may throw an exception.
+Condition is a `callable` (see `call_user_func()`) with `Model` argument. Condition may throw an exception.
 There are two types of transition exceptions — recoverable and not.
+
+You may define few conditions to single transition.
 
 #### Transitions with recoverable problems 
 
@@ -305,6 +307,10 @@ class ArticleObserver
 ## Transition Callback
 
 Otherwise you may define transition callback(s), that will be called after transition were successfully performed.
+
+Callback is a `callable` (see `call_user_func()`) with `Model` and `payload` (extra data, provided by user) arguments.
+
+You may define few callbacks to single transition.
 
 ```php
 Transition::define('review', 'correcting')

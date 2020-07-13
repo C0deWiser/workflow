@@ -229,13 +229,7 @@ class StateMachineEngine
 
         // For Transition Callback
         foreach ($transition->getCallbacks() as $callback) {
-            if (is_callable($callback)) {
-                $callback($this->model, $payload);
-            } elseif (is_array($callback) && is_object($callback[0])) {
-                $object = $callback[0];
-                $method = $callback[1];
-                $object->$method($this->model, $payload);
-            }
+            call_user_func($callback, $this->model, $payload);
         }
 
         return $transition;
