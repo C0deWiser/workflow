@@ -68,7 +68,7 @@ class Transition implements Arrayable
      * @param callable $condition
      * @return static
      */
-    public function condition(callable $condition)
+    public function condition($condition)
     {
         $this->conditions->push($condition);
         return $this;
@@ -79,7 +79,7 @@ class Transition implements Arrayable
      * @param callable $callback
      * @return $this
      */
-    public function callback(callable $callback)
+    public function callback($callback)
     {
         $this->callbacks->push($callback);
         return $this;
