@@ -8,8 +8,8 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * @method Transition first()
- * @method Transition sole()
+ * @method Transition first(callable $callback = null, $default = null)
+ * @method Transition sole($key = null, $operator = null, $value = null)
  */
 class TransitionCollection extends Collection
 {
@@ -18,10 +18,10 @@ class TransitionCollection extends Collection
      * 
      * @return $this
      */
-    public function goingFrom(string $state)
+    public function from(string $state): TransitionCollection
     {
         return $this->filter(function(Transition $transition) use ($state) {
-            return $transition->getSource() == $state;
+            return $transition->source() == $state;
         });
     }
 
@@ -30,19 +30,19 @@ class TransitionCollection extends Collection
      * 
      * @return $this
      */
-    public function goingTo(string $state)
+    public function to(string $state): TransitionCollection
     {
         return $this->filter(function(Transition $transition) use ($state) {
-            return $transition->getTarget() == $state;
+            return $transition->target() == $state;
         });
     }
 
     /**
-     * Transitions without fatal incoditions.
+     * Transitions without fatal conditions.
      * 
      * @return $this
      */
-    public function valid()
+    public function valid(): TransitionCollection
     {
         return $this->filter(function(Transition $transition) {
             try {
@@ -58,11 +58,11 @@ class TransitionCollection extends Collection
     }
 
     /**
-     * Transitions without recovarable incoditions.
+     * Transitions without recoverable conditions.
      * 
      * @return $this
      */
-    public function allowed()
+    public function allowed(): TransitionCollection
     {
         return $this->filter(function(Transition $transition) {
             try {
@@ -82,11 +82,11 @@ class TransitionCollection extends Collection
      * 
      * @return $this
      */
-    public function authorized()
+    public function authorized(): TransitionCollection
     {
         return $this->filter(function(Transition $transition) {
-            if ($ability = $transition->getAbility()) {
-                return Gate::allows($ability, $transition->model);
+            if ($ability = $transition->ability()) {
+                return Gate::allows($ability, $transition->model());
             }
             return true;
         });

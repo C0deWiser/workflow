@@ -25,7 +25,7 @@ class StateMachineObserver
     {
         $model->getWorkflowListing()
             ->each(function (StateMachineEngine $engine) use ($model) {
-                $model->setAttribute($engine->getAttributeName(), $engine->getInitialState());
+                $model->setAttribute($engine->attribute(), $engine->initial());
             });
 
         return true;
@@ -39,15 +39,15 @@ class StateMachineObserver
     {
         // If one transition is invalid, all update is invalid
         return $model->getWorkflowListing()
-            // Rejecting successfull validations
+            // Rejecting successful validations
             ->reject(function (StateMachineEngine $engine) use ($model) {
-                $attribute = $engine->getAttributeName();
+                $attribute = $engine->attribute();
 
                 if ($model->isDirty($attribute)) {
 
-                    $transition = $engine->getTransitions()
-                        ->goingFrom($model->getOriginal($attribute))
-                        ->goingTo($model->getAttribute($attribute))
+                    $transition = $engine->transitions()
+                        ->from($model->getOriginal($attribute))
+                        ->to($model->getAttribute($attribute))
                         ->valid()
                         ->allowed()
                         // It may be not
@@ -79,13 +79,13 @@ class StateMachineObserver
     {
         $model->getWorkflowListing()
             ->each(function (StateMachineEngine $engine) use ($model) {
-                $attribute = $engine->getAttributeName();
+                $attribute = $engine->attribute();
 
                 if ($model->wasChanged($attribute)) {
 
-                    $transition = $engine->getTransitions()
-                        ->goingFrom($model->getOriginal($attribute))
-                        ->goingTo($model->getAttribute($attribute))
+                    $transition = $engine->transitions()
+                        ->from($model->getOriginal($attribute))
+                        ->to($model->getAttribute($attribute))
                         ->valid()
                         ->allowed()
                         // It must be!
@@ -100,7 +100,7 @@ class StateMachineObserver
                     event(new ModelTransited($model, $engine, $transition));
 
                     // For Transition Callback
-                    $transition->getCallbacks()
+                    $transition->callbacks()
                         ->each(function (\Closure $callback) use ($model) {
                             call_user_func($callback, $model);
                         });

@@ -7,22 +7,14 @@ use Codewiser\Workflow\Transition;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Queue\SerializesModels;
 
 class ModelTransited
 {
-    use Dispatchable, InteractsWithSockets, \Illuminate\Queue\SerializesModels;
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    /**
-     * @var Model
-     */
     public Model $model;
-    /**
-     * @var StateMachineEngine
-     */
     public StateMachineEngine $workflow;
-    /**
-     * @var Transition
-     */
     public Transition $transition;
 
     /**
@@ -30,7 +22,7 @@ class ModelTransited
      *
      * @param Model $model
      * @param StateMachineEngine $workflow
-     * @param $transition
+     * @param Transition $transition
      */
     public function __construct(Model $model, StateMachineEngine $workflow, Transition $transition)
     {

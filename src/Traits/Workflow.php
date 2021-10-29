@@ -37,7 +37,7 @@ trait Workflow
     /**
      * Get the model workflow.
      *
-     * @param string $what attribute name or workflow class (if null, then first Workflow will be returned).
+     * @param string|null $what attribute name or workflow class (if null, then first Workflow will be returned).
      *
      * @return StateMachineEngine|null
      */

@@ -3,14 +3,6 @@
 
 namespace Codewiser\Workflow;
 
-
-use Codewiser\Workflow\Events\ModelTransited;
-use Codewiser\Workflow\Exceptions\StateMachineConsistencyException;
-use Codewiser\Workflow\Exceptions\TransitionException;
-use Codewiser\Workflow\Exceptions\TransitionPayloadException;
-use Codewiser\Workflow\Exceptions\TransitionFatalException;
-use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
-use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -45,7 +37,7 @@ class StateMachineEngine
 
     public function __toString()
     {
-        return $this->getState();
+        return $this->state();
     }
 
     /**
@@ -53,7 +45,7 @@ class StateMachineEngine
      *
      * @return WorkflowBlueprint
      */
-    public function getBlueprint(): WorkflowBlueprint
+    public function blueprint(): WorkflowBlueprint
     {
         return $this->blueprint;
     }
@@ -64,9 +56,9 @@ class StateMachineEngine
      * @param null|string $state
      * @return array|\Illuminate\Contracts\Translation\Translator|string|null
      */
-    public function getStateCaption($state = null)
+    public function caption($state = null)
     {
-        $state = $state ?: $this->getState();
+        $state = $state ?: $this->state();
         return trans(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
     }
 
@@ -75,7 +67,7 @@ class StateMachineEngine
      *
      * @return Collection|string[]
      */
-    public function getStates(): Collection
+    public function states(): Collection
     {
         return $this->blueprint->getStates();
     }
@@ -85,7 +77,7 @@ class StateMachineEngine
      *
      * @return TransitionCollection
      */
-    public function getTransitions(): TransitionCollection
+    public function transitions(): TransitionCollection
     {
         return $this->blueprint->getTransitions()
             ->each(function (Transition $transition) {
@@ -98,10 +90,10 @@ class StateMachineEngine
      *
      * @return TransitionCollection
      */
-    public function getRelevantTransitions(): TransitionCollection
+    public function relevant(): TransitionCollection
     {
-        return $this->getTransitions()
-            ->goingFrom($this->getState())
+        return $this->transitions()
+            ->from($this->state())
             ->valid();
     }
 
@@ -110,7 +102,7 @@ class StateMachineEngine
      *
      * @return string
      */
-    public function getAttributeName(): string
+    public function attribute(): string
     {
         return $this->attribute;
     }
@@ -120,9 +112,9 @@ class StateMachineEngine
      *
      * @return string
      */
-    public function getInitialState(): string
+    public function initial(): string
     {
-        return $this->getStates()->first();
+        return $this->states()->first();
     }
 
     /**
@@ -130,9 +122,9 @@ class StateMachineEngine
      *
      * @return string|null
      */
-    public function getState(): ?string
+    public function state(): ?string
     {
-        return $this->model->getAttribute($this->getAttributeName());
+        return $this->model->getAttribute($this->attribute());
     }
 
     /**
@@ -145,11 +137,11 @@ class StateMachineEngine
      */
     public function authorize(string $target): Model
     {
-        $transition = $this->getRelevantTransitions()
-            ->goingTo($target)
+        $transition = $this->relevant()
+            ->to($target)
             ->sole();
 
-        if ($ability = $transition->getAbility()) {
+        if ($ability = $transition->ability()) {
             Gate::authorize($ability, $this->model);
         }
 
@@ -161,6 +153,6 @@ class StateMachineEngine
      */
     public function reset()
     {
-        $this->model->setAttribute($this->getAttributeName(), $this->getInitialState());
+        $this->model->setAttribute($this->attribute(), $this->initial());
     }
 }
