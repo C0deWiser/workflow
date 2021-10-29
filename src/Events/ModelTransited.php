@@ -4,28 +4,26 @@ namespace Codewiser\Workflow\Events;
 
 use Codewiser\Workflow\StateMachineEngine;
 use Codewiser\Workflow\Transition;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Database\Eloquent\Model;
 
 class ModelTransited
 {
-    use \Illuminate\Queue\SerializesModels;
+    use Dispatchable, InteractsWithSockets, \Illuminate\Queue\SerializesModels;
 
     /**
      * @var Model
      */
-    public $model;
+    public Model $model;
     /**
      * @var StateMachineEngine
      */
-    public $workflow;
+    public StateMachineEngine $workflow;
     /**
      * @var Transition
      */
-    public $transition;
-    /**
-     * @var array
-     */
-    public $payload;
+    public Transition $transition;
 
     /**
      * Create a new event instance.
@@ -33,13 +31,11 @@ class ModelTransited
      * @param Model $model
      * @param StateMachineEngine $workflow
      * @param $transition
-     * @param array $payload
      */
-    public function __construct(Model $model, StateMachineEngine $workflow, Transition $transition, $payload = [])
+    public function __construct(Model $model, StateMachineEngine $workflow, Transition $transition)
     {
         $this->model = $model;
         $this->workflow = $workflow;
         $this->transition = $transition;
-        $this->payload = $payload;
     }
 }

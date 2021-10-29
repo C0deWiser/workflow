@@ -1,8 +1,8 @@
 {
     "name": "codewiser/workflow",
-    "version": "1.5.8",
+    "version": "2.0.0",
     "description": "Model Workflow Laravel package",
-    "keywords": ["workflow", "laravel", "illuminate"],
+    "keywords": ["workflow", "laravel", "state machine"],
     "license": "MIT",
     "authors": [
         {
@@ -11,12 +11,22 @@
         }
     ],
     "require": {
-        "laravel/framework": ">=5.8",
+        "php": "^7.4|^8.0",
+        "laravel/framework": "^8.0",
         "ext-json": "*"
     },
     "autoload": {
         "psr-4": {
             "Codewiser\\Workflow\\": "src"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/",
+            "App\\": "example/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.0"
     }
 }

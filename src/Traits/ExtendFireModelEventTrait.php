@@ -22,10 +22,9 @@ trait ExtendFireModelEventTrait
      *
      * @param null|StateMachineEngine $workflow workflow being transited
      * @param null|Transition $transition transition
-     * @param array $payload any additional transition payload
      * @return mixed
      */
-    public function fireTransitionEvent($event, $halt = true, $workflow = null, $transition = null, $payload = [])
+    public function fireTransitionEvent($event, $halt = true, $workflow = null, $transition = null)
     {
         if (!isset(static::$dispatcher)) {
             return true;
@@ -44,7 +43,7 @@ trait ExtendFireModelEventTrait
             return false;
         }
 
-        $payload = ['model' => $this, 'workflow' => $workflow, 'transition' => $transition, 'payload' => $payload];
+        $payload = ['model' => $this, 'workflow' => $workflow, 'transition' => $transition];
 
         return !empty($result) ? $result : static::$dispatcher->{$method}(
             "eloquent.{$event}: ".static::class, $payload

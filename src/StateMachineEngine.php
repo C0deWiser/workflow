@@ -7,13 +7,14 @@ namespace Codewiser\Workflow;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Exceptions\StateMachineConsistencyException;
 use Codewiser\Workflow\Exceptions\TransitionException;
-use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionPayloadException;
+use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class StateMachineEngine
@@ -21,18 +22,19 @@ class StateMachineEngine
     /**
      * @var Model|Workflow
      */
-    protected $model;
+    protected Model $model;
 
     /**
-     * Attribute name. It keeps workflow state
+     * Attribute name. It keeps workflow state.
+     *
      * @var string
      */
-    protected $attribute;
+    protected string $attribute;
 
     /**
      * @var WorkflowBlueprint
      */
-    protected $blueprint;
+    protected WorkflowBlueprint $blueprint;
 
     public function __construct(WorkflowBlueprint $blueprint, Model $model, string $attribute)
     {
@@ -47,16 +49,18 @@ class StateMachineEngine
     }
 
     /**
-     * Get State Machine Blueprint
+     * Get State Machine Blueprint.
+     *
      * @return WorkflowBlueprint
      */
-    public function getBlueprint()
+    public function getBlueprint(): WorkflowBlueprint
     {
         return $this->blueprint;
     }
 
     /**
-     * Get human readable [current or any] state caption
+     * Get human readable [current or any] state caption.
+     *
      * @param null|string $state
      * @return array|\Illuminate\Contracts\Translation\Translator|string|null
      */
@@ -67,184 +71,93 @@ class StateMachineEngine
     }
 
     /**
-     * Array of available Model workflow states
+     * Array of the model available workflow states.
+     *
      * @return Collection|string[]
      */
-    public function getStates()
+    public function getStates(): Collection
     {
         return $this->blueprint->getStates();
     }
 
     /**
-     * Array of allowed transitions between states
-     * @return Collection|Transition[]
+     * Array of allowed transitions between states.
+     *
+     * @return TransitionCollection
      */
-    public function getTransitions()
+    public function getTransitions(): TransitionCollection
     {
-        $transitions = $this->blueprint->getTransitions();
-        foreach ($transitions as $transition) {
-            $transition->inject($this->model, $this->attribute);
-        }
-        return $transitions;
+        return $this->blueprint->getTransitions()
+            ->each(function (Transition $transition) {
+                $transition->inject($this->model, $this->attribute);
+            });
     }
 
     /**
-     * Possible transitions from current state
-     * @return Collection|Transition[]
+     * Possible (for current user) transitions from the current state.
+     *
+     * @return TransitionCollection
      */
-    public function getRelevantTransitions()
+    public function getRelevantTransitions(): TransitionCollection
     {
-        $state = $this->getState();
-        $transitions = new Collection();
-        foreach ($this->getTransitions() as $transition) {
-            if ($state == $transition->getSource()) {
-                try {
-                    $transition->validate();
-                } catch (TransitionFatalException $e) {
-                    // Transition is irrelevant due to business logic
-                    continue;
-                } catch (TransitionRecoverableException $e) {
-                    // User may resolve issues
-                }
-                $transitions->push($transition);
-            }
-        }
-        return $transitions;
+        return $this->getTransitions()
+            ->goingFrom($this->getState())
+            ->valid();
     }
 
     /**
-     * Search for transition from current model state to given
-     * @param string $target
-     * @return Transition|null
-     */
-    protected function findTransitionTo($target)
-    {
-        foreach ($this->getRelevantTransitions() as $transition) {
-            if ($transition->getTarget() == $target) {
-                // We found transition from source to target
-                return $transition;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Find transition
-     * @param $source
-     * @param $target
-     * @return Transition|null
-     */
-    public function findTransition($source, $target)
-    {
-        foreach ($this->getTransitions() as $transition) {
-            if ($transition->getSource() == $source && $transition->getTarget() == $target) {
-                return $transition;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Workflow attribute name
+     * Workflow attribute name.
+     *
      * @return string
      */
-    public function getAttributeName()
+    public function getAttributeName(): string
     {
         return $this->attribute;
     }
 
     /**
-     * Workflow initial state
+     * Workflow initial state.
+     *
      * @return string
      */
-    public function getInitialState()
+    public function getInitialState(): string
     {
         return $this->getStates()->first();
     }
 
     /**
-     * Model current state
-     * @return string
+     * Model current state.
+     *
+     * @return string|null
      */
-    public function getState()
+    public function getState(): ?string
     {
         return $this->model->getAttribute($this->getAttributeName());
     }
 
     /**
-     * Initialize workflow (setting initial state) of the model
-     * @return Workflow|Model
+     * Authorize transition to the new state.
+     * 
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     * @throws \Illuminate\Support\ItemNotFoundException
+     * @throws \Illuminate\Support\MultipleItemsFoundException
+     * @return Model
      */
-    public function init()
+    public function authorize(string $target): Model
     {
-        $this->model->setAttribute($this->getAttributeName(), $this->getInitialState());
+        $transition = $this->getRelevantTransitions()
+            ->goingTo($target)
+            ->sole();
+
+        if ($ability = $transition->getAbility()) {
+            Gate::authorize($ability, $this->model);
+        }
+
         return $this->model;
     }
 
     /**
-     * Perform transition to $target state
-     * @param string $target target state
-     * @param array $payload optional user payload
-     * @return boolean|Transition transited or not
-     * @throws StateMachineConsistencyException impossible transition
-     * @throws TransitionException
-     * @throws TransitionPayloadException missing required payload data
-     * @throws WorkflowException
-     */
-    public function transit($target, $payload = [])
-    {
-        if ($transition = $this->findTransitionTo($target)) {
-            $transition->validate();
-            foreach ($transition->getRequirements() as $attribute) {
-                if (!isset($payload[$attribute])) {
-                    throw new TransitionPayloadException("Transition requires additional data [{$attribute}]");
-                }
-            }
-        } else {
-            throw new StateMachineConsistencyException("There is no transition from `{$this->getState()}` to `{$target}`");
-        }
-
-        $this->model->setAttribute($this->getAttributeName(), $target);
-
-        // For Model Observer
-        if (method_exists($this->model, 'fireTransitionEvent')) {
-            if ($this->model->fireTransitionEvent('transiting', true, $this, $transition, $payload) === false) {
-                return false;
-            }
-        }
-
-        // Direct change of workflow state is prohibited
-        $class = get_class($this->model);
-        $class::withoutEvents(function () use ($target) {
-            $this->model->save();
-        });
-
-        // For Model Observer
-        if (method_exists($this->model, 'fireTransitionEvent')) {
-            $this->model->fireTransitionEvent('transited', false, $this, $transition, $payload);
-        }
-
-        // For Event Listener
-        event(new ModelTransited($this->model, $this, $transition, $payload));
-
-        // For Transition Callback
-        foreach ($transition->getCallbacks() as $callback) {
-            call_user_func($callback, $this->model, $payload);
-        }
-
-        return $transition;
-    }
-
-    /**
-     * Alias for transit
-     */
-    public function setState($state, $payload = [])
-    {
-        return $this->transit($state, $payload);
-    }
-
-    /**
-     * Rollback workflow state to initial state
+     * Rollback workflow state to initial state.
      */
     public function reset()
     {

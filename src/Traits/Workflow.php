@@ -1,65 +1,71 @@
 <?php
+
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\StateMachineEngine;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Codewiser\Workflow\Events\ModelTransited;
+use Codewiser\Workflow\StateMachineObserver;
 
 /**
- * Trait adds Workflow to Model
- * @package Codewiser\Workflow\Traits
+ * Trait adds Workflow to the Model.
  *
- * @method static static|\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder onlyState($state, $workflow = null)
+ * @package Codewiser\Workflow\Traits
+ * @mixin Model
+ * @property array $workflow
  */
 trait Workflow
 {
-    /**
-     * Set of Workflow this model follows
-     * attribute_name => Workflow::class
-     * @return array
-     */
-    abstract protected function workflowBlueprint();
+    protected static function bootedWorkflow()
+    {
+        static::creating(function (Model $model) {
+            return (new StateMachineObserver)->creating($model);
+        });
+
+        static::updating(function (Model $model) {
+            return (new StateMachineObserver)->updating($model);
+        });
+
+        static::updated(function (Model $model) {
+            return (new StateMachineObserver)->updated($model);
+        });
+    }
 
     /**
-     * Get the model workflow
-     * @param string $what attribute name or workflow class (if null, then first Workflow will be returned)
+     * Get the model workflow.
+     *
+     * @param string $what attribute name or workflow class (if null, then first Workflow will be returned).
+     *
      * @return StateMachineEngine|null
      */
-    public function workflow($what = null)
+    public function workflow(string $what = null): ?StateMachineEngine
     {
-        foreach ((array)$this->workflowBlueprint() as $attr => $class) {
-            if (!$what || $class == $what || $attr == $what) {
-                return new StateMachineEngine(new $class(), $this, $attr);
+        if (isset($this->workflow)) {
+            foreach ((array)$this->workflow as $attr => $class) {
+                if (!$what || $class == $what || $attr == $what) {
+                    return new StateMachineEngine(new $class(), $this, $attr);
+                }
             }
         }
         return null;
     }
 
     /**
-     * Get listing of workflow, applied to the model
+     * Get the model workflow listing.
+     *
      * @return Collection|StateMachineEngine[]
      */
-    public function getWorkflowListing()
+    public function getWorkflowListing(): Collection
     {
         $list = collect();
-        foreach ((array)$this->workflowBlueprint() as $workflow) {
-            $list->push($this->workflow($workflow));
+        if (isset($this->workflow)) {
+            foreach (array_keys((array)$this->workflow) as $workflow) {
+                $list->push($this->workflow($workflow));
+            }
         }
         return $list;
-    }
-
-    public function scopeOnlyState(Builder $query, $state, $workflow = null)
-    {
-        if (is_null($workflow)) {
-            $workflow = $this->workflow();
-        }
-        if (is_string($workflow)) {
-            $workflow = $this->workflow($workflow);
-        }
-        if (!$workflow) {
-            throw new WorkflowException("Workflow not found");
-        }
-        return $query->where($workflow->getAttributeName(), $state);
     }
 }

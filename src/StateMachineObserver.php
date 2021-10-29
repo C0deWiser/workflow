@@ -4,40 +4,107 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelTransited;
+use Codewiser\Workflow\Exceptions\StateMachineConsistencyException;
+use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Initiates State Machine, watch for changes, fires Event
+ * Initiates State Machine, watches for changes, fires Event.
+ *
  * @package Codewiser\Workflow
  */
 class StateMachineObserver
 {
     /**
      * @param Model|Workflow $model
+     * @return bool
      */
     public function creating(Model $model)
     {
-        foreach ($model->getWorkflowListing() as $workflow) {
-            // Set initial value for every column that holds workflow state
-            $model->setAttribute($workflow->getAttributeName(), $workflow->getInitialState());
-        }
+        $model->getWorkflowListing()
+            ->each(function (StateMachineEngine $engine) use ($model) {
+                $model->setAttribute($engine->getAttributeName(), $engine->getInitialState());
+            });
+
+        return true;
     }
 
     /**
      * @param Model|Workflow $model
-     * @throws WorkflowException
+     * @return bool
      */
     public function updating(Model $model)
     {
-        foreach ($model->getDirty() as $attribute => $value) {
-            if ($workflow = $model->workflow($attribute)) {
-                // Workflow attribute is dirty
-                $class = class_basename($model);
-                throw new WorkflowException("Property `{$class}->{$attribute}` is protected.".
-                    " Use {$class}->workflow('{$attribute}')->transit('{$value}') to change state.");
-            }
-        }
+        // If one transition is invalid, all update is invalid
+        return $model->getWorkflowListing()
+            // Rejecting successfull validations
+            ->reject(function (StateMachineEngine $engine) use ($model) {
+                $attribute = $engine->getAttributeName();
+
+                if ($model->isDirty($attribute)) {
+
+                    $transition = $engine->getTransitions()
+                        ->goingFrom($model->getOriginal($attribute))
+                        ->goingTo($model->getAttribute($attribute))
+                        ->valid()
+                        ->allowed()
+                        // It may be not
+                        ->first();
+
+                    if ($transition) {
+                        // For Transition Observer
+                        if (method_exists($model, 'fireTransitionEvent')) {
+                            if ($model->fireTransitionEvent('transiting', true, $engine, $transition) === false) {
+                                return false;
+                            }
+                        }
+                    } else {
+                        // Transition doesnt exist
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            // Empty means there are no failures
+            ->isEmpty();
+    }
+
+    /**
+     * @param Model|Workflow $model
+     */
+    public function updated(Model $model)
+    {
+        $model->getWorkflowListing()
+            ->each(function (StateMachineEngine $engine) use ($model) {
+                $attribute = $engine->getAttributeName();
+
+                if ($model->wasChanged($attribute)) {
+
+                    $transition = $engine->getTransitions()
+                        ->goingFrom($model->getOriginal($attribute))
+                        ->goingTo($model->getAttribute($attribute))
+                        ->valid()
+                        ->allowed()
+                        // It must be!
+                        ->sole();
+
+                    // For Transition Observer
+                    if (method_exists($model, 'fireTransitionEvent')) {
+                        $model->fireTransitionEvent('transited', false, $engine, $transition);
+                    }
+
+                    // For Event Listener
+                    event(new ModelTransited($model, $engine, $transition));
+
+                    // For Transition Callback
+                    $transition->getCallbacks()
+                        ->each(function (\Closure $callback) use ($model) {
+                            call_user_func($callback, $model);
+                        });
+                }
+            });
     }
 }
