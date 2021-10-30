@@ -4,9 +4,6 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelTransited;
-use Codewiser\Workflow\Exceptions\StateMachineConsistencyException;
-use Codewiser\Workflow\Exceptions\TransitionException;
-use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\Traits\Workflow;
 use Illuminate\Database\Eloquent\Model;
 
@@ -48,21 +45,15 @@ class StateMachineObserver
                     $transition = $engine->transitions()
                         ->from($model->getOriginal($attribute))
                         ->to($model->getAttribute($attribute))
-                        ->valid()
-                        ->allowed()
-                        // It may be not
-                        ->first();
+                        // Find or die!
+                        ->sole()
+                        ->validate();
 
-                    if ($transition) {
-                        // For Transition Observer
-                        if (method_exists($model, 'fireTransitionEvent')) {
-                            if ($model->fireTransitionEvent('transiting', true, $engine, $transition) === false) {
-                                return false;
-                            }
+                    // For Transition Observer
+                    if (method_exists($model, 'fireTransitionEvent')) {
+                        if ($model->fireTransitionEvent('transiting', true, $engine, $transition) === false) {
+                            return false;
                         }
-                    } else {
-                        // Transition doesnt exist
-                        return false;
                     }
                 }
 
@@ -86,9 +77,6 @@ class StateMachineObserver
                     $transition = $engine->transitions()
                         ->from($model->getOriginal($attribute))
                         ->to($model->getAttribute($attribute))
-                        ->valid()
-                        ->allowed()
-                        // It must be!
                         ->sole();
 
                     // For Transition Observer

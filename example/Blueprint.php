@@ -20,9 +20,11 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
         return [
             Transition::define('one', 'two')
                 ->condition(function (Post $model) {
-                    throw new TransitionRecoverableException('Recoverable');
+                    throw new TransitionRecoverableException();
                 })
-                ->authorize('publish'),
+                ->authorize(function (Post $model) {
+
+                }),
 
             Transition::define('one', 'three')
                 ->condition(function (Post $model) {

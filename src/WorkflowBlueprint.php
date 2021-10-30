@@ -4,6 +4,8 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\ItemNotFoundException;
+use Illuminate\Support\MultipleItemsFoundException;
 
 /**
  * Workflow (aka State Machine) blueprint.
@@ -35,8 +37,6 @@ abstract class WorkflowBlueprint
 
     /**
      * Validates State Machine Blueprint.
-     *
-     * @throws WorkflowException
      */
     protected function validate()
     {
@@ -48,13 +48,13 @@ abstract class WorkflowBlueprint
             $t = $transition->getTarget();
 
             if (!$states->contains($s)) {
-                throw new WorkflowException("Buggy blueprint: transition from nowhere");
+                throw new ItemNotFoundException("Buggy blueprint: transition from nowhere");
             }
             if (!$states->contains($t)) {
-                throw new WorkflowException("Buggy blueprint: transition to nowhere");
+                throw new ItemNotFoundException("Buggy blueprint: transition to nowhere");
             }
             if ($transitions->contains($s . $t)) {
-                throw new WorkflowException("Buggy blueprint: transition duplicate");
+                throw new MultipleItemsFoundException("Buggy blueprint: transition duplicate");
             }
             $transitions->push($s . $t);
         }

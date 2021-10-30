@@ -4,6 +4,7 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Traits\Workflow;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -129,23 +130,30 @@ class StateMachineEngine
 
     /**
      * Authorize transition to the new state.
-     * 
-     * @throws \Illuminate\Auth\Access\AuthorizationException
+     *
+     * @return $this
      * @throws \Illuminate\Support\ItemNotFoundException
      * @throws \Illuminate\Support\MultipleItemsFoundException
-     * @return Model
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
-    public function authorize(string $target): Model
+    public function authorize(string $target): StateMachineEngine
     {
         $transition = $this->relevant()
             ->to($target)
             ->sole();
 
-        if ($ability = $transition->ability()) {
-            Gate::authorize($ability, $this->model);
+        if ($ability = $transition->authorization()) {
+            if (is_string($ability)) {
+                Gate::authorize($ability, $this->model);
+            }
+            if (is_callable($ability)) {
+                if (!call_user_func($ability, $this->model)) {
+                    throw new AuthorizationException();
+                }
+            }
         }
 
-        return $this->model;
+        return $this;
     }
 
     /**

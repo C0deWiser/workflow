@@ -85,8 +85,14 @@ class TransitionCollection extends Collection
     public function authorized(): TransitionCollection
     {
         return $this->filter(function(Transition $transition) {
-            if ($ability = $transition->ability()) {
-                return Gate::allows($ability, $transition->model());
+            if ($ability = $transition->authorization()) {
+
+                if (is_string($ability)) {
+                    return Gate::allows($ability, $transition->model());
+                }
+                if (is_callable($ability)) {
+                    return call_user_func($ability, $transition->model());
+                }
             }
             return true;
         });

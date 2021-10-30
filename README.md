@@ -82,7 +82,7 @@ So, if your model has few workflow schemas, you may get the exact you need.
 Now show to the user possible transitions from current state of the article:
 
 ```php
-$transitions = $article->workflow()->getRelevantTransitions();
+$transitions = $article->workflow()->relevant();
 ```
 
 You may convert transition to array.
@@ -113,18 +113,38 @@ $article->state = 'review';
 $article->save();
 ```
 
-Saving wrong state will be discarded by `updating` observer.
+Saving with a wrong state will be caught by `updating` observer.
 
 ## Authorization
 
-When defining transition you may set policy ability, to authorize user transiting model.
+You may check authorization of users, trying to perform transition.
+
+Get the listing of authorized transitions:
+
+```php
+$transitions = $article->workflow()->relevant()->authorized();
+```
+
+Authorize transition in controller before applying changes:
+
+```php
+public function update(Request $request, Article $article)
+{
+    $this->authorize('update', $article);
+    
+    $article->workflow()->authorize($request->get('state'));
+    $article->state = $request->get('state');
+    
+    $article->save();
+}
+```
+
+### Using Policy
 
 ```php
 Transition::define('new', 'review')
     ->authorize('toReview');
 ```
-
-When write the policy.
 
 ```php
 class ArticlePolicy 
@@ -136,26 +156,14 @@ class ArticlePolicy
 }
 ```
 
-Now you may show to the user only authorized transitions:
+### Using Closure
 
 ```php
-$transitions = $article->workflow()->getRelevantTransitions()->authorized();
+Transition::define('new', 'review')
+    ->authorize(function (Article $article) {
+        return $article->author->is(auth()->user());
+    });
 ```
-
-Also you may authorize transition in controller before applying changes:
-
-```php
-public function update(Request $request, Article $article)
-{
-    $this->authorize('update', $article);
-    $article->workflow()->authorize($request->get('state'));
-
-    $article->state = $request->get('state');
-    $article->save();
-}
-```
-
-Using theese methods without defining authorization ability is safe.
 
 ## Business Logic
 
@@ -172,13 +180,14 @@ You may define few conditions to single transition.
 #### Transitions with recoverable problems 
 
 Throw `TransitionRecoverableException` if you suppose user to resolve the problem. Leave helping instructions in exception message. 
+
 Here is an example of problem user may resolve.
 
 ```php
 Transition::define('new', 'review')
     ->condition(function(Article $model) {
        if (strlen($model->body) < 1000) {
-           throw new TransitionRecoverableException('Your Article should contain at least 1000 symbols');
+           throw new TransitionRecoverableException('Your article should contain at least 1000 symbols');
        }
    });
 ```

@@ -30,7 +30,7 @@ class Transition implements Arrayable
     protected Collection $conditions;
     protected Collection $callbacks;
     protected Collection $attributes;
-    protected ?string $ability;
+    protected $authorization;
 
     /**
      * Instantiate new transition.
@@ -48,7 +48,7 @@ class Transition implements Arrayable
     {
         $this->source = $source;
         $this->target = $target;
-        $this->ability = null;
+        $this->authorization = null;
         $this->conditions = new Collection();
         $this->attributes = new Collection();
         $this->callbacks = new Collection();
@@ -74,12 +74,12 @@ class Transition implements Arrayable
     /**
      * Authorize transition using policy ability.
      *
-     * @param string $ability
+     * @param string|\Closure $ability
      * @return $this
      */
-    public function authorize(string $ability): Transition
+    public function authorize($ability): Transition
     {
-        $this->ability = $ability;
+        $this->authorization = $ability;
         return $this;
     }
 
@@ -170,11 +170,11 @@ class Transition implements Arrayable
     /**
      * Ability to authorize.
      *
-     * @return string
+     * @return string|\Closure|null
      */
-    public function ability(): ?string
+    public function authorization()
     {
-        return $this->ability;
+        return $this->authorization;
     }
 
     /**
@@ -205,24 +205,17 @@ class Transition implements Arrayable
     public function problems(): array
     {
         return $this->conditions()
-            ->filter(function (\Closure $condition) {
-                try {
-                    call_user_func($condition, $this->model);
-                } catch (TransitionFatalException $e) {
-
-                } catch (TransitionRecoverableException $e) {
-                    // Left only recoverable problems
-                    return true;
-                }
-                return false;
-            })
             ->map(function (\Closure $condition) {
                 try {
                     call_user_func($condition, $this->model);
+                } catch (TransitionFatalException $e) {
                 } catch (TransitionRecoverableException $e) {
+                    // Collect only recoverable messages
                     return $e->getMessage();
                 }
+                return '';
             })
+            ->filter()
             ->toArray();
     }
 
@@ -251,11 +244,13 @@ class Transition implements Arrayable
      *
      * @throws TransitionRecoverableException
      * @throws TransitionFatalException
+     * @return Transition
      */
-    public function validate(): void
+    public function validate(): Transition
     {
         foreach ($this->conditions() as $condition) {
             call_user_func($condition, $this->model);
         }
+        return $this;
     }
 }
