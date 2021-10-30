@@ -90,7 +90,7 @@ class TransitionCollection extends Collection
                 if (is_string($ability)) {
                     return Gate::allows($ability, $transition->model());
                 }
-                if (is_callable($ability)) {
+                if ($ability instanceof \Closure) {
                     return call_user_func($ability, $transition->model());
                 }
             }

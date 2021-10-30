@@ -146,7 +146,7 @@ class StateMachineEngine
             if (is_string($ability)) {
                 Gate::authorize($ability, $this->model);
             }
-            if (is_callable($ability)) {
+            if ($ability instanceof \Closure) {
                 if (!call_user_func($ability, $this->model)) {
                     throw new AuthorizationException();
                 }
