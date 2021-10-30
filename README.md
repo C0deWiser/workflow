@@ -82,19 +82,34 @@ So, if your model has few workflow schemas, you may get the exact you need.
 Now show to the user possible transitions from current state of the article:
 
 ```php
-$transitions = $article->workflow()->relevant();
+public function show(Article $article) 
+{
+    $data = $article->toArray();
+    
+    $data['state'] => $article->workflow()->caption();
+    $data['transitions'] = $article->workflow()->channels()->toArray();
+    
+    return response()->json($data);
+}
 ```
 
-You may convert transition to array.
+Captions of current state and transitions is a translatable string. 
 
-```php
-[
-    'caption'   => string   // Translateable string you may use as button caption
-    'source'    => string   // Source state
-    'target'    => string   // Target state
-    'problems'  => []       // User can not perform transition while described problems not solved. See business-logic
-    'requires'  => []       // User should provide extra data to perform transition
-]
+```json
+{
+  "id": 1,
+  "title": "Article title",
+  "state": "blueprint.states.draft",
+  "transitions": [
+    {
+      "caption": "blueprint.transitions.draft.publish",
+      "source": "draft",
+      "target": "publish",
+      "problems": [],
+      "requires": []
+    }
+  ]
+}
 ```
 
 User decides where to transit model. And you will update model with new `state` value.
@@ -119,21 +134,23 @@ Saving with a wrong state will be caught by `updating` observer.
 
 You may check authorization of users, trying to perform transition.
 
-Get the listing of authorized transitions:
+If may limit the listing of transitions with only authorized items:
 
 ```php
-$transitions = $article->workflow()->relevant()->authorized();
+$transitions = $article->workflow()->channels()->authorized();
 ```
 
-Authorize transition in controller before applying changes:
+Then authorize transition in controller before applying changes:
 
 ```php
 public function update(Request $request, Article $article)
 {
     $this->authorize('update', $article);
     
-    $article->workflow()->authorize($request->get('state'));
-    $article->state = $request->get('state');
+    if ($state = $request->get('state')) {
+        $article->workflow()->authorize($state);
+        $article->state = $state;
+    }
     
     $article->save();
 }
@@ -169,7 +186,7 @@ Transition::define('new', 'review')
 
 ### Conditions
 
-Additionally, transition may has a conditions. 
+Additionally, transition may have a conditions. 
 Condition defines requirements to a model. If model fits the requirement the transition can be performed.
 
 Condition is a `\Closure` with `Model` argument. Condition may throw an exception.
@@ -192,8 +209,28 @@ Transition::define('new', 'review')
    });
 ```
 
-User may see transition with problem in list of available transitions. 
-User follows instructions to resolve a problem and tries to perform the transition again. 
+User will see transition with problem in list of available transitions. 
+User follows instructions to resolve the problem and tries to perform the transition again.
+You should disable problem transition in user interface and show to the user problem description.
+
+```json
+{
+  "id": 1,
+  "title": "Article title",
+  "state": "blueprint.states.draft",
+  "transitions": [
+    {
+      "caption": "blueprint.transitions.draft.publish",
+      "source": "draft",
+      "target": "publish",
+      "problems": [
+        "Your article should contain at least 1000 symbols"
+      ],
+      "requires": []
+    }
+  ]
+}
+```
 
 #### Hiding transitions
 
@@ -230,7 +267,7 @@ class ModelTransited
         if ($event->model instanceof Article) {
             $article = $event->model;
 
-            if ($event->transition->getTarget() === 'correcting') {
+            if ($event->transition->target() === 'correcting') {
                 $article->author->notify(new ArticleHasProblem($article));
             }
         }
@@ -257,15 +294,15 @@ Now you may observe these events.
 ```php
 class ArticleObserver
 {
-    public function transiting(Article $article, StateMachineEngine $workflow, Transition $transition, array $payload)
+    public function transiting(Article $article, StateMachineEngine $engine, Transition $transition)
     {
         // return false to interrupt transition
     }
 
-    public function transited(Article $article, StateMachineEngine $workflow, Transition $transition, array $payload)
+    public function transited(Article $article, StateMachineEngine $engine, Transition $transition)
     {
-        if ($transition->getTarget() === 'correcting') {
-            $article->author->notify(new ArticleHasProblem($article, $payload['reason']));
+        if ($transition->target() === 'correcting') {
+            $article->author->notify(new ArticleHasProblem($article));
         }
     }
 }
@@ -273,17 +310,15 @@ class ArticleObserver
 
 ## Transition Callback
 
-Otherwise you may define transition callback(s), that will be called after transition were successfully performed.
+Otherwise, you may define transition callback(s), that will be called after transition were successfully performed.
 
 Callback is a `\Closure` with `Model` argument.
 
 ```php
 Transition::define('review', 'correcting')
-    ->callback(function(Article $article, $payload) {
+    ->callback(function(Article $article) {
         $article->author->notify(new ArticleHasProblem($article));
     }); 
 ```
-
-
 
 You may define few callbacks to single transition.

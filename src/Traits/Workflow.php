@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Codewiser\Workflow\Contracts\WorkflowContract;
 use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\StateMachineEngine;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,7 +31,7 @@ trait Workflow
         });
 
         static::updated(function (Model $model) {
-            return (new StateMachineObserver)->updated($model);
+            (new StateMachineObserver)->updated($model);
         });
     }
 

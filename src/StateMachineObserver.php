@@ -40,13 +40,16 @@ class StateMachineObserver
             ->reject(function (StateMachineEngine $engine) use ($model) {
                 $attribute = $engine->attribute();
 
-                if ($model->isDirty($attribute)) {
+                if ($model->isDirty($attribute) &&
+                    ($source = $model->getOriginal($attribute)) &&
+                    ($target = $model->getAttribute($attribute)) &&
+                    ($source != $target)) {
 
                     $transition = $engine->transitions()
-                        ->from($model->getOriginal($attribute))
-                        ->to($model->getAttribute($attribute))
+                        ->from($source)->to($target)
                         // Find or die!
                         ->sole()
+                        // May throw an Exception
                         ->validate();
 
                     // For Transition Observer
@@ -72,11 +75,13 @@ class StateMachineObserver
             ->each(function (StateMachineEngine $engine) use ($model) {
                 $attribute = $engine->attribute();
 
-                if ($model->wasChanged($attribute)) {
+                if ($model->wasChanged($attribute) &&
+                    ($source = $model->getOriginal($attribute)) &&
+                    ($target = $model->getAttribute($attribute)) &&
+                    ($source != $target)) {
 
                     $transition = $engine->transitions()
-                        ->from($model->getOriginal($attribute))
-                        ->to($model->getAttribute($attribute))
+                        ->from($source)->to($target)
                         ->sole();
 
                     // For Transition Observer

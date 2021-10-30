@@ -42,38 +42,36 @@ class TransitionCollection extends Collection
      * 
      * @return $this
      */
-    public function valid(): TransitionCollection
+    public function withoutForbidden(): TransitionCollection
     {
-        return $this->filter(function(Transition $transition) {
+        return $this->reject(function(Transition $transition) {
             try {
                 $transition->validate();
             } catch (TransitionFatalException $e) {
-                // Transition is irrelevant due to business logic
-                return false;
+                return true;
             } catch (TransitionRecoverableException $e) {
-                // User may resolve issues
+
             }
-            return true;
+            return false;
         });
     }
 
     /**
-     * Transitions without recoverable conditions.
+     * Blind (forbidden) transitions.
      * 
      * @return $this
      */
-    public function allowed(): TransitionCollection
+    public function withoutRecoverable(): TransitionCollection
     {
         return $this->filter(function(Transition $transition) {
             try {
                 $transition->validate();
             } catch (TransitionFatalException $e) {
-                // Transition is irrelevant due to business logic
+
             } catch (TransitionRecoverableException $e) {
-                // User may resolve issues
-                return false;
+                return true;
             }
-            return true;
+            return false;
         });
     }
 

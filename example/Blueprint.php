@@ -12,34 +12,36 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
 {
     protected function states(): array
     {
-        return ['one', 'two', 'three', 'four'];
+        return ['one', 'recoverable', 'fatal', 'callback', 'deny'];
     }
 
     protected function transitions(): array
     {
         return [
-            Transition::define('one', 'two')
+            Transition::define('one', 'recoverable')
                 ->condition(function (Post $model) {
                     throw new TransitionRecoverableException();
-                })
-                ->authorize(function (Post $model) {
-
                 }),
 
-            Transition::define('one', 'three')
+            Transition::define('one', 'fatal')
                 ->condition(function (Post $model) {
-                    throw new TransitionFatalException('Fatal');
+                    throw new TransitionFatalException();
                 }),
 
-            Transition::define('one', 'four')
+            Transition::define('one', 'callback')
                 ->requires('comment')
-                ->callback(function (Post $model, $payload) {
+                ->callback(function (Post $model) {
                     $model->body = 'sent';
                 }),
 
-            Transition::define('four', 'three'),
-            Transition::define('two', 'three'),
-            Transition::define('three', 'one')
+            Transition::define('one', 'deny')
+                ->authorize(function (Post $model) {
+                    return false;
+                }),
+
+            Transition::define('callback', 'one'),
+            Transition::define('recoverable', 'one'),
+            Transition::define('fatal', 'one')
         ];
     }
 }

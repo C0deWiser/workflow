@@ -42,22 +42,25 @@ abstract class WorkflowBlueprint
     {
         $states = $this->getStates();
         $transitions = collect();
-        
-        foreach ($this->getTransitions() as $transition) {
-            $s = $transition->getSource();
-            $t = $transition->getTarget();
 
-            if (!$states->contains($s)) {
-                throw new ItemNotFoundException("Buggy blueprint: transition from nowhere");
-            }
-            if (!$states->contains($t)) {
-                throw new ItemNotFoundException("Buggy blueprint: transition to nowhere");
-            }
-            if ($transitions->contains($s . $t)) {
-                throw new MultipleItemsFoundException("Buggy blueprint: transition duplicate");
-            }
-            $transitions->push($s . $t);
-        }
+        $blueprint = class_basename($this);
+
+        $this->getTransitions()
+            ->each(function (Transition $transition) use ($states, $transitions, $blueprint) {
+                $s = $transition->source();
+                $t = $transition->target();
+
+                if (!$states->contains($s)) {
+                    throw new ItemNotFoundException("Invalid {$blueprint}: transition from nowhere: {$s}");
+                }
+                if (!$states->contains($t)) {
+                    throw new ItemNotFoundException("Invalid {$blueprint}: transition to nowhere: {$t}");
+                }
+                if ($transitions->contains($s . $t)) {
+                    throw new MultipleItemsFoundException("Invalid {$blueprint}: transition duplicate {$s}-{$t}");
+                }
+                $transitions->push($s . $t);
+            });
     }
 
     /**

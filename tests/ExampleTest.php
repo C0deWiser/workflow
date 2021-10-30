@@ -3,9 +3,13 @@
 namespace Tests;
 
 use App\Post;
+use Codewiser\Workflow\Exceptions\TransitionFatalException;
+use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\StateMachineObserver;
 use Codewiser\Workflow\Transition;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -43,7 +47,7 @@ class ExampleTest extends TestCase
         $post = new Post();
         $post->setRawAttributes(['state' => 'one'], true);
 
-        $this->assertCount(6, $post->workflow()->transitions());
+        $this->assertCount(7, $post->workflow()->transitions());
     }
 
     public function testRelevantTransitions()
@@ -52,9 +56,9 @@ class ExampleTest extends TestCase
         $post->setRawAttributes(['state' => 'one'], true);
 
         // Transition one-three has Fatal condition and will be rejected
-        $this->assertCount(2, $post->workflow()->relevant());
+        $this->assertCount(3, $post->workflow()->channels());
 
-        $post->workflow()->relevant()
+        $post->workflow()->channels()
             ->each(function (Transition $transition) use ($post) {
                 // Assert that every relevant transition starts from current state
                 $this->assertEquals($post->state, $transition->source());
@@ -66,10 +70,33 @@ class ExampleTest extends TestCase
         $post = new Post();
         $post->setRawAttributes(['state' => 'one'], true);
 
-        $post->state = 'two';
+        $post->state = 'recoverable';
 
         // Observer prevents changing state as the transition has unresolved Recoverable condition
-        $this->assertFalse((new StateMachineObserver)->updating($post));
+        $this->expectException(TransitionRecoverableException::class);
+        (new StateMachineObserver)->updating($post);
+    }
+
+    public function testTransitFatal()
+    {
+        $post = new Post();
+        $post->setRawAttributes(['state' => 'one'], true);
+
+        $post->state = 'fatal';
+
+        // Observer prevents changing state as the transition has unresolved Fatal condition
+        $this->expectException(TransitionFatalException::class);
+        (new StateMachineObserver)->updating($post);
+    }
+
+    public function testTransitUnauthorized()
+    {
+        $post = new Post();
+        $post->setRawAttributes(['state' => 'one'], true);
+
+        // Transition is not authorized
+        $this->expectException(AuthorizationException::class);
+        $post->workflow()->authorize('deny');
     }
 
     public function testTransitUnknown()
@@ -80,15 +107,16 @@ class ExampleTest extends TestCase
         $post->state = Str::random();
 
         // Observer prevents changing state to unknown value
-        $this->assertFalse((new StateMachineObserver)->updating($post));
+        $this->expectException(ItemNotFoundException::class);
+        (new StateMachineObserver)->updating($post);
     }
 
-    public function testTransit()
+    public function testTransitAllowed()
     {
         $post = new Post();
         $post->setRawAttributes(['state' => 'one'], true);
 
-        $post->state = 'four';
+        $post->state = 'callback';
 
         // Observer allows to change the state
         $this->assertTrue((new StateMachineObserver)->updating($post));

@@ -23,10 +23,6 @@ class StateMachineEngine
      * @var string
      */
     protected string $attribute;
-
-    /**
-     * @var WorkflowBlueprint
-     */
     protected WorkflowBlueprint $blueprint;
 
     public function __construct(WorkflowBlueprint $blueprint, Model $model, string $attribute)
@@ -52,19 +48,19 @@ class StateMachineEngine
     }
 
     /**
-     * Get human readable [current or any] state caption.
+     * Get (current or any) state caption trans string.
      *
-     * @param null|string $state
-     * @return array|\Illuminate\Contracts\Translation\Translator|string|null
+     * @param string|null $state
+     * @return string
      */
-    public function caption($state = null)
+    public function caption(string $state = null):string
     {
         $state = $state ?: $this->state();
-        return trans(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
+        return __(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
     }
 
     /**
-     * Array of the model available workflow states.
+     * Get all states of the workflow.
      *
      * @return Collection|string[]
      */
@@ -74,7 +70,7 @@ class StateMachineEngine
     }
 
     /**
-     * Array of allowed transitions between states.
+     * Get all transitions in the workflow.
      *
      * @return TransitionCollection
      */
@@ -87,19 +83,19 @@ class StateMachineEngine
     }
 
     /**
-     * Possible (for current user) transitions from the current state.
+     * Get proper ways out from the current state.
      *
      * @return TransitionCollection
      */
-    public function relevant(): TransitionCollection
+    public function channels(): TransitionCollection
     {
         return $this->transitions()
             ->from($this->state())
-            ->valid();
+            ->withoutForbidden();
     }
 
     /**
-     * Workflow attribute name.
+     * Get workflow attribute name.
      *
      * @return string
      */
@@ -109,7 +105,7 @@ class StateMachineEngine
     }
 
     /**
-     * Workflow initial state.
+     * Get workflow initial state.
      *
      * @return string
      */
@@ -119,7 +115,7 @@ class StateMachineEngine
     }
 
     /**
-     * Model current state.
+     * Get the model current state.
      *
      * @return string|null
      */
@@ -138,7 +134,8 @@ class StateMachineEngine
      */
     public function authorize(string $target): StateMachineEngine
     {
-        $transition = $this->relevant()
+        $transition = $this->transitions()
+            ->from($this->state())
             ->to($target)
             ->sole();
 
@@ -157,7 +154,7 @@ class StateMachineEngine
     }
 
     /**
-     * Rollback workflow state to initial state.
+     * Reset workflow to the initial state.
      */
     public function reset()
     {

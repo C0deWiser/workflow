@@ -66,7 +66,7 @@ class Transition implements Arrayable
         $this->attribute = $attribute;
     }
 
-    public function model():Model
+    public function model(): Model
     {
         return $this->model;
     }
@@ -137,14 +137,14 @@ class Transition implements Arrayable
     }
 
     /**
-     * Get human readable transition caption.
+     * Get transition caption trans string.
      *
      * @param bool $pastPerfect get caption for completed transition
-     * @return array|Translator|string|null
+     * @return string
      */
-    public function caption(bool $pastPerfect = false)
+    public function caption(bool $pastPerfect = false): string
     {
-        return trans(Str::snake(class_basename($this->workflow()->blueprint())) . "." . ($pastPerfect ? 'transited' : 'transitions') . ".{$this->source()}.{$this->target()}");
+        return __(Str::snake(class_basename($this->workflow()->blueprint())) . "." . ($pastPerfect ? 'transited' : 'transitions') . ".{$this->source()}.{$this->target()}");
     }
 
     /**
@@ -242,9 +242,9 @@ class Transition implements Arrayable
     /**
      * Examine transition preconditions.
      *
-     * @throws TransitionRecoverableException
-     * @throws TransitionFatalException
      * @return Transition
+     * @throws TransitionFatalException
+     * @throws TransitionRecoverableException
      */
     public function validate(): Transition
     {
