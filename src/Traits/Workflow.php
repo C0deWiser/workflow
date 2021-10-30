@@ -36,6 +36,13 @@ trait Workflow
     }
 
     /**
+     * Engine instances.
+     *
+     * @var array
+     */
+    protected array $stateMachineEngines = [];
+
+    /**
      * Get the model workflow.
      *
      * @param string|null $what attribute name or workflow class (if null, then first Workflow will be returned).
@@ -47,7 +54,14 @@ trait Workflow
         if (isset($this->workflow)) {
             foreach ((array)$this->workflow as $attr => $class) {
                 if (!$what || $class == $what || $attr == $what) {
-                    return new StateMachineEngine(new $class(), $this, $attr);
+
+                    if (isset($this->stateMachineEngines[$attr])) {
+                        return $this->stateMachineEngines[$attr];
+                    }
+
+                    $this->stateMachineEngines[$attr] = new StateMachineEngine(new $class(), $this, $attr);
+
+                    return $this->stateMachineEngines[$attr];
                 }
             }
         }

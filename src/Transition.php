@@ -11,7 +11,9 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Transition between states in State Machine
@@ -31,6 +33,12 @@ class Transition implements Arrayable
     protected Collection $callbacks;
     protected Collection $attributes;
     protected $authorization;
+    /**
+     * Transition additional context.
+     *
+     * @var array
+     */
+    protected array $context = [];
 
     /**
      * Instantiate new transition.
@@ -252,5 +260,31 @@ class Transition implements Arrayable
             call_user_func($condition, $this->model);
         }
         return $this;
+    }
+
+    /**
+     * Get or set and validate transition additional context.
+     *
+     * @param array|null $context
+     * @return array
+     * @throws ValidationException
+     */
+    public function context(array $context = null): array
+    {
+        if (is_array($context)) {
+            $rules = $this->requirements()
+                ->mapWithKeys(function (string $attribute) {
+                    return [$attribute => 'required|string'];
+                })
+                ->toArray();
+
+            if ($rules) {
+                $context = Validator::validate($context, $rules);
+            }
+
+            $this->context = $context;
+        }
+
+        return $this->context;
     }
 }

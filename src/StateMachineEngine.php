@@ -24,6 +24,14 @@ class StateMachineEngine
      */
     protected string $attribute;
     protected WorkflowBlueprint $blueprint;
+    protected ?TransitionCollection $transitions = null;
+
+    /**
+     * Transition additional context.
+     *
+     * @var array
+     */
+    protected array $context = [];
 
     public function __construct(WorkflowBlueprint $blueprint, Model $model, string $attribute)
     {
@@ -53,7 +61,7 @@ class StateMachineEngine
      * @param string|null $state
      * @return string
      */
-    public function caption(string $state = null):string
+    public function caption(string $state = null): string
     {
         $state = $state ?: $this->state();
         return __(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
@@ -76,10 +84,16 @@ class StateMachineEngine
      */
     public function transitions(): TransitionCollection
     {
-        return $this->blueprint->getTransitions()
+        if ($this->transitions) {
+            return $this->transitions;
+        }
+
+        $this->transitions = $this->blueprint->getTransitions()
             ->each(function (Transition $transition) {
                 $transition->inject($this->model, $this->attribute);
             });
+
+        return $this->transitions;
     }
 
     /**
@@ -159,5 +173,20 @@ class StateMachineEngine
     public function reset()
     {
         $this->model->setAttribute($this->attribute(), $this->initial());
+    }
+
+    /**
+     * Get or set transition additional context.
+     *
+     * @param array|null $context
+     * @return array
+     */
+    public function context(array $context = null): array
+    {
+        if (is_array($context)) {
+            $this->context = $context;
+        }
+
+        return $this->context;
     }
 }

@@ -116,6 +116,7 @@ class ExampleTest extends TestCase
         $post = new Post();
         $post->setRawAttributes(['state' => 'one'], true);
 
+        $post->workflow()->context(['comment' => Str::random()]);
         $post->state = 'callback';
 
         // Observer allows to change the state

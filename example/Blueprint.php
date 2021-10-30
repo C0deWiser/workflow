@@ -30,8 +30,8 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
 
             Transition::define('one', 'callback')
                 ->requires('comment')
-                ->callback(function (Post $model) {
-                    $model->body = 'sent';
+                ->callback(function (Post $model, array $context) {
+                    $model->body = $context['comment'];
                 }),
 
             Transition::define('one', 'deny')

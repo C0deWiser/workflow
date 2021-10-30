@@ -52,6 +52,9 @@ class StateMachineObserver
                         // May throw an Exception
                         ->validate();
 
+                    // Set and validate context. May throw an Exception
+                    $transition->context($engine->context());
+
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
                         if ($model->fireTransitionEvent('transiting', true, $engine, $transition) === false) {
@@ -84,6 +87,9 @@ class StateMachineObserver
                         ->from($source)->to($target)
                         ->sole();
 
+                    // Set context
+                    $transition->context($engine->context());
+
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
                         $model->fireTransitionEvent('transited', false, $engine, $transition);
@@ -94,8 +100,8 @@ class StateMachineObserver
 
                     // For Transition Callback
                     $transition->callbacks()
-                        ->each(function (\Closure $callback) use ($model) {
-                            call_user_func($callback, $model);
+                        ->each(function (\Closure $callback) use ($model, $transition) {
+                            call_user_func($callback, $model, $transition->context());
                         });
                 }
             });

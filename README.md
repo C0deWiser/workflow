@@ -79,7 +79,7 @@ $article->workflow(EditorialWorkflow::class);
 
 So, if your model has few workflow schemas, you may get the exact you need. 
 
-Now show to the user possible transitions from current state of the article:
+Now show to the user possible transitions from the current state of the article:
 
 ```php
 public function show(Article $article) 
@@ -93,7 +93,7 @@ public function show(Article $article)
 }
 ```
 
-Captions of current state and transitions is a translatable string. 
+Captions of current state and transitions are translatable string. 
 
 ```json
 {
@@ -134,7 +134,7 @@ Saving with a wrong state will be caught by `updating` observer.
 
 You may check authorization of users, trying to perform transition.
 
-If may limit the listing of transitions with only authorized items:
+You may limit transition listing with only authorized items:
 
 ```php
 $transitions = $article->workflow()->channels()->authorized();
@@ -155,6 +155,8 @@ public function update(Request $request, Article $article)
     $article->save();
 }
 ```
+
+Transition may be authorized with policy or with `Closure` callback. 
 
 ### Using Policy
 
@@ -189,10 +191,10 @@ Transition::define('new', 'review')
 Additionally, transition may have a conditions. 
 Condition defines requirements to a model. If model fits the requirement the transition can be performed.
 
-Condition is a `\Closure` with `Model` argument. Condition may throw an exception.
-There are two types of transition exceptions — recoverable and not.
+Condition is a `Closure` with `Model` argument. Condition may throw an exception.
+There are two types of transition exceptions — recoverable and fatal.
 
-You may define few conditions to single transition.
+You may define few conditions to a single transition.
 
 #### Transitions with recoverable problems 
 
@@ -235,7 +237,7 @@ You should disable problem transition in user interface and show to the user pro
 #### Hiding transitions
 
 In some cases workflow routes may divide into branches. What route to go decides business logic, not user.
-So user even shouldn't know about other branch.
+So user even shouldn't know about other branches.
 
 ```php
 Transition::define('new', 'to-local-manager')
@@ -255,9 +257,61 @@ Transition::define('new', 'to-region-manager')
 
 So user will see only one possible transition depending on order amount value.
 
+## Additional context
+
+Sometimes you need to get additional context to perform a transition. For example, it may be a reason the article was rejected by the reviewer.
+
+First, declare the requirements in transition definition:
+
+```php
+Transition::define('review', 'reject')
+    ->requires('reason');
+```
+
+The transition will look like:
+
+```json
+{
+  "id": 1,
+  "title": "Article title",
+  "state": "blueprint.states.review",
+  "transitions": [
+    {
+      "caption": "blueprint.transitions.review.reject",
+      "source": "review",
+      "target": "reject",
+      "problems": [],
+      "requires": ["reason"]
+    }
+  ]
+}
+```
+
+Next, provide the context in the controller:
+
+```php
+public function update(Request $request, Article $article)
+{
+    $this->authorize('update', $article);
+    
+    if ($state = $request->get('state')) {
+        $article->workflow()->authorize($state);
+        $article->state = $state;
+        
+        $article->workflow()->context($request->all());
+    }
+    
+    $article->save();
+}
+```
+
+The context will be validated while saving, and you may receive the `ValidationException`.
+
+After all you may use this context in events (see below).
+
 ## Events
 
-Transition generates `ModelTransited` event. You may define EventListener to listen to it.
+Transition generates `ModelTransited` event. You may define `EventListener` to listen to it.
 
 ```php
 class ModelTransited
@@ -268,7 +322,7 @@ class ModelTransited
             $article = $event->model;
 
             if ($event->transition->target() === 'correcting') {
-                $article->author->notify(new ArticleHasProblem($article));
+                $article->author->notify(new ArticleHasProblem($article, $event->transition->context()));
             }
         }
     }
@@ -277,9 +331,9 @@ class ModelTransited
 
 ## Observers
 
-Instead of using Listener you may use Observer.
+Instead of using `Listener` you may use `Observer`.
 
-First, you should add trait to the model.
+First, you should add the trait, that adds the new events to the model.
 
 ```php
 class Article 
@@ -302,7 +356,7 @@ class ArticleObserver
     public function transited(Article $article, StateMachineEngine $engine, Transition $transition)
     {
         if ($transition->target() === 'correcting') {
-            $article->author->notify(new ArticleHasProblem($article));
+            $article->author->notify(new ArticleHasProblem($article, $transition->context()));
         }
     }
 }
@@ -312,13 +366,13 @@ class ArticleObserver
 
 Otherwise, you may define transition callback(s), that will be called after transition were successfully performed.
 
-Callback is a `\Closure` with `Model` argument.
+Callback is a `Closure` with `Model` argument.
 
 ```php
 Transition::define('review', 'correcting')
-    ->callback(function(Article $article) {
-        $article->author->notify(new ArticleHasProblem($article));
+    ->callback(function(Article $article, array $context) {
+        $article->author->notify(new ArticleHasProblem($article, $context));
     }); 
 ```
 
-You may define few callbacks to single transition.
+You may define few callbacks to a single transition.
