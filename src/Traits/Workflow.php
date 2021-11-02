@@ -20,7 +20,7 @@ use Codewiser\Workflow\StateMachineObserver;
  */
 trait Workflow
 {
-    protected static function bootedWorkflow()
+    protected static function bootWorkflow()
     {
         static::creating(function (Model $model) {
             return (new StateMachineObserver)->creating($model);
