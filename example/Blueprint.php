@@ -4,6 +4,7 @@ namespace App;
 
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
+use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Notification;
@@ -12,7 +13,13 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
 {
     protected function states(): array
     {
-        return ['one', 'recoverable', 'fatal', 'callback', 'deny'];
+        return [
+            State::define('one')->as('Initial state'),
+            'recoverable',
+            'fatal',
+            'callback',
+            'deny'
+        ];
     }
 
     protected function transitions(): array
@@ -23,7 +30,7 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
                     throw new TransitionRecoverableException();
                 }),
 
-            Transition::define('one', 'fatal')
+            Transition::define('one', 'fatal')->as('Fatal transition')
                 ->condition(function (Post $model) {
                     throw new TransitionFatalException();
                 }),

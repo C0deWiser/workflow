@@ -24,6 +24,8 @@ class Transition implements Arrayable
 {
     protected string $source;
     protected string $target;
+    protected ?string $caption = null;
+
     /**
      * @var Model|Workflow|null
      */
@@ -32,6 +34,9 @@ class Transition implements Arrayable
     protected Collection $conditions;
     protected Collection $callbacks;
     protected Collection $attributes;
+    /**
+     * @var string|\Closure|null
+     */
     protected $authorization;
     /**
      * Transition additional context.
@@ -47,7 +52,7 @@ class Transition implements Arrayable
      * @param $target
      * @return static
      */
-    public static function define($source, $target): Transition
+    public static function define($source, $target): self
     {
         return new static($source, $target);
     }
@@ -85,7 +90,7 @@ class Transition implements Arrayable
      * @param string|\Closure $ability
      * @return $this
      */
-    public function authorize($ability): Transition
+    public function authorize($ability): self
     {
         $this->authorization = $ability;
         return $this;
@@ -97,7 +102,7 @@ class Transition implements Arrayable
      * @param Closure $condition
      * @return $this
      */
-    public function condition(Closure $condition): Transition
+    public function condition(Closure $condition): self
     {
         $this->conditions->push($condition);
         return $this;
@@ -109,9 +114,22 @@ class Transition implements Arrayable
      * @param Closure $callback
      * @return $this
      */
-    public function callback(Closure $callback): Transition
+    public function callback(Closure $callback): self
     {
         $this->callbacks->push($callback);
+        return $this;
+    }
+
+    /**
+     * Set Transition caption.
+     *
+     * @param string $caption
+     * @return $this
+     */
+    public function as(string $caption): self
+    {
+        if ($caption)
+            $this->caption = $caption;
         return $this;
     }
 
@@ -121,7 +139,7 @@ class Transition implements Arrayable
      * @param string|string[] $attributes
      * @return $this
      */
-    public function requires($attributes): Transition
+    public function requires($attributes): self
     {
         if (is_string($attributes)) {
             $this->attributes->push($attributes);
@@ -147,12 +165,12 @@ class Transition implements Arrayable
     /**
      * Get transition caption trans string.
      *
-     * @param bool $pastPerfect get caption for completed transition
      * @return string
      */
-    public function caption(bool $pastPerfect = false): string
+    public function caption(): string
     {
-        return __(Str::snake(class_basename($this->workflow()->blueprint())) . "." . ($pastPerfect ? 'transited' : 'transitions') . ".{$this->source()}.{$this->target()}");
+        return $this->caption ??
+            __(Str::snake(class_basename($this->workflow()->blueprint())) . ".transitions.{$this->source()}.{$this->target()}");
     }
 
     /**
@@ -254,7 +272,7 @@ class Transition implements Arrayable
      * @throws TransitionFatalException
      * @throws TransitionRecoverableException
      */
-    public function validate(): Transition
+    public function validate(): self
     {
         foreach ($this->conditions() as $condition) {
             call_user_func($condition, $this->model);
@@ -272,6 +290,7 @@ class Transition implements Arrayable
     public function context(array $context = null): array
     {
         if (is_array($context)) {
+
             $rules = $this->requirements()
                 ->mapWithKeys(function (string $attribute) {
                     return [$attribute => 'required|string'];

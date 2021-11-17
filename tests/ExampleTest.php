@@ -39,7 +39,7 @@ class ExampleTest extends TestCase
 
         // Implicit init (using observer)
         $this->assertTrue((new StateMachineObserver)->creating($post));
-        $this->assertEquals($post->workflow()->initial(), $post->state, 'State value was initialized on creating event');
+        $this->assertEquals((string)$post->workflow()->initial(), $post->state, 'State value was initialized on creating event');
     }
 
     public function testTransitions()

@@ -2,13 +2,9 @@
 
 namespace Codewiser\Workflow\Traits;
 
-use Codewiser\Workflow\Contracts\WorkflowContract;
-use Codewiser\Workflow\Exceptions\WorkflowException;
 use Codewiser\Workflow\StateMachineEngine;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\StateMachineObserver;
 
 /**

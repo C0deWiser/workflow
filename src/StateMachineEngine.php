@@ -42,7 +42,7 @@ class StateMachineEngine
 
     public function __toString()
     {
-        return $this->state();
+        return (string)$this->state();
     }
 
     /**
@@ -58,21 +58,21 @@ class StateMachineEngine
     /**
      * Get (current or any) state caption trans string.
      *
-     * @param string|null $state
+     * @param State|string|null $state
      * @return string
      */
     public function caption(string $state = null): string
     {
-        $state = $state ?: $this->state();
-        return __(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
+        $state = $state ? $this->states()->one($state) : $this->state();
+        return $state->caption() ?: __(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
     }
 
     /**
      * Get all states of the workflow.
      *
-     * @return Collection|string[]
+     * @return StateCollection|State[]
      */
-    public function states(): Collection
+    public function states(): StateCollection
     {
         return $this->blueprint->getStates();
     }
@@ -80,7 +80,7 @@ class StateMachineEngine
     /**
      * Get all transitions in the workflow.
      *
-     * @return TransitionCollection
+     * @return TransitionCollection|Transition[]
      */
     public function transitions(): TransitionCollection
     {
@@ -121,9 +121,9 @@ class StateMachineEngine
     /**
      * Get workflow initial state.
      *
-     * @return string
+     * @return State
      */
-    public function initial(): string
+    public function initial(): State
     {
         return $this->states()->first();
     }
@@ -131,11 +131,13 @@ class StateMachineEngine
     /**
      * Get the model current state.
      *
-     * @return string|null
+     * @return State|null
      */
-    public function state(): ?string
+    public function state(): ?State
     {
-        return $this->model->getAttribute($this->attribute());
+        $state = $this->model->getAttribute($this->attribute());
+
+        return $state ? $this->states()->one($state) : null;
     }
 
     /**
@@ -172,7 +174,7 @@ class StateMachineEngine
      */
     public function reset()
     {
-        $this->model->setAttribute($this->attribute(), $this->initial());
+        $this->model->setAttribute($this->attribute(), (string)$this->initial());
     }
 
     /**

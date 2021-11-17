@@ -22,7 +22,7 @@ abstract class WorkflowBlueprint
     /**
      * Array of available Model Workflow steps. First one is initial.
      *
-     * @return string[]
+     * @return string[]|State[]
      * @example [new, review, published, correcting]
      */
     abstract protected function states(): array;
@@ -66,17 +66,26 @@ abstract class WorkflowBlueprint
     /**
      * Array of states.
      *
-     * @return string[]|Collection
+     * @return StateCollection|State[]
      */
-    public function getStates(): Collection
+    public function getStates(): StateCollection
     {
-        return collect($this->states());
+        $states = new StateCollection();
+
+        foreach ($this->states() as $state) {
+            if (is_string($state)) {
+                $state = State::define($state);
+            }
+            $states->add($state);
+        }
+
+        return $states;
     }
 
     /**
      * Array of transitions between states.
      *
-     * @return TransitionCollection
+     * @return TransitionCollection|Transition[]
      */
     public function getTransitions(): TransitionCollection
     {

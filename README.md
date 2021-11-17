@@ -60,7 +60,7 @@ class Article extends Model
 
 ## Usage
 
-You may access workflow service class through the model.
+You may access workflow service class through model's `workflow` method. If model has few workflow schemas, you may get the exact you need.
 
 ```php
 
@@ -73,11 +73,8 @@ $article->workflow();
 $article->workflow('editorial_workflow'); 
 
 // Will return EditorialWorkflow
-$article->workflow(EditorialWorkflow::class); 
-
+$article->workflow(EditorialWorkflow::class);
 ```
-
-So, if your model has few workflow schemas, you may get the exact you need. 
 
 Now show to the user possible transitions from the current state of the article:
 
@@ -99,10 +96,10 @@ Captions of current state and transitions are translatable string.
 {
   "id": 1,
   "title": "Article title",
-  "state": "blueprint.states.draft",
+  "state": "article_workflow.states.draft",
   "transitions": [
     {
-      "caption": "blueprint.transitions.draft.publish",
+      "caption": "article_workflow.transitions.new.publish",
       "source": "draft",
       "target": "publish",
       "problems": [],
@@ -129,6 +126,41 @@ $article->save();
 ```
 
 Saving with a wrong state will be caught by `updating` observer.
+
+## Captions
+
+As you can see above, model's states and transitions has their captions. By default, the caption is a translatable string, built from Blueprint class name. For example,
+
+    article_workflow.states.draft
+    article_workflow.states.publish
+    article_workflow.transitions.draft.publish
+
+You may localize this strings in application's translation files.
+
+Otherwise, you may define `State` and `Transition` with custom caption:
+
+```php
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+{
+    protected function states(): array
+    {
+        return [
+            State::define('new')
+                ->as(__('New article')),
+            State::define('published')
+                ->as(__('Published'))
+        ];
+    }
+    protected function transitions(): array
+    {
+        return [
+            Transition::define('new', 'published')
+                ->as('Publish')
+        ];
+    }
+}
+```
+
 
 ## Authorization
 
@@ -189,7 +221,7 @@ Transition::define('new', 'review')
 ### Conditions
 
 Additionally, transition may have a conditions. 
-Condition defines requirements to a model. If model fits the requirement the transition can be performed.
+It describes prerequisites to a model. If model fits this conditions then the transition can be performed.
 
 Condition is a `Closure` with `Model` argument. Condition may throw an exception.
 There are two types of transition exceptions — recoverable and fatal.
@@ -198,7 +230,7 @@ You may define few conditions to a single transition.
 
 #### Transitions with recoverable problems 
 
-Throw `TransitionRecoverableException` if you suppose user to resolve the problem. Leave helping instructions in exception message. 
+Condition should throw `TransitionRecoverableException` if you suppose user to resolve the problem. Leave helping instructions in exception message. 
 
 Here is an example of problem user may resolve.
 
@@ -206,7 +238,7 @@ Here is an example of problem user may resolve.
 Transition::define('new', 'review')
     ->condition(function(Article $model) {
        if (strlen($model->body) < 1000) {
-           throw new TransitionRecoverableException('Your article should contain at least 1000 symbols');
+           throw new TransitionRecoverableException('Your article should contain at least 1000 symbols. Then you may send it to review.');
        }
    });
 ```
@@ -236,8 +268,8 @@ You should disable problem transition in user interface and show to the user pro
 
 #### Hiding transitions
 
-In some cases workflow routes may divide into branches. What route to go decides business logic, not user.
-So user even shouldn't know about other branches.
+In some cases workflow routes may divide into branches. Way to go forced by business logic, not user.
+User even shouldn't know about other transitions.
 
 ```php
 Transition::define('new', 'to-local-manager')
@@ -255,11 +287,11 @@ Transition::define('new', 'to-region-manager')
     }); 
 ```
 
-So user will see only one possible transition depending on order amount value.
+User will see only one possible transition depending on order amount value.
 
 ## Additional context
 
-Sometimes you need to get additional context to perform a transition. For example, it may be a reason the article was rejected by the reviewer.
+Sometimes you need to get additional context to perform a transition. For example, it may be a reason the article was rejected by the reviewer. Reason — is a textual comment attached to a transition.
 
 First, declare the requirements in transition definition:
 
@@ -322,7 +354,7 @@ class ModelTransited
             $article = $event->model;
 
             if ($event->transition->target() === 'correcting') {
-                $article->author->notify(new ArticleHasProblem($article, $event->transition->context()));
+                $article->author->notify(new ArticleHasProblem($article, $event->context['reason']));
             }
         }
     }
@@ -353,10 +385,10 @@ class ArticleObserver
         // return false to interrupt transition
     }
 
-    public function transited(Article $article, StateMachineEngine $engine, Transition $transition)
+    public function transited(Article $article, StateMachineEngine $engine, Transition $transition, array $context)
     {
         if ($transition->target() === 'correcting') {
-            $article->author->notify(new ArticleHasProblem($article, $transition->context()));
+            $article->author->notify(new ArticleHasProblem($article, $context['reason']));
         }
     }
 }
@@ -366,12 +398,12 @@ class ArticleObserver
 
 Otherwise, you may define transition callback(s), that will be called after transition were successfully performed.
 
-Callback is a `Closure` with `Model` argument.
+Callback is a `Closure` with `Model` and `context` arguments.
 
 ```php
 Transition::define('review', 'correcting')
     ->callback(function(Article $article, array $context) {
-        $article->author->notify(new ArticleHasProblem($article, $context));
+        $article->author->notify(new ArticleHasProblem($article, $context['reason']));
     }); 
 ```
 

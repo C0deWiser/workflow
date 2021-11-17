@@ -22,7 +22,7 @@ class StateMachineObserver
     {
         $model->getWorkflowListing()
             ->each(function (StateMachineEngine $engine) use ($model) {
-                $model->setAttribute($engine->attribute(), $engine->initial());
+                $model->setAttribute($engine->attribute(), (string)$engine->initial());
             });
 
         return true;
@@ -52,7 +52,7 @@ class StateMachineObserver
                         // May throw an Exception
                         ->validate();
 
-                    // Set and validate context. May throw an Exception
+                    // Pass context to transition for validation. May throw an Exception
                     $transition->context($engine->context());
 
                     // For Transition Observer
@@ -87,21 +87,21 @@ class StateMachineObserver
                         ->from($source)->to($target)
                         ->sole();
 
-                    // Set context
-                    $transition->context($engine->context());
+                    // Context was validated while `updating`. Just use it
+                    $context = $engine->context();
 
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
-                        $model->fireTransitionEvent('transited', false, $engine, $transition);
+                        $model->fireTransitionEvent('transited', false, $engine, $transition, $context);
                     }
 
                     // For Event Listener
-                    event(new ModelTransited($model, $engine, $transition));
+                    event(new ModelTransited($model, $engine, $transition, $context));
 
                     // For Transition Callback
                     $transition->callbacks()
-                        ->each(function (\Closure $callback) use ($model, $transition) {
-                            call_user_func($callback, $model, $transition->context());
+                        ->each(function (\Closure $callback) use ($model, $context) {
+                            call_user_func($callback, $model, $context);
                         });
                 }
             });
