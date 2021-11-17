@@ -16,7 +16,7 @@ use Codewiser\Workflow\StateMachineObserver;
  */
 trait HasWorkflow
 {
-    protected static function bootWorkflow()
+    protected static function bootHasWorkflow()
     {
         static::creating(function (Model $model) {
             return (new StateMachineObserver)->creating($model);
