@@ -4,7 +4,7 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelTransited;
-use Codewiser\Workflow\Traits\Workflow;
+use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 class StateMachineObserver
 {
     /**
-     * @param Model|Workflow $model
+     * @param Model|HasWorkflow $model
      * @return bool
      */
     public function creating(Model $model)
@@ -29,7 +29,7 @@ class StateMachineObserver
     }
 
     /**
-     * @param Model|Workflow $model
+     * @param Model|HasWorkflow $model
      * @return bool
      */
     public function updating(Model $model)
@@ -70,7 +70,7 @@ class StateMachineObserver
     }
 
     /**
-     * @param Model|Workflow $model
+     * @param Model|HasWorkflow $model
      */
     public function updated(Model $model)
     {

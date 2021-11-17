@@ -3,7 +3,7 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Traits\Workflow;
+use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 class StateMachineEngine
 {
     /**
-     * @var Model|Workflow
+     * @var Model|HasWorkflow
      */
     protected Model $model;
 

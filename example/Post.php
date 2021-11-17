@@ -2,7 +2,7 @@
 
 namespace App;
 
-use Codewiser\Workflow\Traits\Workflow;
+use Codewiser\Workflow\Traits\HasWorkflow;
 use Codewiser\Workflow\Traits\WorkflowObserver;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Post extends Model
 {
-    use Workflow;
+    use HasWorkflow;
 
     public $workflow = [
         'state' => Blueprint::class,

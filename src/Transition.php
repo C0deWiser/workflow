@@ -6,7 +6,7 @@ use Closure;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
-use Codewiser\Workflow\Traits\Workflow;
+use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Database\Eloquent\Model;
@@ -27,11 +27,11 @@ class Transition implements Arrayable
     protected ?string $caption = null;
 
     /**
-     * @var Model|Workflow|null
+     * @var Model|HasWorkflow|null
      */
     protected ?Model $model;
     protected ?string $attribute;
-    protected Collection $conditions;
+    protected Collection $prerequisites;
     protected Collection $callbacks;
     protected Collection $attributes;
     /**
@@ -62,7 +62,7 @@ class Transition implements Arrayable
         $this->source = $source;
         $this->target = $target;
         $this->authorization = null;
-        $this->conditions = new Collection();
+        $this->prerequisites = new Collection();
         $this->attributes = new Collection();
         $this->callbacks = new Collection();
     }
@@ -85,26 +85,26 @@ class Transition implements Arrayable
     }
 
     /**
-     * Authorize transition using policy ability.
+     * Authorize transition using policy ability (or closure).
      *
      * @param string|\Closure $ability
      * @return $this
      */
-    public function authorize($ability): self
+    public function authorizedBy($ability): self
     {
         $this->authorization = $ability;
         return $this;
     }
 
     /**
-     * Add condition to the transition.
+     * Add prerequisite to the transition.
      *
-     * @param Closure $condition
+     * @param Closure $prerequisite
      * @return $this
      */
-    public function condition(Closure $condition): self
+    public function before(Closure $prerequisite): self
     {
-        $this->conditions->push($condition);
+        $this->prerequisites->push($prerequisite);
         return $this;
     }
 
@@ -114,7 +114,7 @@ class Transition implements Arrayable
      * @param Closure $callback
      * @return $this
      */
-    public function callback(Closure $callback): self
+    public function after(Closure $callback): self
     {
         $this->callbacks->push($callback);
         return $this;
@@ -141,13 +141,7 @@ class Transition implements Arrayable
      */
     public function requires($attributes): self
     {
-        if (is_string($attributes)) {
-            $this->attributes->push($attributes);
-        }
-        if (is_array($attributes)) {
-            $this->attributes->merge($attributes);
-        }
-
+        $this->attributes->merge((array)$attributes);
         return $this;
     }
 
@@ -208,9 +202,9 @@ class Transition implements Arrayable
      *
      * @return Collection|Closure[]
      */
-    public function conditions(): Collection
+    public function prerequisites(): Collection
     {
-        return $this->conditions;
+        return $this->prerequisites;
     }
 
     /**
@@ -230,7 +224,7 @@ class Transition implements Arrayable
      */
     public function problems(): array
     {
-        return $this->conditions()
+        return $this->prerequisites()
             ->map(function (\Closure $condition) {
                 try {
                     call_user_func($condition, $this->model);
@@ -274,7 +268,7 @@ class Transition implements Arrayable
      */
     public function validate(): self
     {
-        foreach ($this->conditions() as $condition) {
+        foreach ($this->prerequisites() as $condition) {
             call_user_func($condition, $this->model);
         }
         return $this;

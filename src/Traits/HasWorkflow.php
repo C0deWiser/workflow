@@ -14,7 +14,7 @@ use Codewiser\Workflow\StateMachineObserver;
  * @mixin Model
  * @property array $workflow
  */
-trait Workflow
+trait HasWorkflow
 {
     protected static function bootWorkflow()
     {

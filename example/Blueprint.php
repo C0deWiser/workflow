@@ -26,23 +26,23 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
     {
         return [
             Transition::define('one', 'recoverable')
-                ->condition(function (Post $model) {
+                ->before(function (Post $model) {
                     throw new TransitionRecoverableException();
                 }),
 
             Transition::define('one', 'fatal')->as('Fatal transition')
-                ->condition(function (Post $model) {
+                ->before(function (Post $model) {
                     throw new TransitionFatalException();
                 }),
 
             Transition::define('one', 'callback')
                 ->requires('comment')
-                ->callback(function (Post $model, array $context) {
+                ->after(function (Post $model, array $context) {
                     $model->body = $context['comment'];
                 }),
 
             Transition::define('one', 'deny')
-                ->authorize(function (Post $model) {
+                ->authorizedBy(function (Post $model) {
                     return false;
                 }),
 

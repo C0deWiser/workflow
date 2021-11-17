@@ -10,7 +10,10 @@ Transitions between states inflicts the evolution road.
 First, describe your model workflow blueprint.
 
 ```php
-class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+use \Codewiser\Workflow\Transition;
+use \Codewiser\Workflow\WorkflowBlueprint;
+
+class ArticleWorkflow extends WorkflowBlueprint
 {
     protected function states(): array
     {
@@ -31,9 +34,11 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 Second, apply workflow to your model.
 
 ```php
+use \Codewiser\Workflow\Traits\HasWorkflow;
+
 class Article extends Model
 {
-    use Codewiser\Workflow\Traits\Workflow;
+    use HasWorkflow;
     
     public $workflow = [
         'state' => ArticleWorkflow::class
@@ -47,9 +52,11 @@ You should migrate model schema to add this column (string, not null).
 You may define few workflow schemas as the same time, each in its own attribute.
 
 ```php
+use \Codewiser\Workflow\Traits\HasWorkflow;
+
 class Article extends Model
 {
-    use Workflow;
+    use HasWorkflow;
     
     public $workflow = [
         'editorial_workflow' => EditorialWorkflow::class,
@@ -57,6 +64,31 @@ class Article extends Model
     ];
 }
 ```
+
+### Definitions
+
+Workflow state may be defined as a string (you see this above) or as `State` object.
+
+```php
+use \Codewiser\Workflow\State;
+
+State::define('state')
+    ->as(/* state caption */);
+```
+Workflow transition has the following definition:
+
+```php
+use \Codewiser\Workflow\Transition;
+
+Transition::define('source', 'target')
+    ->as(/* transition caption */)
+    ->authorizedBy(/* policy ability or closure */)
+    ->requires(/* additional attributes */)
+    ->before(/* runs before transition */)
+    ->after(/* runs after transition */);
+```
+
+All these methods will be described later.
 
 ## Usage
 
@@ -140,7 +172,11 @@ You may localize this strings in application's translation files.
 Otherwise, you may define `State` and `Transition` with custom caption:
 
 ```php
-class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+use \Codewiser\Workflow\State;
+use \Codewiser\Workflow\Transition;
+use \Codewiser\Workflow\WorkflowBlueprint;
+
+class ArticleWorkflow extends WorkflowBlueprint
 {
     protected function states(): array
     {
@@ -160,7 +196,6 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
     }
 }
 ```
-
 
 ## Authorization
 
@@ -193,8 +228,10 @@ Transition may be authorized with policy or with `Closure` callback.
 ### Using Policy
 
 ```php
+use \Codewiser\Workflow\Transition;
+
 Transition::define('new', 'review')
-    ->authorize('toReview');
+    ->authorizedBy('toReview');
 ```
 
 ```php
@@ -210,33 +247,36 @@ class ArticlePolicy
 ### Using Closure
 
 ```php
+use \Codewiser\Workflow\Transition;
+
 Transition::define('new', 'review')
-    ->authorize(function (Article $article) {
+    ->authorizedBy(function (Article $article) {
         return $article->author->is(auth()->user());
     });
 ```
 
 ## Business Logic
 
-### Conditions
+### Prerequisites
 
-Additionally, transition may have a conditions. 
-It describes prerequisites to a model. If model fits this conditions then the transition can be performed.
+Additionally, transition may have some prerequisites to a model. If model fits this conditions then the transition can be performed.
 
-Condition is a `Closure` with `Model` argument. Condition may throw an exception.
+Prerequisite is a `Closure` with `Model` argument. It may throw an exception.
 There are two types of transition exceptions — recoverable and fatal.
 
-You may define few conditions to a single transition.
+You may define few prerequisites to a single transition.
 
 #### Transitions with recoverable problems 
 
-Condition should throw `TransitionRecoverableException` if you suppose user to resolve the problem. Leave helping instructions in exception message. 
+Prerequisite should throw `TransitionRecoverableException` if you suppose user to resolve the problem. Leave helping instructions in exception message. 
 
 Here is an example of problem user may resolve.
 
 ```php
+use \Codewiser\Workflow\Transition;
+
 Transition::define('new', 'review')
-    ->condition(function(Article $model) {
+    ->before(function(Article $model) {
        if (strlen($model->body) < 1000) {
            throw new TransitionRecoverableException('Your article should contain at least 1000 symbols. Then you may send it to review.');
        }
@@ -272,15 +312,17 @@ In some cases workflow routes may divide into branches. Way to go forced by busi
 User even shouldn't know about other transitions.
 
 ```php
+use \Codewiser\Workflow\Transition;
+
 Transition::define('new', 'to-local-manager')
-    ->condition(function($model) {
+    ->before(function($model) {
         if ($model->orderAmount >= 1000000) {
             throw new TransitionFatalException();
         }
     }); 
 
 Transition::define('new', 'to-region-manager')
-    ->condition(function($model) {
+    ->before(function($model) {
         if ($model->orderAmount < 1000000) {
             throw new TransitionFatalException();
         }
@@ -296,6 +338,8 @@ Sometimes you need to get additional context to perform a transition. For exampl
 First, declare the requirements in transition definition:
 
 ```php
+use \Codewiser\Workflow\Transition;
+
 Transition::define('review', 'reject')
     ->requires('reason');
 ```
@@ -402,7 +446,7 @@ Callback is a `Closure` with `Model` and `context` arguments.
 
 ```php
 Transition::define('review', 'correcting')
-    ->callback(function(Article $article, array $context) {
+    ->after(function(Article $article, array $context) {
         $article->author->notify(new ArticleHasProblem($article, $context['reason']));
     }); 
 ```
