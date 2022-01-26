@@ -92,16 +92,16 @@ class StateMachineObserver
 
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
-                        $model->fireTransitionEvent('transited', false, $engine, $transition, $context);
+                        $model->fresh()->fireTransitionEvent('transited', false, $engine, $transition, $context);
                     }
 
                     // For Event Listener
-                    event(new ModelTransited($model, $engine, $transition, $context));
+                    event(new ModelTransited($model->fresh(), $engine, $transition, $context));
 
                     // For Transition Callback
                     $transition->callbacks()
                         ->each(function (\Closure $callback) use ($model, $context) {
-                            call_user_func($callback, $model, $context);
+                            call_user_func($callback, $model->fresh(), $context);
                         });
                 }
             });
