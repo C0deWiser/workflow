@@ -2,7 +2,6 @@
 
 namespace Codewiser\Workflow;
 
-use Closure;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
@@ -35,7 +34,7 @@ class Transition implements Arrayable
     protected Collection $callbacks;
     protected Collection $attributes;
     /**
-     * @var string|\Closure|null
+     * @var string|callable|null
      */
     protected $authorization;
     /**
@@ -87,7 +86,7 @@ class Transition implements Arrayable
     /**
      * Authorize transition using policy ability (or closure).
      *
-     * @param string|\Closure $ability
+     * @param string|callable $ability
      * @return $this
      */
     public function authorizedBy($ability): self
@@ -99,10 +98,10 @@ class Transition implements Arrayable
     /**
      * Add prerequisite to the transition.
      *
-     * @param Closure $prerequisite
+     * @param callable $prerequisite
      * @return $this
      */
-    public function before(Closure $prerequisite): self
+    public function before(callable $prerequisite): self
     {
         $this->prerequisites->push($prerequisite);
         return $this;
@@ -111,10 +110,10 @@ class Transition implements Arrayable
     /**
      * Callback(s) will run after transition is done.
      *
-     * @param Closure $callback
+     * @param callable $callback
      * @return $this
      */
-    public function after(Closure $callback): self
+    public function after(callable $callback): self
     {
         $this->callbacks->push($callback);
         return $this;
@@ -190,7 +189,7 @@ class Transition implements Arrayable
     /**
      * Ability to authorize.
      *
-     * @return string|\Closure|null
+     * @return string|callable|null
      */
     public function authorization()
     {
@@ -200,7 +199,7 @@ class Transition implements Arrayable
     /**
      * Get registered preconditions.
      *
-     * @return Collection|Closure[]
+     * @return Collection|callable[]
      */
     public function prerequisites(): Collection
     {
@@ -210,7 +209,7 @@ class Transition implements Arrayable
     /**
      * Get registered transition callbacks.
      *
-     * @return Collection|Closure[]
+     * @return Collection|callable[]
      */
     public function callbacks(): Collection
     {
@@ -225,7 +224,7 @@ class Transition implements Arrayable
     public function problems(): array
     {
         return $this->prerequisites()
-            ->map(function (\Closure $condition) {
+            ->map(function (callable $condition) {
                 try {
                     call_user_func($condition, $this->model);
                 } catch (TransitionFatalException $e) {
