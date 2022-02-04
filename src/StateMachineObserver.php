@@ -100,7 +100,7 @@ class StateMachineObserver
 
                     // For Transition Callback
                     $transition->callbacks()
-                        ->each(function (callable $callback) use ($model, $context) {
+                        ->each(function ($callback) use ($model, $context) {
                             call_user_func($callback, $model->fresh(), $context);
                         });
                 }

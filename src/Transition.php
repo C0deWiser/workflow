@@ -101,7 +101,7 @@ class Transition implements Arrayable
      * @param callable $prerequisite
      * @return $this
      */
-    public function before(callable $prerequisite): self
+    public function before($prerequisite): self
     {
         $this->prerequisites->push($prerequisite);
         return $this;
@@ -113,7 +113,7 @@ class Transition implements Arrayable
      * @param callable $callback
      * @return $this
      */
-    public function after(callable $callback): self
+    public function after($callback): self
     {
         $this->callbacks->push($callback);
         return $this;
@@ -224,7 +224,7 @@ class Transition implements Arrayable
     public function problems(): array
     {
         return $this->prerequisites()
-            ->map(function (callable $condition) {
+            ->map(function ($condition) {
                 try {
                     call_user_func($condition, $this->model);
                 } catch (TransitionFatalException $e) {
