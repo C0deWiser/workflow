@@ -109,6 +109,21 @@ class StateMachineEngine
     }
 
     /**
+     * Get available transition to the given state.
+     *
+     * @param State|string $state
+     * @return Transition|null
+     */
+    public function channelTo($state):?Transition
+    {
+        return $this
+            ->channels()
+            ->first(function (Transition $transition) use ($state) {
+                return $transition->target() == (string)$state;
+            });
+    }
+
+    /**
      * Get workflow attribute name.
      *
      * @return string
