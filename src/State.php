@@ -2,9 +2,10 @@
 
 namespace Codewiser\Workflow;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Str;
 
-class State
+class State implements Arrayable
 {
     protected string $value;
     protected ?string $caption = null;
@@ -61,5 +62,13 @@ class State
     public function value(): string
     {
         return $this->value;
+    }
+
+    public function toArray(): array
+    {
+        return [
+            'value' => $this->value(),
+            'caption' => $this->caption() ?: $this->value()
+        ];
     }
 }
