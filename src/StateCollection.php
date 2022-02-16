@@ -17,4 +17,18 @@ class StateCollection extends \Illuminate\Support\Collection
                 return (string)$st == (string)$state;
             });
     }
+
+    /**
+     * Get grouped states.
+     *
+     * @param string $group
+     * @return $this
+     */
+    public function grouped(string $group): self
+    {
+        return $this
+            ->filter(function (State $state) use ($group) {
+                return $state->group() == $group;
+            });
+    }
 }

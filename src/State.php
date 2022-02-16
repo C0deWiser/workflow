@@ -9,6 +9,7 @@ class State implements Arrayable
 {
     protected string $value;
     protected ?string $caption = null;
+    protected ?string $group = null;
 
     /**
      * State new instance.
@@ -45,6 +46,19 @@ class State implements Arrayable
     }
 
     /**
+     * Set group for the State.
+     *
+     * @param string $group
+     * @return $this
+     */
+    public function grouped(string $group): self
+    {
+        if ($group)
+            $this->group = $group;
+        return $this;
+    }
+
+    /**
      * Get caption of the State.
      *
      * @return string|null
@@ -52,6 +66,16 @@ class State implements Arrayable
     public function caption(): ?string
     {
         return $this->caption;
+    }
+
+    /**
+     * Get the group of the State.
+     *
+     * @return string|null
+     */
+    public function group(): ?string
+    {
+        return $this->group;
     }
 
     /**
@@ -68,7 +92,8 @@ class State implements Arrayable
     {
         return [
             'value' => $this->value(),
-            'caption' => $this->caption() ?: $this->value()
+            'caption' => $this->caption() ?: $this->value(),
+            'group' => $this->group(),
         ];
     }
 }
