@@ -10,6 +10,7 @@ class State implements Arrayable
     protected string $value;
     protected ?string $caption = null;
     protected ?string $group = null;
+    protected array $attributes = [];
 
     /**
      * State new instance.
@@ -50,6 +51,7 @@ class State implements Arrayable
      *
      * @param string $group
      * @return $this
+     * @deprecated
      */
     public function grouped(string $group): self
     {
@@ -72,6 +74,7 @@ class State implements Arrayable
      * Get the group of the State.
      *
      * @return string|null
+     * @deprecated
      */
     public function group(): ?string
     {
@@ -92,8 +95,30 @@ class State implements Arrayable
     {
         return [
             'value' => $this->value(),
-            'caption' => $this->caption() ?: $this->value(),
-            'group' => $this->group(),
-        ];
+            'caption' => $this->caption() ?: $this->value()
+        ] + $this->attributes();
+    }
+
+    /**
+     * Get additional attributes.
+     *
+     * @return array
+     */
+    public function attributes(): array
+    {
+        return $this->attributes;
+    }
+
+    /**
+     * Set any additional attribute: color, order etc
+     *
+     * @param string $attribute
+     * @param mixed $value
+     * @return $this
+     */
+    public function set(string $attribute, $value): self
+    {
+        $this->attributes[$attribute] = $value;
+        return $this;
     }
 }

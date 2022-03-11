@@ -23,6 +23,7 @@ class StateCollection extends \Illuminate\Support\Collection
      *
      * @param string $group
      * @return $this
+     * @deprecated
      */
     public function grouped(string $group): self
     {
