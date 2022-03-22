@@ -3,6 +3,7 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,19 @@ class StateMachineObserver
             });
 
         return true;
+    }
+
+    /**
+     * @param Model|HasWorkflow $model
+     * @return void
+     */
+    public function created(Model $model)
+    {
+        $model->getWorkflowListing()
+            ->each(function (StateMachineEngine $engine) use ($model) {
+                // For Event Listener
+                event(new ModelInitialized($model, $engine));
+            });
     }
 
     /**

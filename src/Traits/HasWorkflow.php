@@ -22,6 +22,10 @@ trait HasWorkflow
             return (new StateMachineObserver)->creating($model);
         });
 
+        static::created(function (Model $model) {
+            (new StateMachineObserver)->created($model);
+        });
+
         static::updating(function (Model $model) {
             return (new StateMachineObserver)->updating($model);
         });
