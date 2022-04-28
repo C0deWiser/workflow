@@ -5,23 +5,26 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
-use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 /**
  * Initiates State Machine, watches for changes, fires Event.
- *
- * @package Codewiser\Workflow
  */
 class StateMachineObserver
 {
-    /**
-     * @param Model|HasWorkflow $model
-     * @return bool
-     */
-    public function creating(Model $model)
+    private function getWorkflowListing(Model $model): Collection
     {
-        $model->getWorkflowListing()
+        if (method_exists($model, 'getWorkflowListing')) {
+            return $model->getWorkflowListing();
+        }
+
+        return collect();
+    }
+
+    public function creating(Model $model): bool
+    {
+        $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
                 $model->setAttribute($engine->attribute(), (string)$engine->initial());
             });
@@ -29,27 +32,19 @@ class StateMachineObserver
         return true;
     }
 
-    /**
-     * @param Model|HasWorkflow $model
-     * @return void
-     */
-    public function created(Model $model)
+    public function created(Model $model): void
     {
-        $model->getWorkflowListing()
+        $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
                 // For Event Listener
                 event(new ModelInitialized($model, $engine));
             });
     }
 
-    /**
-     * @param Model|HasWorkflow $model
-     * @return bool
-     */
-    public function updating(Model $model)
+    public function updating(Model $model): bool
     {
         // If one transition is invalid, all update is invalid
-        return $model->getWorkflowListing()
+        return $this->getWorkflowListing($model)
             // Rejecting successful validations
             ->reject(function (StateMachineEngine $engine) use ($model) {
                 $attribute = $engine->attribute();
@@ -83,12 +78,9 @@ class StateMachineObserver
             ->isEmpty();
     }
 
-    /**
-     * @param Model|HasWorkflow $model
-     */
-    public function updated(Model $model)
+    public function updated(Model $model): void
     {
-        $model->getWorkflowListing()
+        $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
                 $attribute = $engine->attribute();
 

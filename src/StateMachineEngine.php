@@ -6,24 +6,13 @@ namespace Codewiser\Workflow;
 use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\ItemNotFoundException;
+use Illuminate\Support\MultipleItemsFoundException;
 use Illuminate\Support\Str;
 
 class StateMachineEngine
 {
-    /**
-     * @var Model|HasWorkflow
-     */
-    protected Model $model;
-
-    /**
-     * Attribute name. It keeps workflow state.
-     *
-     * @var string
-     */
-    protected string $attribute;
-    protected WorkflowBlueprint $blueprint;
     protected ?TransitionCollection $transitions = null;
 
     /**
@@ -33,11 +22,16 @@ class StateMachineEngine
      */
     protected array $context = [];
 
-    public function __construct(WorkflowBlueprint $blueprint, Model $model, string $attribute)
+    /**
+     * @param WorkflowBlueprint $blueprint
+     * @param Model $model
+     * @param string $attribute It keeps state value in a Model.
+     */
+    public function __construct(
+        protected WorkflowBlueprint $blueprint,
+        protected Model             $model,
+        protected string            $attribute)
     {
-        $this->model = $model;
-        $this->blueprint = $blueprint;
-        $this->attribute = $attribute;
     }
 
     public function __toString()
@@ -46,9 +40,7 @@ class StateMachineEngine
     }
 
     /**
-     * Get State Machine Blueprint.
-     *
-     * @return WorkflowBlueprint
+     * Get model's Workflow Blueprint.
      */
     public function blueprint(): WorkflowBlueprint
     {
@@ -57,20 +49,18 @@ class StateMachineEngine
 
     /**
      * Get (current or any) state caption trans string.
-     *
-     * @param State|string|null $state
-     * @return string
      */
-    public function caption(string $state = null): string
+    public function caption(State|string $state = null): string
     {
         $state = $state ? $this->states()->one($state) : $this->state();
-        return $state->caption() ?: __(Str::snake(class_basename($this->blueprint)) . ".states.{$state}");
+
+        return $state->caption() ?: Str::snake(class_basename($this->blueprint)) . ".states.{$state}";
     }
 
     /**
      * Get all states of the workflow.
      *
-     * @return StateCollection|State[]
+     * @return StateCollection<State>
      */
     public function states(): StateCollection
     {
@@ -80,7 +70,7 @@ class StateMachineEngine
     /**
      * Get all transitions in the workflow.
      *
-     * @return TransitionCollection|Transition[]
+     * @return TransitionCollection<Transition>
      */
     public function transitions(): TransitionCollection
     {
@@ -99,9 +89,9 @@ class StateMachineEngine
     /**
      * Get proper ways out from the current state.
      *
-     * @return TransitionCollection
+     * @return TransitionCollection<Transition>
      */
-    public function channels(): TransitionCollection
+    public function routes(): TransitionCollection
     {
         return $this->transitions()
             ->from($this->state())
@@ -110,14 +100,11 @@ class StateMachineEngine
 
     /**
      * Get available transition to the given state.
-     *
-     * @param State|string $state
-     * @return Transition|null
      */
-    public function channelTo($state):?Transition
+    public function routeTo(State|string $state): ?Transition
     {
         return $this
-            ->channels()
+            ->routes()
             ->first(function (Transition $transition) use ($state) {
                 return $transition->target() == (string)$state;
             });
@@ -125,8 +112,6 @@ class StateMachineEngine
 
     /**
      * Get workflow attribute name.
-     *
-     * @return string
      */
     public function attribute(): string
     {
@@ -135,8 +120,6 @@ class StateMachineEngine
 
     /**
      * Get workflow initial state.
-     *
-     * @return State
      */
     public function initial(): State
     {
@@ -144,9 +127,7 @@ class StateMachineEngine
     }
 
     /**
-     * Get the model current state.
-     *
-     * @return State|null
+     * Get model's current state.
      */
     public function state(): ?State
     {
@@ -158,12 +139,11 @@ class StateMachineEngine
     /**
      * Authorize transition to the new state.
      *
-     * @return $this
-     * @throws \Illuminate\Support\ItemNotFoundException
-     * @throws \Illuminate\Support\MultipleItemsFoundException
-     * @throws \Illuminate\Auth\Access\AuthorizationException
+     * @throws ItemNotFoundException
+     * @throws MultipleItemsFoundException
+     * @throws AuthorizationException
      */
-    public function authorize(string $target): StateMachineEngine
+    public function authorize(string $target): self
     {
         $transition = $this->transitions()
             ->from($this->state())
@@ -186,16 +166,13 @@ class StateMachineEngine
     /**
      * Reset workflow to the initial state.
      */
-    public function reset()
+    public function reset(): void
     {
         $this->model->setAttribute($this->attribute(), (string)$this->initial());
     }
 
     /**
      * Get or set transition additional context.
-     *
-     * @param array|null $context
-     * @return array
      */
     public function context(array $context = null): array
     {

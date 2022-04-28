@@ -2,21 +2,20 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Traits\HasAttributes;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Str;
 
 class State implements Arrayable
 {
+    use HasAttributes;
+
     protected string $value;
     protected ?string $caption = null;
     protected ?string $group = null;
-    protected array $attributes = [];
 
     /**
      * State new instance.
-     *
-     * @param string $state
-     * @return static
      */
     public static function define(string $state): self
     {
@@ -35,9 +34,6 @@ class State implements Arrayable
 
     /**
      * Set State caption.
-     *
-     * @param string $caption
-     * @return $this
      */
     public function as(string $caption): self
     {
@@ -47,23 +43,7 @@ class State implements Arrayable
     }
 
     /**
-     * Set group for the State.
-     *
-     * @param string $group
-     * @return $this
-     * @deprecated
-     */
-    public function grouped(string $group): self
-    {
-        if ($group)
-            $this->group = $group;
-        return $this;
-    }
-
-    /**
      * Get caption of the State.
-     *
-     * @return string|null
      */
     public function caption(): ?string
     {
@@ -71,20 +51,7 @@ class State implements Arrayable
     }
 
     /**
-     * Get the group of the State.
-     *
-     * @return string|null
-     * @deprecated
-     */
-    public function group(): ?string
-    {
-        return $this->group;
-    }
-
-    /**
      * Get value of the State.
-     *
-     * @return string
      */
     public function value(): string
     {
@@ -96,29 +63,6 @@ class State implements Arrayable
         return [
             'value' => $this->value(),
             'caption' => $this->caption() ?: $this->value()
-        ] + $this->attributes();
-    }
-
-    /**
-     * Get additional attributes.
-     *
-     * @return array
-     */
-    public function attributes(): array
-    {
-        return $this->attributes;
-    }
-
-    /**
-     * Set any additional attribute: color, order etc
-     *
-     * @param string $attribute
-     * @param mixed $value
-     * @return $this
-     */
-    public function set(string $attribute, $value): self
-    {
-        $this->attributes[$attribute] = $value;
-        return $this;
+        ] + $this->additional();
     }
 }

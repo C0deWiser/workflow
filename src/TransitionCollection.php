@@ -15,10 +15,8 @@ class TransitionCollection extends Collection
 {
     /**
      * Transitions from given state.
-     *
-     * @return $this
      */
-    public function from(string $state): TransitionCollection
+    public function from(string $state): self
     {
         return $this->filter(function (Transition $transition) use ($state) {
             return $transition->source() == $state;
@@ -27,10 +25,8 @@ class TransitionCollection extends Collection
 
     /**
      * Transitions to given state.
-     *
-     * @return $this
      */
-    public function to(string $state): TransitionCollection
+    public function to(string $state): self
     {
         return $this->filter(function (Transition $transition) use ($state) {
             return $transition->target() == $state;
@@ -39,17 +35,15 @@ class TransitionCollection extends Collection
 
     /**
      * Transitions without fatal conditions.
-     *
-     * @return $this
      */
-    public function withoutForbidden(): TransitionCollection
+    public function withoutForbidden(): self
     {
         return $this->reject(function (Transition $transition) {
             try {
                 $transition->validate();
-            } catch (TransitionFatalException $e) {
+            } catch (TransitionFatalException) {
                 return true;
-            } catch (TransitionRecoverableException $e) {
+            } catch (TransitionRecoverableException) {
 
             }
             return false;
@@ -58,17 +52,15 @@ class TransitionCollection extends Collection
 
     /**
      * Blind (forbidden) transitions.
-     *
-     * @return $this
      */
-    public function withoutRecoverable(): TransitionCollection
+    public function withoutRecoverable(): self
     {
         return $this->filter(function (Transition $transition) {
             try {
                 $transition->validate();
-            } catch (TransitionFatalException $e) {
+            } catch (TransitionFatalException) {
 
-            } catch (TransitionRecoverableException $e) {
+            } catch (TransitionRecoverableException) {
                 return true;
             }
             return false;
@@ -77,10 +69,8 @@ class TransitionCollection extends Collection
 
     /**
      * Authorized transitions.
-     *
-     * @return $this
      */
-    public function authorized(): TransitionCollection
+    public function authorized(): self
     {
         return $this->filter(function (Transition $transition) {
             if ($ability = $transition->authorization()) {

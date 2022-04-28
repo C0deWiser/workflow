@@ -8,8 +8,6 @@ use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Trait ExtendFireModelEventTrait
- * @package Codewiser\Workflow\Traits
  * @mixin Model
  */
 trait ExtendFireModelEventTrait

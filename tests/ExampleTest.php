@@ -8,9 +8,9 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\StateMachineObserver;
 use Codewiser\Workflow\Transition;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\TestCase;
 
 class ExampleTest extends TestCase
@@ -50,15 +50,30 @@ class ExampleTest extends TestCase
         $this->assertCount(7, $post->workflow()->transitions());
     }
 
+    public function testJson()
+    {
+        $post = new Post();
+        $post->setRawAttributes(['state' => 'one'], true);
+
+        $transition = $post->workflow()->routes()->first();
+        $data = $transition->toArray();
+
+        $this->assertArrayHasKey('caption', $data);
+        $this->assertArrayHasKey('source', $data);
+        $this->assertArrayHasKey('target', $data);
+        $this->assertArrayHasKey('problems', $data);
+        $this->assertArrayHasKey('requires', $data);
+    }
+
     public function testRelevantTransitions()
     {
         $post = new Post();
         $post->setRawAttributes(['state' => 'one'], true);
 
         // Transition one-three has Fatal condition and will be rejected
-        $this->assertCount(3, $post->workflow()->channels());
+        $this->assertCount(3, $post->workflow()->routes());
 
-        $post->workflow()->channels()
+        $post->workflow()->routes()
             ->each(function (Transition $transition) use ($post) {
                 // Assert that every relevant transition starts from current state
                 $this->assertEquals($post->state, $transition->source());
@@ -97,6 +112,18 @@ class ExampleTest extends TestCase
         // Transition is not authorized
         $this->expectException(AuthorizationException::class);
         $post->workflow()->authorize('deny');
+    }
+
+    public function testTransitContext()
+    {
+        $post = new Post();
+        $post->setRawAttributes(['state' => 'one'], true);
+
+        $post->state = 'callback';
+        $post->workflow()->context(['foo' => 'Is not what it wants...']);
+
+        $this->expectException(ValidationException::class);
+        (new StateMachineObserver)->updating($post);
     }
 
     public function testTransitUnknown()

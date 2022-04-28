@@ -2,27 +2,23 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
+use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Transition between states in State Machine
- * @package Codewiser\Workflow
- *
+ * Transition between states in State Machine.
  */
 class Transition implements Arrayable
 {
-    protected string $source;
-    protected string $target;
+    use HasAttributes;
+
     protected ?string $caption = null;
 
     /**
@@ -32,45 +28,32 @@ class Transition implements Arrayable
     protected ?string $attribute;
     protected Collection $prerequisites;
     protected Collection $callbacks;
-    protected Collection $attributes;
+    protected array $rules = [];
     /**
      * @var string|callable|null
      */
-    protected $authorization;
+    protected $authorization = null;
     /**
      * Transition additional context.
-     *
-     * @var array
      */
     protected array $context = [];
 
     /**
      * Instantiate new transition.
-     *
-     * @param $source
-     * @param $target
-     * @return static
      */
-    public static function define($source, $target): self
+    public static function define(string $source, string $target): static
     {
         return new static($source, $target);
     }
 
-    public function __construct(string $source, string $target)
+    public function __construct(protected string $source, protected string $target)
     {
-        $this->source = $source;
-        $this->target = $target;
-        $this->authorization = null;
         $this->prerequisites = new Collection();
-        $this->attributes = new Collection();
         $this->callbacks = new Collection();
     }
 
     /**
      * Vivify transition with model context.
-     *
-     * @param Model $model
-     * @param string $attribute
      */
     public function inject(Model $model, string $attribute)
     {
@@ -85,11 +68,8 @@ class Transition implements Arrayable
 
     /**
      * Authorize transition using policy ability (or closure).
-     *
-     * @param string|callable $ability
-     * @return $this
      */
-    public function authorizedBy($ability): self
+    public function authorizedBy(string|callable $ability): self
     {
         $this->authorization = $ability;
         return $this;
@@ -97,11 +77,8 @@ class Transition implements Arrayable
 
     /**
      * Add prerequisite to the transition.
-     *
-     * @param callable $prerequisite
-     * @return $this
      */
-    public function before($prerequisite): self
+    public function before(callable $prerequisite): self
     {
         $this->prerequisites->push($prerequisite);
         return $this;
@@ -109,11 +86,8 @@ class Transition implements Arrayable
 
     /**
      * Callback(s) will run after transition is done.
-     *
-     * @param callable $callback
-     * @return $this
      */
-    public function after($callback): self
+    public function after(callable $callback): self
     {
         $this->callbacks->push($callback);
         return $this;
@@ -121,9 +95,6 @@ class Transition implements Arrayable
 
     /**
      * Set Transition caption.
-     *
-     * @param string $caption
-     * @return $this
      */
     public function as(string $caption): self
     {
@@ -134,13 +105,10 @@ class Transition implements Arrayable
 
     /**
      * Add requirement(s) to transition payload.
-     *
-     * @param string|string[] $attributes
-     * @return $this
      */
-    public function requires($attributes): self
+    public function rules(array $rules): self
     {
-        $this->attributes->merge((array)$attributes);
+        $this->rules = $rules;
         return $this;
     }
 
@@ -151,25 +119,21 @@ class Transition implements Arrayable
             'source' => $this->source(),
             'target' => $this->target(),
             'problems' => $this->problems(),
-            'requires' => $this->attributes->toArray()
-        ];
+            'requires' => array_keys($this->rules)
+        ] + $this->additional();
     }
 
     /**
      * Get transition caption trans string.
-     *
-     * @return string
      */
     public function caption(): string
     {
-        return $this->caption ??
-            __(Str::snake(class_basename($this->workflow()->blueprint())) . ".transitions.{$this->source()}.{$this->target()}");
+        $fallback = Str::snake(class_basename($this->workflow()->blueprint())) . ".transitions.{$this->source()}.{$this->target()}";
+        return $this->caption ?? $fallback;
     }
 
     /**
      * Source state.
-     *
-     * @return string
      */
     public function source(): string
     {
@@ -178,8 +142,6 @@ class Transition implements Arrayable
 
     /**
      * Target state.
-     *
-     * @return string
      */
     public function target(): string
     {
@@ -188,10 +150,8 @@ class Transition implements Arrayable
 
     /**
      * Ability to authorize.
-     *
-     * @return string|callable|null
      */
-    public function authorization()
+    public function authorization(): string|callable|null
     {
         return $this->authorization;
     }
@@ -199,7 +159,7 @@ class Transition implements Arrayable
     /**
      * Get registered preconditions.
      *
-     * @return Collection|callable[]
+     * @return Collection<callable>
      */
     public function prerequisites(): Collection
     {
@@ -209,7 +169,7 @@ class Transition implements Arrayable
     /**
      * Get registered transition callbacks.
      *
-     * @return Collection|callable[]
+     * @return Collection<callable>
      */
     public function callbacks(): Collection
     {
@@ -219,7 +179,7 @@ class Transition implements Arrayable
     /**
      * Get list of problems with the transition.
      *
-     * @return array|string[]
+     * @return array<string>
      */
     public function problems(): array
     {
@@ -240,18 +200,14 @@ class Transition implements Arrayable
 
     /**
      * Get attributes, that must be provided into transit() method.
-     *
-     * @return Collection
      */
-    public function requirements(): Collection
+    public function validationRules(): array
     {
-        return $this->attributes;
+        return $this->rules;
     }
 
     /**
      * Parent context of this transition.
-     *
-     * @return StateMachineEngine|null
      */
     protected function workflow(): ?StateMachineEngine
     {
@@ -261,9 +217,7 @@ class Transition implements Arrayable
     /**
      * Examine transition preconditions.
      *
-     * @return Transition
-     * @throws TransitionFatalException
-     * @throws TransitionRecoverableException
+     * @throws TransitionFatalException|TransitionRecoverableException
      */
     public function validate(): self
     {
@@ -276,22 +230,14 @@ class Transition implements Arrayable
     /**
      * Get or set and validate transition additional context.
      *
-     * @param array|null $context
-     * @return array
      * @throws ValidationException
      */
     public function context(array $context = null): array
     {
         if (is_array($context)) {
 
-            $rules = $this->requirements()
-                ->mapWithKeys(function (string $attribute) {
-                    return [$attribute => 'required|string'];
-                })
-                ->toArray();
-
-            if ($rules) {
-                $context = Validator::validate($context, $rules);
+            if ($rules = $this->validationRules()) {
+                $context = validator($context, $rules)->validate();
             }
 
             $this->context = $context;

@@ -8,9 +8,8 @@ use Illuminate\Support\Collection;
 use Codewiser\Workflow\StateMachineObserver;
 
 /**
- * Trait adds Workflow to the Model.
+ * Trait adds Workflow to a Model.
  *
- * @package Codewiser\Workflow\Traits
  * @mixin Model
  * @property array $workflow
  */
@@ -37,17 +36,11 @@ trait HasWorkflow
 
     /**
      * Engine instances.
-     *
-     * @var array
      */
     protected array $stateMachineEngines = [];
 
     /**
-     * Get the model workflow.
-     *
-     * @param string|null $what attribute name or workflow class (if null, then first Workflow will be returned).
-     *
-     * @return StateMachineEngine|null
+     * Get model's workflow (for given attribute or first defined).
      */
     public function workflow(string $what = null): ?StateMachineEngine
     {
@@ -71,7 +64,7 @@ trait HasWorkflow
     /**
      * Get the model workflow listing.
      *
-     * @return Collection|StateMachineEngine[]
+     * @return Collection<StateMachineEngine>
      */
     public function getWorkflowListing(): Collection
     {

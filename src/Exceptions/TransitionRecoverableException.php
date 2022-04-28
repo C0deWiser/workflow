@@ -3,13 +3,10 @@
 
 namespace Codewiser\Workflow\Exceptions;
 
-use Illuminate\Support\MessageBag;
 use Throwable;
 
 /**
  * User may resolve issues with transition (left instructions in the message).
- *
- * @package Codewiser\Workflow\Exceptions
  */
 class TransitionRecoverableException extends TransitionException
 {

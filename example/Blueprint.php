@@ -6,16 +6,14 @@ use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Notification;
 
 class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
 {
     protected function states(): array
     {
         return [
-            State::define('one')->as('Initial state'),
-            'recoverable',
+            'one',
+            State::define('recoverable')->as('Initial state')->set('color', 'red'),
             'fatal',
             'callback',
             'deny'
@@ -28,7 +26,8 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
             Transition::define('one', 'recoverable')
                 ->before(function (Post $model) {
                     throw new TransitionRecoverableException();
-                }),
+                })
+                ->set('color', 'red'),
 
             Transition::define('one', 'fatal')->as('Fatal transition')
                 ->before(function (Post $model) {
@@ -36,7 +35,10 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
                 }),
 
             Transition::define('one', 'callback')
-                ->requires('comment')
+                ->rules([
+                    'comment' => 'required|string'
+                ])
+                ->authorizedBy([$this, 'authorize'])
                 ->after(function (Post $model, array $context) {
                     $model->body = $context['comment'];
                 }),
@@ -46,9 +48,14 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
                     return false;
                 }),
 
-            Transition::define('callback', 'one'),
-            Transition::define('recoverable', 'one'),
+            ['callback', 'one'],
+            ['recoverable', 'one'],
             Transition::define('fatal', 'one')
         ];
+    }
+
+    public function authorize($model): bool
+    {
+        return true;
     }
 }

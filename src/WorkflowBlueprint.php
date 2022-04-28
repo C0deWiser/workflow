@@ -2,15 +2,11 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Exceptions\WorkflowException;
-use Illuminate\Support\Collection;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
 /**
- * Workflow (aka State Machine) blueprint.
- *
- * @package Codewiser\Workflow
+ * Workflow blueprint.
  */
 abstract class WorkflowBlueprint
 {
@@ -22,7 +18,7 @@ abstract class WorkflowBlueprint
     /**
      * Array of available Model Workflow steps. First one is initial.
      *
-     * @return string[]|State[]
+     * @return array<string,State>
      * @example [new, review, published, correcting]
      */
     abstract protected function states(): array;
@@ -30,15 +26,17 @@ abstract class WorkflowBlueprint
     /**
      * Array of allowed transitions between states.
      *
-     * @return Transition[]
+     * @return array<array,Transition>
      * @example [[new, review], [review, published], [review, correcting], [correcting, review]]
      */
     abstract protected function transitions(): array;
 
     /**
      * Validates State Machine Blueprint.
+     *
+     * @throws ItemNotFoundException|MultipleItemsFoundException
      */
-    protected function validate()
+    protected function validate(): void
     {
         $states = $this->getStates();
         $transitions = collect();
@@ -66,7 +64,7 @@ abstract class WorkflowBlueprint
     /**
      * Array of states.
      *
-     * @return StateCollection|State[]
+     * @return StateCollection<State>
      */
     public function getStates(): StateCollection
     {
@@ -85,10 +83,19 @@ abstract class WorkflowBlueprint
     /**
      * Array of transitions between states.
      *
-     * @return TransitionCollection|Transition[]
+     * @return TransitionCollection<Transition>
      */
     public function getTransitions(): TransitionCollection
     {
-        return TransitionCollection::make($this->transitions());
+        $transitions = new TransitionCollection();
+
+        foreach ($this->transitions() as $transition) {
+            if (is_array($transition)) {
+                $transition = Transition::define($transition[0], $transition[1]);
+            }
+            $transitions->add($transition);
+        }
+
+        return $transitions;
     }
 }

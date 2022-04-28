@@ -6,8 +6,6 @@ use Throwable;
 
 /**
  * Throws this exception to prevent transition from being in list of relevant transitions.
- *
- * @package Codewiser\Workflow\Exceptions
  */
 class TransitionFatalException extends TransitionException
 {

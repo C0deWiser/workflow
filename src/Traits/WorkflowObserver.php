@@ -7,8 +7,8 @@ namespace Codewiser\Workflow\Traits;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Trait WorkflowTransitEventTrait
- * @package Codewiser\Workflow\Traits
+ * Trait adds Transition Event to a Model.
+ *
  * @mixin Model
  */
 trait WorkflowObserver
