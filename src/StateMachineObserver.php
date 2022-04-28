@@ -26,7 +26,7 @@ class StateMachineObserver
     {
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
-                $model->setAttribute($engine->attribute(), (string)$engine->initial());
+                $model->setAttribute($engine->attribute(), $engine->initial());
             });
 
         return true;

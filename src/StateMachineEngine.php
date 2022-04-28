@@ -3,15 +3,16 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Traits\HasWorkflow;
+use BackedEnum;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 use Illuminate\Support\Str;
 
-class StateMachineEngine
+class StateMachineEngine implements Arrayable
 {
     protected ?TransitionCollection $transitions = null;
 
@@ -36,7 +37,7 @@ class StateMachineEngine
 
     public function __toString()
     {
-        return (string)$this->state();
+        return (string)$this->state()->value;
     }
 
     /**
@@ -50,21 +51,23 @@ class StateMachineEngine
     /**
      * Get (current or any) state caption trans string.
      */
-    public function caption(State|string $state = null): string
+    public function caption(BackedEnum $state = null): string
     {
         $state = $state ? $this->states()->one($state) : $this->state();
 
-        return $state->caption() ?: Str::snake(class_basename($this->blueprint)) . ".states.{$state}";
+        $caption = method_exists($state, 'caption') ? $state->caption() : null;
+
+        return $caption ?: Str::snake(class_basename($this->blueprint)) . ".states.$state->name";
     }
 
     /**
      * Get all states of the workflow.
      *
-     * @return StateCollection<State>
+     * @return StateCollection<BackedEnum>
      */
     public function states(): StateCollection
     {
-        return $this->blueprint->getStates();
+        return StateCollection::make($this->blueprint->states());
     }
 
     /**
@@ -78,7 +81,7 @@ class StateMachineEngine
             return $this->transitions;
         }
 
-        $this->transitions = $this->blueprint->getTransitions()
+        $this->transitions = TransitionCollection::make($this->blueprint->transitions())
             ->each(function (Transition $transition) {
                 $transition->inject($this->model, $this->attribute);
             });
@@ -101,12 +104,12 @@ class StateMachineEngine
     /**
      * Get available transition to the given state.
      */
-    public function routeTo(State|string $state): ?Transition
+    public function routeTo(BackedEnum $state): ?Transition
     {
         return $this
             ->routes()
             ->first(function (Transition $transition) use ($state) {
-                return $transition->target() == (string)$state;
+                return $transition->target() === $state;
             });
     }
 
@@ -121,7 +124,7 @@ class StateMachineEngine
     /**
      * Get workflow initial state.
      */
-    public function initial(): State
+    public function initial(): BackedEnum
     {
         return $this->states()->first();
     }
@@ -129,7 +132,7 @@ class StateMachineEngine
     /**
      * Get model's current state.
      */
-    public function state(): ?State
+    public function state(): ?BackedEnum
     {
         $state = $this->model->getAttribute($this->attribute());
 
@@ -143,7 +146,7 @@ class StateMachineEngine
      * @throws MultipleItemsFoundException
      * @throws AuthorizationException
      */
-    public function authorize(string $target): self
+    public function authorize(BackedEnum $target): self
     {
         $transition = $this->transitions()
             ->from($this->state())
@@ -168,7 +171,7 @@ class StateMachineEngine
      */
     public function reset(): void
     {
-        $this->model->setAttribute($this->attribute(), (string)$this->initial());
+        $this->model->setAttribute($this->attribute(), $this->initial());
     }
 
     /**
@@ -181,5 +184,20 @@ class StateMachineEngine
         }
 
         return $this->context;
+    }
+
+    public function toArray(): array
+    {
+        if ($state = $this->state()) {
+
+            $attributes = method_exists($state, 'attributes') ? $state->attributes() : [];
+
+            return [
+                    'value' => $state->value,
+                    'caption' => $this->caption($state)
+                ] + $attributes;
+        }
+
+        return [];
     }
 }

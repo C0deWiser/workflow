@@ -21,10 +21,21 @@ Transitions between states inflicts the evolution road.
 
 ## Setup
 
-First, describe the workflow blueprint.
+First, declare backed (`string` or `int`) `enum` for model states.
 
 ```php
-use \Codewiser\Workflow\State;
+enum State: string
+{
+    case new = 'new';
+    case review = 'review';
+    case published = 'published';
+    case correction = 'correction';
+}
+```
+
+Second, describe the workflow blueprint.
+
+```php
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\WorkflowBlueprint;
 
@@ -33,19 +44,19 @@ class ArticleWorkflow extends WorkflowBlueprint
     protected function states(): array
     {
         return [
-            State::define('new'),
-            State::define('review'),
-            State::define('published'),
-            State::define('correction')
+            State::new,
+            State::review,
+            State::published,
+            State::correction
         ];
     }
     protected function transitions(): array
     {
         return [
-            Transition::define('new', 'review'),
-            Transition::define('review', 'published'),
-            Transition::define('review', 'correction'),
-            Transition::define('correction', 'review')
+            Transition::define(State::new, State::review),
+            Transition::define(State::review, State::published),
+            Transition::define(State::review, State::correction),
+            Transition::define(State::correction, State::review)
         ];
     }
 }
@@ -67,7 +78,7 @@ class Article extends Model
 ```
 
 Workflow keeps its state in model attribute you provide as a key of array.
-You should migrate model schema to add this column (`varchar`, `not null`).
+You should migrate model schema to add this column.
 
 You may apply few independent workflow blueprints to one model.
 
@@ -81,7 +92,7 @@ $article = new Article();
 $article->save();
 
 // updating: will examine state machine consistency
-$article->state = 'review';
+$article->state = State::review;
 $article->save();
 ```
 
@@ -108,7 +119,7 @@ And provide action name to `Transition::authorizedBy()`:
 ```php
 use \Codewiser\Workflow\Transition;
 
-Transition::define('new', 'review')
+Transition::define(State::new, State::review)
     ->authorizedBy('transitToReview');
 ```
 
@@ -118,7 +129,7 @@ Transition::define('new', 'review')
 use \Codewiser\Workflow\Transition;
 use \Illuminate\Support\Facades\Gate;
 
-Transition::define('new', 'review')
+Transition::define(State::new, State::review)
     ->authorizedBy(function (Article $article) {
         return Gate::allows('transitToReview', $article);
     });
@@ -146,7 +157,7 @@ public function update(Request $request, Article $article)
     $this->authorize('update', $article);
     
     if ($state = $request->get('state')) {
-        $article->workflow()->authorize($state);
+        $article->workflow()->authorize(State::from($state));
         $article->state = $state;
     }
     
@@ -170,7 +181,7 @@ Here is an example of issues user may resolve.
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 
-Transition::define('new', 'review')
+Transition::define(State::new, State::review)
     ->before(function(Article $model) {
         if (strlen($model->body) < 1000) {
             throw new TransitionRecoverableException(
@@ -201,14 +212,14 @@ To completely remove transition, prerequisite should throw a `TransitionFatalExc
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\Exceptions\TransitionFatalException;
 
-Transition::define('new', 'to-local-manager')
+Transition::define(State::new, State::toLocalManager)
     ->before(function($model) {
         if ($model->orderAmount >= 1000000) {
             throw new TransitionFatalException();
         }
     }); 
 
-Transition::define('new', 'to-region-manager')
+Transition::define(State::new, State::toRegionManager)
     ->before(function($model) {
         if ($model->orderAmount < 1000000) {
             throw new TransitionFatalException();
@@ -227,7 +238,7 @@ First, declare validation rules in transition definition:
 ```php
 use \Codewiser\Workflow\Transition;
 
-Transition::define('review', 'reject')
+Transition::define(State::review, State::reject)
     ->rules([
         'reason' => 'required|string|min:100'
     ]);
@@ -243,7 +254,7 @@ public function update(Request $request, Article $article)
     $this->authorize('update', $article);
     
     if ($state = $request->get('state')) {
-        $article->workflow()->authorize($state);
+        $article->workflow()->authorize(State::from($state));
         $article->workflow()->context($request->all());
 
         $article->state = $state;        
@@ -262,23 +273,31 @@ After all you may handle this context in [events](#events).
 You may define `State` and `Transition` objects with translatable caption.
 
 ```php
-use \Codewiser\Workflow\State;
+enum State: string
+{
+    case new = 'new';
+    case review = 'review';
+    case published = 'published';
+    case correction = 'correction';
+    
+    public function caption(): string
+    {
+        return __($this->name);
+    }
+}
+```
+
+```php
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\WorkflowBlueprint;
 
 class ArticleWorkflow extends WorkflowBlueprint
 {
-    protected function states(): array
-    {
-        return [
-            State::define('new')        ->as(__('Draft')),
-            State::define('published')  ->as(__('Published'))
-        ];
-    }
     protected function transitions(): array
     {
         return [
-            Transition::define('new', 'published')->as('Publish')
+            Transition::define(State::new, State::published)
+                ->as(__('Publish'))
         ];
     }
 }
@@ -286,32 +305,24 @@ class ArticleWorkflow extends WorkflowBlueprint
 
 ## Additional Attributes
 
-Sometimes we need to add some additional attributes to the workflow states and transitions. For example, we may group states by levels and use this information to color states and transitions in user interface.
+Sometimes we need to add some additional attributes to the workflow states. For example, we may group states by levels and use this information to color states and transitions in user interface.
 
 ```php
-use \Codewiser\Workflow\State;
-use \Codewiser\Workflow\Transition;
-use \Codewiser\Workflow\WorkflowBlueprint;
-
-class ArticleWorkflow extends WorkflowBlueprint
+enum State: string
 {
-    protected function states(): array
+    case new = 'new';
+    case review = 'review';
+    case published = 'published';
+    case correction = 'correction';
+    
+    public function attributes(): array
     {
-        return [
-            State::define('new'),
-            State::define('review')     ->set('level', 'warning'),
-            State::define('published')  ->set('level', 'success'),
-            State::define('correction') ->set('level', 'danger')
-        ];
-    }
-    protected function transitions(): array
-    {
-        return [
-            Transition::define('new', 'review')         ->set('level', 'warning'),
-            Transition::define('review', 'published')   ->set('level', 'success'),
-            Transition::define('review', 'correction')  ->set('level', 'danger'),
-            Transition::define('correction', 'review')  ->set('level', 'warning')
-        ];
+        return match($this) {
+            self::new        => [],
+            self::review     => ['level' => 'warning'],
+            self::published  => ['level' => 'success'],
+            self::correction => ['level' => 'danger']
+        };
     }
 }
 ```
@@ -330,9 +341,7 @@ public function show(Article $article)
     $data = $article->toArray();
     
     $data['state'] => [
-        'current' => $article->workflow()
-            ->state()
-            ->toArray(),
+        'current' => $article->workflow()->toArray(),
         'transitions' => $article->workflow()
             ->routes()
             ->authorized()
@@ -361,16 +370,14 @@ The payload will be like that:
         "target": "publish",
         "caption": "Publish",
         "problems": ["Publisher should provide a foreword."],
-        "requires": [],
-        "level": "success"
+        "requires": []
       },
       {
         "source": "review",
         "target": "correction",
         "caption": "Send to Correction",
         "problems": [],
-        "requires": ["reason"],
-        "level": "danger"
+        "requires": ["reason"]
       }
     ]
   }
@@ -393,7 +400,7 @@ class ModelTransitedListener
         if ($event->model instanceof Article) {
             $article = $event->model;
 
-            if ($event->transition->target() === 'correction') {
+            if ($event->transition->target() === State::correction) {
                 // Article was send to correction, the reason described in context
                 $article->author->notify(
                     new ArticleHasProblem(
@@ -447,7 +454,7 @@ class ArticleObserver
         array $context
     )
     {
-        if ($transition->target() === 'correcting') {
+        if ($transition->target() === State::correction) {
             $article->author->notify(
                 new ArticleHasProblem(
                     $article, $context['reason']
@@ -467,7 +474,7 @@ Callback is a `callable` with `Model` and `context` arguments.
 ```php
 use \Codewiser\Workflow\Transition;
 
-Transition::define('review', 'correcting')
+Transition::define(State::review, State::correction)
     ->after(function(Article $article, array $context) {
         $article->author->notify(
             new ArticleHasProblem(

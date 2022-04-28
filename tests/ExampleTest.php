@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Post;
+use App\State;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\StateMachineObserver;
@@ -39,13 +40,13 @@ class ExampleTest extends TestCase
 
         // Implicit init (using observer)
         $this->assertTrue((new StateMachineObserver)->creating($post));
-        $this->assertEquals((string)$post->workflow()->initial(), $post->state, 'State value was initialized on creating event');
+        $this->assertEquals($post->workflow()->initial(), $post->state, 'State value was initialized on creating event');
     }
 
     public function testTransitions()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
         $this->assertCount(7, $post->workflow()->transitions());
     }
@@ -53,7 +54,7 @@ class ExampleTest extends TestCase
     public function testJson()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
         $transition = $post->workflow()->routes()->first();
         $data = $transition->toArray();
@@ -68,7 +69,7 @@ class ExampleTest extends TestCase
     public function testRelevantTransitions()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
         // Transition one-three has Fatal condition and will be rejected
         $this->assertCount(3, $post->workflow()->routes());
@@ -83,9 +84,9 @@ class ExampleTest extends TestCase
     public function testTransitRecoverable()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
-        $post->state = 'recoverable';
+        $post->state = State::recoverable;
 
         // Observer prevents changing state as the transition has unresolved Recoverable condition
         $this->expectException(TransitionRecoverableException::class);
@@ -95,9 +96,9 @@ class ExampleTest extends TestCase
     public function testTransitFatal()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
-        $post->state = 'fatal';
+        $post->state = State::fatal;
 
         // Observer prevents changing state as the transition has unresolved Fatal condition
         $this->expectException(TransitionFatalException::class);
@@ -107,17 +108,17 @@ class ExampleTest extends TestCase
     public function testTransitUnauthorized()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
         // Transition is not authorized
         $this->expectException(AuthorizationException::class);
-        $post->workflow()->authorize('deny');
+        $post->workflow()->authorize(State::deny);
     }
 
     public function testTransitContext()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
         $post->state = 'callback';
         $post->workflow()->context(['foo' => 'Is not what it wants...']);
@@ -126,25 +127,13 @@ class ExampleTest extends TestCase
         (new StateMachineObserver)->updating($post);
     }
 
-    public function testTransitUnknown()
-    {
-        $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
-
-        $post->state = Str::random();
-
-        // Observer prevents changing state to unknown value
-        $this->expectException(ItemNotFoundException::class);
-        (new StateMachineObserver)->updating($post);
-    }
-
     public function testTransitAllowed()
     {
         $post = new Post();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => State::one], true);
 
         $post->workflow()->context(['comment' => Str::random()]);
-        $post->state = 'callback';
+        $post->state = State::callback;
 
         // Observer allows to change the state
         $this->assertTrue((new StateMachineObserver)->updating($post));

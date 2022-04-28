@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * @package App
  *
  * @property string $body
- * @property string $state
+ * @property State $state
  * @property string $next
  */
 class Post extends Model
@@ -21,5 +21,9 @@ class Post extends Model
     public $workflow = [
         'state' => Blueprint::class,
         'next' => Blueprint::class
+    ];
+
+    protected $casts = [
+        'state' => State::class
     ];
 }

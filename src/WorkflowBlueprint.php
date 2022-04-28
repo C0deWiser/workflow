@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow;
 
+use BackedEnum;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
@@ -18,18 +19,18 @@ abstract class WorkflowBlueprint
     /**
      * Array of available Model Workflow steps. First one is initial.
      *
-     * @return array<string,State>
+     * @return array<BackedEnum>
      * @example [new, review, published, correcting]
      */
-    abstract protected function states(): array;
+    abstract public function states(): array;
 
     /**
      * Array of allowed transitions between states.
      *
-     * @return array<array,Transition>
+     * @return array<Transition>
      * @example [[new, review], [review, published], [review, correcting], [correcting, review]]
      */
-    abstract protected function transitions(): array;
+    abstract public function transitions(): array;
 
     /**
      * Validates State Machine Blueprint.
@@ -38,64 +39,26 @@ abstract class WorkflowBlueprint
      */
     protected function validate(): void
     {
-        $states = $this->getStates();
+        $states = collect($this->states());
         $transitions = collect();
 
         $blueprint = class_basename($this);
 
-        $this->getTransitions()
+        collect($this->transitions())
             ->each(function (Transition $transition) use ($states, $transitions, $blueprint) {
                 $s = $transition->source();
                 $t = $transition->target();
 
                 if (!$states->contains($s)) {
-                    throw new ItemNotFoundException("Invalid {$blueprint}: transition from nowhere: {$s}");
+                    throw new ItemNotFoundException("Invalid {$blueprint}: transition from nowhere: {$s->name}");
                 }
                 if (!$states->contains($t)) {
-                    throw new ItemNotFoundException("Invalid {$blueprint}: transition to nowhere: {$t}");
+                    throw new ItemNotFoundException("Invalid {$blueprint}: transition to nowhere: {$t->name}");
                 }
-                if ($transitions->contains($s . $t)) {
-                    throw new MultipleItemsFoundException("Invalid {$blueprint}: transition duplicate {$s}-{$t}");
+                if ($transitions->contains($s->name . $t->name)) {
+                    throw new MultipleItemsFoundException("Invalid {$blueprint}: transition duplicate {$s->name}-{$t->name}");
                 }
-                $transitions->push($s . $t);
+                $transitions->push($s->name . $t->name);
             });
-    }
-
-    /**
-     * Array of states.
-     *
-     * @return StateCollection<State>
-     */
-    public function getStates(): StateCollection
-    {
-        $states = new StateCollection();
-
-        foreach ($this->states() as $state) {
-            if (is_string($state)) {
-                $state = State::define($state);
-            }
-            $states->add($state);
-        }
-
-        return $states;
-    }
-
-    /**
-     * Array of transitions between states.
-     *
-     * @return TransitionCollection<Transition>
-     */
-    public function getTransitions(): TransitionCollection
-    {
-        $transitions = new TransitionCollection();
-
-        foreach ($this->transitions() as $transition) {
-            if (is_array($transition)) {
-                $transition = Transition::define($transition[0], $transition[1]);
-            }
-            $transitions->add($transition);
-        }
-
-        return $transitions;
     }
 }

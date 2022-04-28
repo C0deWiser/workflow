@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow;
 
+use BackedEnum;
 use Illuminate\Support\Collection;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
@@ -16,20 +17,20 @@ class TransitionCollection extends Collection
     /**
      * Transitions from given state.
      */
-    public function from(string $state): self
+    public function from(BackedEnum $state): self
     {
         return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->source() == $state;
+            return $transition->source() === $state;
         });
     }
 
     /**
      * Transitions to given state.
      */
-    public function to(string $state): self
+    public function to(BackedEnum $state): self
     {
         return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->target() == $state;
+            return $transition->target() === $state;
         });
     }
 

@@ -4,37 +4,36 @@ namespace App;
 
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
-use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
 
 class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
 {
-    protected function states(): array
+    public function states(): array
     {
         return [
-            'one',
-            State::define('recoverable')->as('Initial state')->set('color', 'red'),
-            'fatal',
-            'callback',
-            'deny'
+            State::one,
+            State::recoverable,
+            State::fatal,
+            State::callback,
+            State::deny
         ];
     }
 
-    protected function transitions(): array
+    public function transitions(): array
     {
         return [
-            Transition::define('one', 'recoverable')
+            Transition::define(State::one, State::recoverable)
                 ->before(function (Post $model) {
                     throw new TransitionRecoverableException();
                 })
                 ->set('color', 'red'),
 
-            Transition::define('one', 'fatal')->as('Fatal transition')
+            Transition::define(State::one, State::fatal)->as('Fatal transition')
                 ->before(function (Post $model) {
                     throw new TransitionFatalException();
                 }),
 
-            Transition::define('one', 'callback')
+            Transition::define(State::one, State::callback)
                 ->rules([
                     'comment' => 'required|string'
                 ])
@@ -43,14 +42,14 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
                     $model->body = $context['comment'];
                 }),
 
-            Transition::define('one', 'deny')
+            Transition::define(State::one, State::deny)
                 ->authorizedBy(function (Post $model) {
                     return false;
                 }),
 
-            ['callback', 'one'],
-            ['recoverable', 'one'],
-            Transition::define('fatal', 'one')
+            Transition::define(State::callback, State::one),
+            Transition::define(State::recoverable, State::one),
+            Transition::define(State::fatal, State::one)
         ];
     }
 

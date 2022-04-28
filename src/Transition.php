@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow;
 
+use BackedEnum;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Traits\HasAttributes;
@@ -20,10 +21,6 @@ class Transition implements Arrayable
     use HasAttributes;
 
     protected ?string $caption = null;
-
-    /**
-     * @var Model|HasWorkflow|null
-     */
     protected ?Model $model;
     protected ?string $attribute;
     protected Collection $prerequisites;
@@ -33,20 +30,17 @@ class Transition implements Arrayable
      * @var string|callable|null
      */
     protected $authorization = null;
-    /**
-     * Transition additional context.
-     */
     protected array $context = [];
 
     /**
      * Instantiate new transition.
      */
-    public static function define(string $source, string $target): static
+    public static function define(BackedEnum $source, BackedEnum $target): static
     {
         return new static($source, $target);
     }
 
-    public function __construct(protected string $source, protected string $target)
+    public function __construct(protected BackedEnum $source, protected BackedEnum $target)
     {
         $this->prerequisites = new Collection();
         $this->callbacks = new Collection();
@@ -128,14 +122,14 @@ class Transition implements Arrayable
      */
     public function caption(): string
     {
-        $fallback = Str::snake(class_basename($this->workflow()->blueprint())) . ".transitions.{$this->source()}.{$this->target()}";
+        $fallback = Str::snake(class_basename($this->workflow()->blueprint())) . ".transitions.{$this->source()->name}.{$this->target()->name}";
         return $this->caption ?? $fallback;
     }
 
     /**
      * Source state.
      */
-    public function source(): string
+    public function source(): BackedEnum
     {
         return $this->source;
     }
@@ -143,7 +137,7 @@ class Transition implements Arrayable
     /**
      * Target state.
      */
-    public function target(): string
+    public function target(): BackedEnum
     {
         return $this->target;
     }
