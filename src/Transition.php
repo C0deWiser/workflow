@@ -110,8 +110,8 @@ class Transition implements Arrayable
     {
         return [
             'caption' => $this->caption(),
-            'source' => $this->source(),
-            'target' => $this->target(),
+            'source' => $this->source()->value,
+            'target' => $this->target()->value,
             'problems' => $this->problems(),
             'requires' => array_keys($this->rules)
         ] + $this->additional();
