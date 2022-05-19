@@ -117,9 +117,7 @@ use \Codewiser\Workflow\Transition;
 use \Illuminate\Support\Facades\Gate;
 
 Transition::make('new', 'review')
-    ->authorizedBy(function (Article $article) {
-        return Gate::allows('transitToReview', $article);
-    });
+    ->authorizedBy(fn(Article $article) => Gate::allows('transitToReview', $article));
 ```
 
 ### Authorized Transitions

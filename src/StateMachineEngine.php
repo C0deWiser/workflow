@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 class StateMachineEngine
 {
     protected ?TransitionCollection $transitions = null;
+    protected ?StateCollection $states = null;
 
     /**
      * @deprecated
@@ -56,7 +57,16 @@ class StateMachineEngine
      */
     public function states(): StateCollection
     {
-        return $this->blueprint->getStates();
+        if ($this->states) {
+            return $this->states;
+        }
+
+        $this->states = $this->blueprint->getStates()
+            ->each(function (State $state) {
+                $state->inject($this);
+            });
+
+        return $this->states;
     }
 
     /**

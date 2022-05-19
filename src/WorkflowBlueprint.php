@@ -138,11 +138,8 @@ abstract class WorkflowBlueprint implements CastsAttributes
      */
     public function set($model, string $key, $value, array $attributes)
     {
-        if (is_scalar($value)) {
-            return $value;
-        }
         if ($value instanceof State) {
-            return $value->value;
+            $value = $value->value;
         }
 
         return $value;
