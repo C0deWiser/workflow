@@ -36,11 +36,13 @@ trait HasWorkflow
 
     /**
      * Engine instances.
+     * @deprecated
      */
     protected array $stateMachineEngines = [];
 
     /**
      * Get model's workflow (for given attribute or first defined).
+     * @deprecated
      */
     public function workflow(string $what = null): ?StateMachineEngine
     {
@@ -65,6 +67,7 @@ trait HasWorkflow
      * Get the model workflow listing.
      *
      * @return Collection<StateMachineEngine>
+     * @deprecated
      */
     public function getWorkflowListing(): Collection
     {

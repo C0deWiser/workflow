@@ -1,6 +1,6 @@
 {
     "name": "codewiser/workflow",
-    "version": "4.0.1",
+    "version": "3.0.1",
     "description": "Model Workflow Laravel package",
     "keywords": ["workflow", "laravel", "state machine"],
     "license": "MIT",
@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "php": "^8.1",
+        "php": "^8.0",
         "laravel/framework": "^9.0",
         "ext-json": "*"
     },
@@ -23,7 +23,7 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
-            "App\\": "example/"
+            "Codewiser\\Workflow\\Example\\": "example/"
         }
     },
     "require-dev": {

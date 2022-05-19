@@ -13,20 +13,33 @@ use Illuminate\Support\Collection;
  */
 class StateMachineObserver
 {
+    /**
+     * @param Model $model
+     * @return Collection<StateMachineEngine>
+     */
     private function getWorkflowListing(Model $model): Collection
     {
-        if (method_exists($model, 'getWorkflowListing')) {
-            return $model->getWorkflowListing();
+        $blueprints = [];
+
+        foreach ($model->getCasts() as $attribute => $cast) {
+            if (is_subclass_of($cast, WorkflowBlueprint::class)) {
+                if ($state = $model->getAttribute($attribute)) {
+                    /* @var State $state */
+                    $blueprints[$attribute] = $state->engine();
+                } else {
+                    $blueprints[$attribute] = new StateMachineEngine(new $cast, $model);
+                }
+            }
         }
 
-        return collect();
+        return collect($blueprints);
     }
 
     public function creating(Model $model): bool
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) use ($model) {
-                $model->setAttribute($engine->attribute(), $engine->initial());
+            ->each(function (StateMachineEngine $engine, $attribute) use ($model) {
+                $model->setAttribute($attribute, $engine->initial()->value);
             });
 
         return true;
@@ -35,7 +48,7 @@ class StateMachineObserver
     public function created(Model $model): void
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) use ($model) {
+            ->each(function (StateMachineEngine $engine, $attribute) use ($model) {
                 // For Event Listener
                 event(new ModelInitialized($model, $engine));
             });
@@ -46,16 +59,17 @@ class StateMachineObserver
         // If one transition is invalid, all update is invalid
         return $this->getWorkflowListing($model)
             // Rejecting successful validations
-            ->reject(function (StateMachineEngine $engine) use ($model) {
-                $attribute = $engine->attribute();
+            ->reject(function (StateMachineEngine $engine, $attribute) use ($model) {
 
-                if ($model->isDirty($attribute) &&
+                if (
+                    $model->isDirty($attribute) &&
                     ($source = $model->getOriginal($attribute)) &&
-                    ($target = $model->getAttribute($attribute)) &&
-                    ($source != $target)) {
+                    ($target = $model->getAttribute($attribute))
+                ) {
 
                     $transition = $engine->transitions()
-                        ->from($source)->to($target)
+                        ->from($source)
+                        ->to($target)
                         // Find or die!
                         ->sole()
                         // May throw an Exception
@@ -81,33 +95,34 @@ class StateMachineObserver
     public function updated(Model $model): void
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) use ($model) {
-                $attribute = $engine->attribute();
+            ->each(function (StateMachineEngine $engine, $attribute) use ($model) {
 
-                if ($model->wasChanged($attribute) &&
+                if (
+                    $model->wasChanged($attribute) &&
                     ($source = $model->getOriginal($attribute)) &&
-                    ($target = $model->getAttribute($attribute)) &&
-                    ($source != $target)) {
+                    ($target = $model->getAttribute($attribute))
+                ) {
 
                     $transition = $engine->transitions()
-                        ->from($source)->to($target)
+                        ->from($source)
+                        ->to($target)
                         ->sole();
 
                     // Context was validated while `updating`. Just use it
-                    $context = $engine->context();
+                    $transition->context($engine->context());
 
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
-                        $model->fresh()->fireTransitionEvent('transited', false, $engine, $transition, $context);
+                        $model->fresh()->fireTransitionEvent('transited', false, $engine, $transition);
                     }
 
                     // For Event Listener
-                    event(new ModelTransited($model->fresh(), $engine, $transition, $context));
+                    event(new ModelTransited($model->fresh(), $engine, $transition));
 
                     // For Transition Callback
                     $transition->callbacks()
-                        ->each(function ($callback) use ($model, $context) {
-                            call_user_func($callback, $model->fresh(), $context);
+                        ->each(function ($callback) use ($model, $engine) {
+                            call_user_func($callback, $model->fresh(), $engine->context());
                         });
                 }
             });
