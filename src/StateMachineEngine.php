@@ -16,6 +16,14 @@ class StateMachineEngine
     protected ?TransitionCollection $transitions = null;
 
     /**
+     * @deprecated
+     * @var string
+     */
+    protected string            $attribute;
+
+    protected string|int $value;
+
+    /**
      * Transition additional context.
      *
      * @var array
@@ -25,18 +33,12 @@ class StateMachineEngine
     /**
      * @param WorkflowBlueprint $blueprint
      * @param Model $model
-     * @param string $attribute It keeps state value in a Model.
      */
     public function __construct(
         protected WorkflowBlueprint $blueprint,
-        protected Model             $model,
-        protected string            $attribute)
+        protected Model             $model)
     {
-    }
-
-    public function __toString()
-    {
-        return (string)$this->state();
+        //
     }
 
     /**
@@ -45,16 +47,6 @@ class StateMachineEngine
     public function blueprint(): WorkflowBlueprint
     {
         return $this->blueprint;
-    }
-
-    /**
-     * Get (current or any) state caption trans string.
-     */
-    public function caption(State|string $state = null): string
-    {
-        $state = $state ? $this->states()->one($state) : $this->state();
-
-        return $state->caption() ?: Str::snake(class_basename($this->blueprint)) . ".states.{$state}";
     }
 
     /**
@@ -80,42 +72,10 @@ class StateMachineEngine
 
         $this->transitions = $this->blueprint->getTransitions()
             ->each(function (Transition $transition) {
-                $transition->inject($this->model, $this->attribute);
+                $transition->inject($this);
             });
 
         return $this->transitions;
-    }
-
-    /**
-     * Get proper ways out from the current state.
-     *
-     * @return TransitionCollection<Transition>
-     */
-    public function routes(): TransitionCollection
-    {
-        return $this->transitions()
-            ->from($this->state())
-            ->withoutForbidden();
-    }
-
-    /**
-     * Get available transition to the given state.
-     */
-    public function routeTo(State|string $state): ?Transition
-    {
-        return $this
-            ->routes()
-            ->first(function (Transition $transition) use ($state) {
-                return $transition->target() == (string)$state;
-            });
-    }
-
-    /**
-     * Get workflow attribute name.
-     */
-    public function attribute(): string
-    {
-        return $this->attribute;
     }
 
     /**
@@ -124,51 +84,6 @@ class StateMachineEngine
     public function initial(): State
     {
         return $this->states()->first();
-    }
-
-    /**
-     * Get model's current state.
-     */
-    public function state(): ?State
-    {
-        $state = $this->model->getAttribute($this->attribute());
-
-        return $state ? $this->states()->one($state) : null;
-    }
-
-    /**
-     * Authorize transition to the new state.
-     *
-     * @throws ItemNotFoundException
-     * @throws MultipleItemsFoundException
-     * @throws AuthorizationException
-     */
-    public function authorize(string $target): self
-    {
-        $transition = $this->transitions()
-            ->from($this->state())
-            ->to($target)
-            ->sole();
-
-        if ($ability = $transition->authorization()) {
-            if (is_string($ability)) {
-                Gate::authorize($ability, $this->model);
-            } elseif (is_callable($ability)) {
-                if (!call_user_func($ability, $this->model)) {
-                    throw new AuthorizationException();
-                }
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * Reset workflow to the initial state.
-     */
-    public function reset(): void
-    {
-        $this->model->setAttribute($this->attribute(), (string)$this->initial());
     }
 
     /**
@@ -181,5 +96,13 @@ class StateMachineEngine
         }
 
         return $this->context;
+    }
+
+    /**
+     * @return Model
+     */
+    public function model(): Model
+    {
+        return $this->model;
     }
 }

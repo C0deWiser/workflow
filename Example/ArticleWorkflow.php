@@ -1,19 +1,19 @@
 <?php
 
-namespace App;
+namespace Codewiser\Workflow\Example;
 
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
 
-class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     protected function states(): array
     {
         return [
             'one',
-            State::define('recoverable')->as('Initial state')->set('color', 'red'),
+            State::make('recoverable')->as('Initial state')->set('color', 'red'),
             'fatal',
             'callback',
             'deny'
@@ -23,34 +23,32 @@ class Blueprint extends \Codewiser\Workflow\WorkflowBlueprint
     protected function transitions(): array
     {
         return [
-            Transition::define('one', 'recoverable')
-                ->before(function (Post $model) {
+            Transition::make('one', 'recoverable')
+                ->before(function (Article $model) {
                     throw new TransitionRecoverableException();
                 })
                 ->set('color', 'red'),
 
-            Transition::define('one', 'fatal')->as('Fatal transition')
-                ->before(function (Post $model) {
+            Transition::make('one', 'fatal')->as('Fatal transition')
+                ->before(function (Article $model) {
                     throw new TransitionFatalException();
                 }),
 
-            Transition::define('one', 'callback')
-                ->rules([
-                    'comment' => 'required|string'
-                ])
+            Transition::make('one', 'callback')
+                ->rules([])
                 ->authorizedBy([$this, 'authorize'])
-                ->after(function (Post $model, array $context) {
+                ->after(function (Article $model, array $context) {
                     $model->body = $context['comment'];
                 }),
 
-            Transition::define('one', 'deny')
-                ->authorizedBy(function (Post $model) {
+            Transition::make('one', 'deny')
+                ->authorizedBy(function (Article $model) {
                     return false;
                 }),
 
             ['callback', 'one'],
             ['recoverable', 'one'],
-            Transition::define('fatal', 'one')
+            Transition::make('fatal', 'one')
         ];
     }
 

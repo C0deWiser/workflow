@@ -19,8 +19,7 @@ class ModelTransited
     public function __construct(
         public Model              $model,
         public StateMachineEngine $workflow,
-        public Transition         $transition,
-        public array              $context
+        public Transition         $transition
     )
     {
     }

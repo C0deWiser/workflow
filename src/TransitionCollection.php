@@ -16,27 +16,27 @@ class TransitionCollection extends Collection
     /**
      * Transitions from given state.
      */
-    public function from(string $state): self
+    public function from(State|string|int $state): static
     {
         return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->source() == $state;
+            return $transition->source()->is($state);
         });
     }
 
     /**
      * Transitions to given state.
      */
-    public function to(string $state): self
+    public function to(State|string|int $state): static
     {
         return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->target() == $state;
+            return $transition->target()->is($state);
         });
     }
 
     /**
      * Transitions without fatal conditions.
      */
-    public function withoutForbidden(): self
+    public function withoutForbidden(): static
     {
         return $this->reject(function (Transition $transition) {
             try {
@@ -53,7 +53,7 @@ class TransitionCollection extends Collection
     /**
      * Blind (forbidden) transitions.
      */
-    public function withoutRecoverable(): self
+    public function withoutRecoverable(): static
     {
         return $this->filter(function (Transition $transition) {
             try {
@@ -70,14 +70,14 @@ class TransitionCollection extends Collection
     /**
      * Authorized transitions.
      */
-    public function authorized(): self
+    public function authorized(): static
     {
         return $this->filter(function (Transition $transition) {
             if ($ability = $transition->authorization()) {
                 if (is_string($ability)) {
-                    return Gate::allows($ability, $transition->model());
+                    return Gate::allows($ability, $transition->engine()->model());
                 } elseif (is_callable($ability)) {
-                    return call_user_func($ability, $transition->model());
+                    return call_user_func($ability, $transition->engine()->model());
                 }
             }
             return true;

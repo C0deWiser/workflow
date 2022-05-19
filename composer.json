@@ -23,7 +23,7 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
-            "App\\": "example/"
+            "Codewiser\\Workflow\\Example\\": "example/"
         }
     },
     "require-dev": {

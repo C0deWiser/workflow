@@ -2,13 +2,14 @@
 
 namespace Codewiser\Workflow;
 
+use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
 /**
  * Workflow blueprint.
  */
-abstract class WorkflowBlueprint
+abstract class WorkflowBlueprint implements CastsAttributes
 {
     public function __construct()
     {
@@ -38,15 +39,18 @@ abstract class WorkflowBlueprint
      */
     protected function validate(): void
     {
-        $states = $this->getStates();
+        $states = $this->getStates()
+            ->map(function (State $state) {
+                return $state->value;
+            });
         $transitions = collect();
 
         $blueprint = class_basename($this);
 
         $this->getTransitions()
             ->each(function (Transition $transition) use ($states, $transitions, $blueprint) {
-                $s = $transition->source();
-                $t = $transition->target();
+                $s = $transition->source;
+                $t = $transition->target;
 
                 if (!$states->contains($s)) {
                     throw new ItemNotFoundException("Invalid {$blueprint}: transition from nowhere: {$s}");
@@ -71,8 +75,8 @@ abstract class WorkflowBlueprint
         $states = new StateCollection();
 
         foreach ($this->states() as $state) {
-            if (is_string($state)) {
-                $state = State::define($state);
+            if (is_scalar($state)) {
+                $state = State::make($state);
             }
             $states->add($state);
         }
@@ -91,11 +95,56 @@ abstract class WorkflowBlueprint
 
         foreach ($this->transitions() as $transition) {
             if (is_array($transition)) {
-                $transition = Transition::define($transition[0], $transition[1]);
+                $transition = Transition::make($transition[0], $transition[1]);
             }
             $transitions->add($transition);
         }
 
         return $transitions;
+    }
+
+    protected static array $engines = [];
+
+    /**
+     * Transform the attribute from the underlying model values.
+     *
+     * @param \Illuminate\Database\Eloquent\Model $model
+     * @param string $key
+     * @param mixed $value
+     * @param array $attributes
+     * @return mixed
+     */
+    public function get($model, string $key, $value, array $attributes)
+    {
+        $key = $model::class . ':' . $key;
+
+        if (!isset(self::$engines[$key])) {
+            self::$engines[$key] = new StateMachineEngine($this, $model);
+        }
+
+        return $value ? $this->getStates()->one($value)
+            ->inject(self::$engines[$key]) :
+            $value;
+    }
+
+    /**
+     * Transform the attribute to its underlying model values.
+     *
+     * @param \Illuminate\Database\Eloquent\Model $model
+     * @param string $key
+     * @param mixed $value
+     * @param array $attributes
+     * @return mixed
+     */
+    public function set($model, string $key, $value, array $attributes)
+    {
+        if (is_scalar($value)) {
+            return $value;
+        }
+        if ($value instanceof State) {
+            return $value->value;
+        }
+
+        return $value;
     }
 }
