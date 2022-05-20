@@ -17,8 +17,9 @@ class ModelInitialized
 
     public function __construct(
         public Model              $model,
-        public StateMachineEngine $workflow
+        public StateMachineEngine $engine
     )
     {
+        //
     }
 }

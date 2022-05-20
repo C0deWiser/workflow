@@ -11,8 +11,8 @@
 * [JSON](#json-serialization)
 * [Events](#events)
     * [EventListener](#eventlistener)
-    * [Observer](#observer)
     * [Callback](#transition-callback)
+* [Log Transitions](#transition-history) 
 
 Package provides workflow functionality to Eloquent Models.
 
@@ -474,3 +474,19 @@ Transition::make('review', 'correcting')
 ```
 
 You may define few callbacks to a single transition.
+
+## Transition History
+
+The Package may log transitions to database table. 
+
+Register `\Codewiser\Workflow\WorkflowServiceProvider` in `providers` section of `config/app.php`.
+
+Run migrations:
+
+    php artisan migrate
+
+It's done.
+
+To get historical records, add `\Codewiser\Workflow\Traits\HasTransitionHistory` to `Model` with workflow. It brings `transitions` relation.
+
+Historical records presented by `\Codewiser\Workflow\Models\TransitionHistory` model, that holds information about transition performer, source and target states and a context, if it were provided.
