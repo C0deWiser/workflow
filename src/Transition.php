@@ -2,13 +2,14 @@
 
 namespace Codewiser\Workflow;
 
+use BackedEnum;
+use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Traits\HasAttributes;
+use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
-use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -17,11 +18,10 @@ use Illuminate\Validation\ValidationException;
 /**
  * Transition between states in State Machine.
  */
-class Transition implements Arrayable
+class Transition implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine;
+    use HasAttributes, HasStateMachineEngine, HasCaption;
 
-    protected ?string $caption = null;
     protected Collection $prerequisites;
     protected Collection $callbacks;
     protected array $rules = [];
@@ -30,15 +30,18 @@ class Transition implements Arrayable
 
     /**
      * Instantiate new transition.
+     *
+     * @param BackedEnum|string|int $source
+     * @param BackedEnum|string|int $target
      */
-    public static function make(string|int $source, string|int $target): static
+    public static function make(mixed $source, mixed $target): static
     {
         return new static($source, $target);
     }
 
     public function __construct(
-        public string|int $source,
-        public string|int $target
+        public mixed $source,
+        public mixed $target
     )
     {
         $this->prerequisites = new Collection();
@@ -76,17 +79,6 @@ class Transition implements Arrayable
     }
 
     /**
-     * Set Transition caption.
-     */
-    public function as(string $caption): static
-    {
-        if ($caption)
-            $this->caption = $caption;
-
-        return $this;
-    }
-
-    /**
      * Add requirement(s) to transition payload.
      */
     public function rules(array $rules): static
@@ -98,13 +90,21 @@ class Transition implements Arrayable
 
     public function toArray(): array
     {
+        $rules = $this->validationRules();
+
+        foreach ($rules as $attribute => $rule) {
+            if (is_string($rule)) {
+                $rules[$attribute] = explode('|', $rule);
+            }
+        }
+
         return [
-            'caption' => $this->caption(),
-            'source' => $this->source,
-            'target' => $this->target,
-            'problems' => $this->problems(),
-            'requires' => array_keys($this->rules)
-        ] + $this->additional();
+                'name' => $this->caption(),
+                'source' => $this->source,
+                'target' => $this->target,
+                'issues' => $this->issues(),
+                'rules' => $rules
+            ] + $this->additional();
     }
 
     /**
@@ -112,7 +112,8 @@ class Transition implements Arrayable
      */
     public function caption(): string
     {
-        $fallback = Str::snake(class_basename($this->engine->blueprint())) . ".transitions.{$this->source}.{$this->target}";
+        $fallback = Str::snake(class_basename($this->engine->blueprint())) .
+            ".transitions." . State::scalar($this->source) . "." . State::scalar($this->target);
 
         return $this->caption ?? $fallback;
     }
@@ -166,7 +167,7 @@ class Transition implements Arrayable
      *
      * @return array<string>
      */
-    public function problems(): array
+    public function issues(): array
     {
         return $this->prerequisites()
             ->map(function ($condition) {

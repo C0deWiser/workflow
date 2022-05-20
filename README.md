@@ -21,50 +21,69 @@ Transitions between states inflicts the evolution road.
 
 ## Setup
 
-First, describe the workflow blueprint.
+First, describe the workflow blueprint with available states and transitions:
 
 ```php
-use \Codewiser\Workflow\State;
-use \Codewiser\Workflow\Transition;
-use \Codewiser\Workflow\WorkflowBlueprint;
-
-class ArticleWorkflow extends WorkflowBlueprint
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
-    protected function states(): array
+    public function states(): array
     {
         return [
-            State::make('new'),
-            State::make('review'),
-            State::make('published'),
-            State::make('correction')
+            'new',
+            'review',
+            'published',
+            'correction',
         ];
     }
-    protected function transitions(): array
+    
+    public function transitions(): array
     {
         return [
-            Transition::make('new', 'review'),
-            Transition::make('review', 'published'),
-            Transition::make('review', 'correction'),
-            Transition::make('correction', 'review')
+            ['new', 'review'],
+            ['review', 'published'],
+            ['review', 'correction'],
+            ['correction', 'review']
         ];
     }
 }
 ```
 
-Second, use trait and apply blueprint to the model as attribute casting.
+You may use `Enum` instead of scalar values:
 
 ```php
-use \Codewiser\Workflow\Traits\HasWorkflow;
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+{
+    public function states(): array
+    {
+        return State::cases();
+    }
+    
+    public function transitions(): array
+    {
+        return [
+            [State::new, State::review],
+            [State::review, State::published],
+            [State::review, State::correction],
+            [State::correction, State::review]
+        ];
+    }
+}
+```
 
+Finally, include trait and cast attribute with a blueprint that you just create.
+
+```php
 class Article extends Model
 {
-    use HasWorkflow;
+    use \Codewiser\Workflow\Traits\HasWorkflow;
     
     public $casts = [
         'state' => ArticleWorkflow::class
     ];
 }
 ```
+
+That's it.
 
 ## Consistency
 
@@ -82,10 +101,42 @@ $article->save();
 // No exceptions thrown
 ```
 
+
+## State and Transition objects
+
+In an example above we describe blueprint with scalar or enum values, but actually they will be transformed to the objects. Those objects bring some additional functionality to the states and transitions, such as caption translations, transition authorization, routing rules etc...
+
+```php
+use \Codewiser\Workflow\State;
+use \Codewiser\Workflow\Transition;
+
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+{
+    public function states(): array
+    {
+        return [
+            State::make('new'),
+            State::make('review'),
+            State::make('published'),
+            State::make('correction'),
+        ];
+    }
+    
+    public function transitions(): array
+    {
+        return [
+            Transition::make('new', 'review'),
+            Transition::make('review', 'published'),
+            Transition::make('review', 'correction'),
+            Transition::make('correction', 'review')
+        ];
+    }
+}
+```
+
 ## Authorization
 
-As model's actions are not allowed to any user, as changing state is not allowed to any user. You may define transition
-authorization rules either using `Policy` or using `callable`.
+As model's actions are not allowed to any user, as changing state is not allowed to any user. You may define transition authorization rules either using `Policy` or using `callable`.
 
 ### Using Policy
 
@@ -203,16 +254,16 @@ use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\Exceptions\TransitionFatalException;
 
 Transition::make('new', 'to-local-manager')
-    ->before(function($model) {
-        if ($model->orderAmount >= 1000000) {
-            throw new TransitionFatalException();
+    ->before(function(Order $model) {
+        if ($model->amount >= 1000000) {
+            throw new TransitionFatalException("Order amount is too big for this transition.");
         }
     }); 
 
 Transition::make('new', 'to-region-manager')
-    ->before(function($model) {
-        if ($model->orderAmount < 1000000) {
-            throw new TransitionFatalException();
+    ->before(function(Order $model) {
+        if ($model->amount < 1000000) {
+            throw new TransitionFatalException("Order amount is too small for this transition.");
         }
     }); 
 ```
@@ -221,8 +272,7 @@ User will see only one possible transition depending on order amount value.
 
 ### Additional Context
 
-Sometimes application requires an additional context to perform a transition. For example, it may be a reason the
-article was rejected by the reviewer.
+Sometimes application requires an additional context to perform a transition. For example, it may be a reason the article was rejected by the reviewer.
 
 First, declare validation rules in transition definition:
 
@@ -276,8 +326,8 @@ class ArticleWorkflow extends WorkflowBlueprint
     protected function states(): array
     {
         return [
-            State::make('new')        ->as(__('Draft')),
-            State::make('published')  ->as(__('Published'))
+            State::make('new')->as(__('Draft')),
+            State::make('published')->as(__('Published'))
         ];
     }
     protected function transitions(): array
@@ -291,8 +341,7 @@ class ArticleWorkflow extends WorkflowBlueprint
 
 ## Additional Attributes
 
-Sometimes we need to add some additional attributes to the workflow states and transitions. For example, we may group
-states by levels and use this information to color states and transitions in user interface.
+Sometimes we need to add some additional attributes to the workflow states and transitions. For example, we may group states by levels and use this information to color states and transitions in user interface.
 
 ```php
 use \Codewiser\Workflow\State;
@@ -324,7 +373,7 @@ class ArticleWorkflow extends WorkflowBlueprint
 
 ## Json Serialization
 
-For user to interact with model's workflow we should pass the data to a frontend of application:
+For user to interact with model's workflow we should pass the data to a frontend of the application:
 
 ```php
 use Illuminate\Http\Request;
@@ -349,26 +398,26 @@ The payload will be like that:
   "title": "Article title",
   "state": {
     "value": "review",
-    "caption": "Review",
+    "name": "Review",
     "transitions": [
       {
         "source": "review",
         "target": "publish",
-        "caption": "Publish",
-        "problems": [
+        "name": "Publish",
+        "issues": [
           "Publisher should provide a foreword."
         ],
-        "requires": [],
+        "rules": [],
         "level": "success"
       },
       {
         "source": "review",
         "target": "correction",
-        "caption": "Send to Correction",
-        "problems": [],
-        "requires": [
-          "reason"
-        ],
+        "name": "Send to Correction",
+        "issues": [],
+        "rules": {
+          "reason": ["required", "string", "min:100"]
+        },
         "level": "danger"
       }
     ]

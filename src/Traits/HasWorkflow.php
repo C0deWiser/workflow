@@ -8,10 +8,7 @@ use Illuminate\Support\Collection;
 use Codewiser\Workflow\StateMachineObserver;
 
 /**
- * Trait adds Workflow to a Model.
- *
- * @mixin Model
- * @property array $workflow
+ * Watching for Eloquent events.
  */
 trait HasWorkflow
 {
@@ -32,51 +29,5 @@ trait HasWorkflow
         static::updated(function (Model $model) {
             (new StateMachineObserver)->updated($model);
         });
-    }
-
-    /**
-     * Engine instances.
-     * @deprecated
-     */
-    protected array $stateMachineEngines = [];
-
-    /**
-     * Get model's workflow (for given attribute or first defined).
-     * @deprecated
-     */
-    public function workflow(string $what = null): ?StateMachineEngine
-    {
-        if (isset($this->workflow)) {
-            foreach ((array)$this->workflow as $attr => $class) {
-                if (!$what || $class == $what || $attr == $what) {
-
-                    if (isset($this->stateMachineEngines[$attr])) {
-                        return $this->stateMachineEngines[$attr];
-                    }
-
-                    $this->stateMachineEngines[$attr] = new StateMachineEngine(new $class(), $this, $attr);
-
-                    return $this->stateMachineEngines[$attr];
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Get the model workflow listing.
-     *
-     * @return Collection<StateMachineEngine>
-     * @deprecated
-     */
-    public function getWorkflowListing(): Collection
-    {
-        $list = collect();
-        if (isset($this->workflow)) {
-            foreach (array_keys((array)$this->workflow) as $workflow) {
-                $list->push($this->workflow($workflow));
-            }
-        }
-        return $list;
     }
 }

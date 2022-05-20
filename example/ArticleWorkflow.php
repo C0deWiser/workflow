@@ -9,46 +9,55 @@ use Codewiser\Workflow\Transition;
 
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
-    protected function states(): array
+    public static bool $enum = false;
+
+    public function states(): array
     {
-        return [
-            'one',
-            State::make('recoverable')->as('Initial state')->set('color', 'red'),
-            'fatal',
-            'callback',
-            'deny'
-        ];
+        if (self::$enum) {
+            return \Codewiser\Workflow\Example\State::cases();
+        } else {
+            return [
+                'first',
+                'second',
+                'recoverable',
+                'fatal',
+                'callback',
+                'deny',
+            ];
+        }
     }
 
-    protected function transitions(): array
+    public function transitions(): array
     {
         return [
-            Transition::make('one', 'recoverable')
+            Transition::make('first', 'recoverable')
                 ->before(function (Article $model) {
                     throw new TransitionRecoverableException();
                 })
                 ->set('color', 'red'),
 
-            Transition::make('one', 'fatal')->as('Fatal transition')
+            Transition::make('first', 'fatal')->as('Fatal transition')
                 ->before(function (Article $model) {
                     throw new TransitionFatalException();
                 }),
 
-            Transition::make('one', 'callback')
-                ->rules([])
+            Transition::make('first', 'callback')
+                ->rules([
+                    'comment' => 'required'
+                ])
                 ->authorizedBy([$this, 'authorize'])
                 ->after(function (Article $model, array $context) {
                     $model->body = $context['comment'];
                 }),
 
-            Transition::make('one', 'deny')
+            Transition::make('first', 'deny')
                 ->authorizedBy(function (Article $model) {
                     return false;
                 }),
 
-            ['callback', 'one'],
-            ['recoverable', 'one'],
-            Transition::make('fatal', 'one')
+            ['callback', 'first'],
+            ['recoverable', 'first'],
+            Transition::make('fatal', 'first')
         ];
     }
 

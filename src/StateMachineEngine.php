@@ -17,14 +17,6 @@ class StateMachineEngine
     protected ?StateCollection $states = null;
 
     /**
-     * @deprecated
-     * @var string
-     */
-    protected string            $attribute;
-
-    protected string|int $value;
-
-    /**
      * Transition additional context.
      *
      * @var array
@@ -57,14 +49,9 @@ class StateMachineEngine
      */
     public function states(): StateCollection
     {
-        if ($this->states) {
-            return $this->states;
+        if (!$this->states) {
+            $this->states = StateCollection::make($this->blueprint->states())->injectWith($this);
         }
-
-        $this->states = $this->blueprint->getStates()
-            ->each(function (State $state) {
-                $state->inject($this);
-            });
 
         return $this->states;
     }
@@ -76,14 +63,9 @@ class StateMachineEngine
      */
     public function transitions(): TransitionCollection
     {
-        if ($this->transitions) {
-            return $this->transitions;
+        if (!$this->transitions) {
+            $this->transitions = TransitionCollection::make($this->blueprint->transitions())->injectWith($this);
         }
-
-        $this->transitions = $this->blueprint->getTransitions()
-            ->each(function (Transition $transition) {
-                $transition->inject($this);
-            });
 
         return $this->transitions;
     }

@@ -21,13 +21,13 @@ class StateMachineObserver
     {
         $blueprints = [];
 
-        foreach ($model->getCasts() as $attribute => $cast) {
-            if (is_subclass_of($cast, WorkflowBlueprint::class)) {
+        foreach ($model->getCasts() as $attribute => $caster) {
+            if (is_subclass_of($caster, WorkflowBlueprint::class)) {
                 if ($state = $model->getAttribute($attribute)) {
                     /* @var State $state */
                     $blueprints[$attribute] = $state->engine();
                 } else {
-                    $blueprints[$attribute] = new StateMachineEngine(new $cast, $model);
+                    $blueprints[$attribute] = $caster::engine($model, $attribute);
                 }
             }
         }
@@ -39,7 +39,7 @@ class StateMachineObserver
     {
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine, $attribute) use ($model) {
-                $model->setAttribute($attribute, $engine->initial()->value);
+                $model->setAttribute($attribute, $engine->initial());
             });
 
         return true;

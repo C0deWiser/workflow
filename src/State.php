@@ -2,44 +2,38 @@
 
 namespace Codewiser\Workflow;
 
+use BackedEnum;
+use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Traits\HasAttributes;
+use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 use Illuminate\Support\Str;
 
-class State implements Arrayable
+class State implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine;
-
-    protected ?string $caption = null;
+    use HasAttributes, HasStateMachineEngine, HasCaption;
 
     /**
      * State new instance.
+     *
+     * @param BackedEnum|string|int $state
      */
-    public static function make(string|int $state): static
+    public static function make(mixed $state): static
     {
         return new static($state);
     }
 
-    public function __construct(public string|int $value)
+    /**
+     * @param BackedEnum|string|int $value
+     */
+    public function __construct(public mixed $value)
     {
         //
-    }
-
-    /**
-     * Set State caption.
-     */
-    public function as(string $caption): static
-    {
-        if ($caption)
-            $this->caption = $caption;
-
-        return $this;
     }
 
     /**
@@ -47,7 +41,8 @@ class State implements Arrayable
      */
     public function caption(): string
     {
-        $fallback = Str::snake(class_basename($this->engine->blueprint())) . ".states.{$this->value}";
+        $fallback = Str::snake(class_basename($this->engine->blueprint())) .
+            ".states." . self::scalar($this->value);
 
         return $this->caption ?? $fallback;
 
@@ -58,7 +53,7 @@ class State implements Arrayable
      */
     public function reset(): void
     {
-        $this->value = $this->engine->initial()->value;
+        $this->value = $this->engine->initial();
     }
 
     /**
@@ -76,8 +71,10 @@ class State implements Arrayable
 
     /**
      * Get available transition to the given state.
+     *
+     * @param State|BackedEnum|string|int $state
      */
-    public function transitionTo(State|string|int $state): ?Transition
+    public function transitionTo(mixed $state): ?Transition
     {
         return $this
             ->transitions()
@@ -88,11 +85,12 @@ class State implements Arrayable
     /**
      * Authorize transition to the new state.
      *
+     * @param State|BackedEnum|string|int $target
      * @throws ItemNotFoundException
      * @throws MultipleItemsFoundException
      * @throws AuthorizationException
      */
-    public function authorize(string $target): static
+    public function authorize(mixed $target): static
     {
         $transition = $this->transitions()
             ->to($target)
@@ -124,13 +122,49 @@ class State implements Arrayable
     public function toArray(): array
     {
         return [
+                'name' => $this->caption(),
                 'value' => $this->value,
-                'caption' => $this->caption()
             ] + $this->additional();
     }
 
-    public function is(State|string|int $state): bool
+    /**
+     * Check if state is equal to current.
+     *
+     * @param State|BackedEnum|string|int $state
+     * @return bool
+     */
+    public function is(mixed $state): bool
     {
-        return $this->value === ($state instanceof State ? $state->value : $state);
+        return self::scalar($this) === self::scalar($state);
+    }
+
+    /**
+     * Get scalar value.
+     *
+     * @param State|BackedEnum|string|int $value
+     * @return string|int
+     */
+    public static function scalar(mixed $value): mixed
+    {
+        if ($value instanceof State) {
+            $value = $value->value;
+        }
+
+        if (self::enum($value)) {
+            $value = @$value->value ?? $value->name;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Check if value is enumerable.
+     *
+     * @param mixed $value
+     * @return bool
+     */
+    public static function enum(mixed $value): bool
+    {
+        return is_object($value) && function_exists('enum_exists') && enum_exists($value::class);
     }
 }

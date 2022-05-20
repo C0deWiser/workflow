@@ -3,15 +3,17 @@
 namespace Tests;
 
 use Codewiser\Workflow\Example\Article;
+use Codewiser\Workflow\Example\ArticleWorkflow;
+use Codewiser\Workflow\Example\State;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
-use Codewiser\Workflow\State;
+use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachineObserver;
 use Codewiser\Workflow\Transition;
+use Codewiser\Workflow\TransitionCollection;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\TestCase;
 
 class ExampleTest extends TestCase
@@ -19,6 +21,8 @@ class ExampleTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        ArticleWorkflow::$enum = false;
     }
 
     public function testExample()
@@ -37,10 +41,72 @@ class ExampleTest extends TestCase
         $this->assertEquals($post->state->engine()->initial()->value, $post->state->value, 'State value was initialized on creating event');
     }
 
+    public function testStateCollection()
+    {
+        $collection = StateCollection::make(['first', 'second']);
+
+        $this->assertNotNull($collection->one('first'));
+        $this->assertNotNull($collection->one('second'));
+
+        $this->expectException(ItemNotFoundException::class);
+        $collection->one('third');
+    }
+
+    public function testEnumStateCollection()
+    {
+        if (ArticleWorkflow::$enum) {
+            $collection = StateCollection::make(State::cases());
+
+            $this->assertNotNull($collection->one('first'));
+            $this->assertNotNull($collection->one(State::first));
+            $this->assertNotNull($collection->one('second'));
+            $this->assertNotNull($collection->one(State::second));
+
+            $this->expectException(ItemNotFoundException::class);
+            $collection->one('third');
+        }
+
+        $this->assertTrue(true);
+    }
+
+    public function testTransitionCollection()
+    {
+        $collection = TransitionCollection::make([['first', 'second'], ['second', 'first']]);
+
+        $this->assertCount(1, $collection->from('first'));
+        $this->assertCount(1, $collection->from('second'));
+        $this->assertCount(0, $collection->from('third'));
+
+        $this->assertCount(1, $collection->to('first'));
+        $this->assertCount(1, $collection->to('second'));
+        $this->assertCount(0, $collection->to('third'));
+    }
+
+    public function testEnumTransitionCollection()
+    {
+        if (ArticleWorkflow::$enum) {
+            $collection = TransitionCollection::make([[State::first, State::second], [State::second, State::first]]);
+
+            $this->assertCount(1, $collection->from(State::first));
+            $this->assertCount(1, $collection->from(State::second));
+            $this->assertCount(1, $collection->from('first'));
+            $this->assertCount(1, $collection->from('second'));
+            $this->assertCount(0, $collection->from('third'));
+
+            $this->assertCount(1, $collection->to(State::first));
+            $this->assertCount(1, $collection->to(State::second));
+            $this->assertCount(1, $collection->to('first'));
+            $this->assertCount(1, $collection->to('second'));
+            $this->assertCount(0, $collection->to('third'));
+        }
+
+        $this->assertTrue(true);
+    }
+
     public function testTransitions()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         $this->assertCount(3, $post->state->transitions());
     }
@@ -48,34 +114,34 @@ class ExampleTest extends TestCase
     public function testJson()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         $transition = $post->state->transitions()->first();
         $data = $transition->toArray();
 
-        $this->assertArrayHasKey('caption', $data);
+        $this->assertArrayHasKey('name', $data);
         $this->assertArrayHasKey('source', $data);
         $this->assertArrayHasKey('target', $data);
-        $this->assertArrayHasKey('problems', $data);
-        $this->assertArrayHasKey('requires', $data);
+        $this->assertArrayHasKey('issues', $data);
+        $this->assertArrayHasKey('rules', $data);
     }
 
     public function testRelevantTransitions()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state->transitions()
             ->each(function (Transition $transition) use ($post) {
                 // Assert that every relevant transition starts from current state
-                $this->assertTrue($post->state->is($transition->source()));
+                $this->assertTrue($post->state->is($transition->source));
             });
     }
 
     public function testTransitRecoverable()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state = 'recoverable';
 
@@ -87,7 +153,7 @@ class ExampleTest extends TestCase
     public function testTransitFatal()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state = 'fatal';
 
@@ -99,29 +165,17 @@ class ExampleTest extends TestCase
     public function testTransitUnauthorized()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         // Transition is not authorized
         $this->expectException(AuthorizationException::class);
         $post->state->authorize('deny');
     }
 
-    public function testTransitContext()
-    {
-        $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
-
-        $post->state = 'callback';
-        $post->state->context(['foo' => 'Is not what it wants...']);
-
-        $this->expectException(ValidationException::class);
-        (new StateMachineObserver)->updating($post);
-    }
-
     public function testTransitUnknown()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state = Str::random();
 
@@ -130,22 +184,10 @@ class ExampleTest extends TestCase
         (new StateMachineObserver)->updating($post);
     }
 
-    public function testTransitAllowed()
-    {
-        $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
-
-        $post->state->context(['comment' => Str::random()]);
-        $post->state = 'callback';
-
-        // Observer allows to change the state
-        $this->assertTrue((new StateMachineObserver)->updating($post));
-    }
-
     public function testToArray()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => 'one'], true);
+        $post->setRawAttributes(['state' => 'first'], true);
 
         $data = $post->toArray();
 
@@ -153,12 +195,10 @@ class ExampleTest extends TestCase
 
         $this->assertArrayHasKey('state', $data);
         $this->assertArrayHasKey('transitions', $data['state']);
-        $this->assertArrayHasKey('caption', $data['state']['transitions'][0]);
+        $this->assertArrayHasKey('name', $data['state']['transitions'][0]);
         $this->assertArrayHasKey('source', $data['state']['transitions'][0]);
         $this->assertArrayHasKey('target', $data['state']['transitions'][0]);
-        $this->assertArrayHasKey('problems', $data['state']['transitions'][0]);
-        $this->assertArrayHasKey('requires', $data['state']['transitions'][0]);
-
-        dump($data);
+        $this->assertArrayHasKey('issues', $data['state']['transitions'][0]);
+        $this->assertArrayHasKey('rules', $data['state']['transitions'][0]);
     }
 }
