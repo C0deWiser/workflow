@@ -101,7 +101,6 @@ $article->save();
 // No exceptions thrown
 ```
 
-
 ## State and Transition objects
 
 In an example above we describe blueprint with scalar or enum values, but actually they will be transformed to the objects. Those objects bring some additional functionality to the states and transitions, such as caption translations, transition authorization, routing rules etc...
@@ -129,6 +128,26 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             Transition::make('review', 'published'),
             Transition::make('review', 'correction'),
             Transition::make('correction', 'review')
+        ];
+    }
+}
+```
+
+### Plural Transitions
+
+You may define multiple transitions as one, passing array of source or/and target states:
+
+```php
+use \Codewiser\Workflow\Transition;
+
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+{    
+    public function transitions(): array
+    {
+        return [
+            Transition::make(['new', 'correction'], 'review'),
+            Transition::make('review', 'published'),
+            Transition::make('review', 'correction')
         ];
     }
 }
@@ -485,8 +504,26 @@ Run migrations:
 
     php artisan migrate
 
+Add `workflow.history` into `config/services.php`:
+
+```php
+    'workflow' => [
+        'history' => true
+    ]
+```
+
 It's done.
 
 To get historical records, add `\Codewiser\Workflow\Traits\HasTransitionHistory` to `Model` with workflow. It brings `transitions` relation.
 
 Historical records presented by `\Codewiser\Workflow\Models\TransitionHistory` model, that holds information about transition performer, source and target states and a context, if it were provided.
+
+## Blueprint Validation
+
+The Package may validate Workflow Blueprint that you defined.
+
+Register `\Codewiser\Workflow\WorkflowServiceProvider` in `providers` section of `config/app.php`.
+
+Run console command with blueprint classname:
+
+    php artisan workflow:blueprint --class=App/Workflow/ArticleWorkflow

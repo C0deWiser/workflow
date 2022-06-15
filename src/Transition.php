@@ -31,8 +31,8 @@ class Transition implements Arrayable, Injectable
     /**
      * Instantiate new transition.
      *
-     * @param BackedEnum|string|int $source
-     * @param BackedEnum|string|int $target
+     * @param array|BackedEnum|string|int $source
+     * @param array|BackedEnum|string|int $target
      */
     public static function make(mixed $source, mixed $target): static
     {
@@ -46,6 +46,51 @@ class Transition implements Arrayable, Injectable
     {
         $this->prerequisites = new Collection();
         $this->callbacks = new Collection();
+    }
+
+    /**
+     * As transition definition may be multiple, this method decompose it to array of single definitions.
+     *
+     * @param Transition $transition
+     * @return array<Transition>
+     */
+    public static function decompose(Transition $transition): array
+    {
+        $transitions = [];
+
+        if (is_array($transition->source) && is_array($transition->target)) {
+            // Multiple transitions in one
+            foreach ($transition->source as $source) {
+                foreach ($transition->target as $target) {
+                    if ($source != $target) {
+                        $singleTransition = clone $transition;
+                        $singleTransition->source = $source;
+                        $singleTransition->target = $target;
+                        $transitions[] = $singleTransition;
+                    }
+                }
+            }
+        } elseif (is_array($transition->source)) {
+            foreach ($transition->source as $source) {
+                if ($source != $transition->target) {
+                    $singleTransition = clone $transition;
+                    $singleTransition->source = $source;
+                    $transitions[] = $singleTransition;
+                }
+            }
+        } elseif (is_array($transition->target)) {
+            foreach ($transition->target as $target) {
+                if ($transition->source != $target) {
+                    $singleTransition = clone $transition;
+                    $singleTransition->target = $target;
+                    $transitions[] = $singleTransition;
+                }
+            }
+        } else {
+            $transitions[] = $transition;
+        }
+
+        return $transitions;
     }
 
     /**
@@ -90,20 +135,12 @@ class Transition implements Arrayable, Injectable
 
     public function toArray(): array
     {
-        $rules = $this->validationRules();
-
-        foreach ($rules as $attribute => $rule) {
-            if (is_string($rule)) {
-                $rules[$attribute] = explode('|', $rule);
-            }
-        }
-
         return [
                 'name' => $this->caption(),
                 'source' => $this->source,
                 'target' => $this->target,
                 'issues' => $this->issues(),
-                'rules' => $rules
+                'rules' => $this->validationRules(true)
             ] + $this->additional();
     }
 
@@ -112,7 +149,7 @@ class Transition implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        $fallback = Str::snake(class_basename($this->engine->blueprint())) .
+        $fallback = ($this->engine ? Str::snake(class_basename($this->engine->blueprint())) : 'testing') .
             ".transitions." . State::scalar($this->source) . "." . State::scalar($this->target);
 
         return $this->caption ?? $fallback;
@@ -187,9 +224,19 @@ class Transition implements Arrayable, Injectable
     /**
      * Get attributes, that must be provided into transit() method.
      */
-    public function validationRules(): array
+    public function validationRules($explode = false): array
     {
-        return $this->rules;
+        $rules = $this->rules;
+
+        if ($explode) {
+            foreach ($rules as $attribute => $rule) {
+                if (is_string($rule)) {
+                    $rules[$attribute] = explode('|', $rule);
+                }
+            }
+        }
+
+        return $rules;
     }
 
     /**

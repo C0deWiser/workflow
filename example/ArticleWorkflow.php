@@ -9,7 +9,7 @@ use Codewiser\Workflow\Transition;
 
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
-    public static bool $enum = false;
+    public static bool $enum = true;
 
     public function states(): array
     {
@@ -55,8 +55,8 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
                     return false;
                 }),
 
-            ['callback', 'first'],
-            ['recoverable', 'first'],
+            [['callback', 'recoverable', 'fatal'], 'first'],
+            // duplication
             Transition::make('fatal', 'first')
         ];
     }

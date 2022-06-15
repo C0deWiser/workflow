@@ -16,18 +16,13 @@ use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\TestCase;
 
-class ExampleTest extends TestCase
+class BaseTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
 
-        ArticleWorkflow::$enum = false;
-    }
-
-    public function testExample()
-    {
-        $this->assertTrue(true);
+        ArticleWorkflow::$enum = true;
     }
 
     public function testBasics()
@@ -126,6 +121,14 @@ class ExampleTest extends TestCase
         $this->assertArrayHasKey('rules', $data);
     }
 
+    public function testUniqueTransitions()
+    {
+        $post = new Article();
+        $post->setRawAttributes(['state' => 'first'], true);
+
+        $this->assertCount(3, $post->state->engine()->transitions()->to('first'));
+    }
+
     public function testRelevantTransitions()
     {
         $post = new Article();
@@ -200,5 +203,34 @@ class ExampleTest extends TestCase
         $this->assertArrayHasKey('target', $data['state']['transitions'][0]);
         $this->assertArrayHasKey('issues', $data['state']['transitions'][0]);
         $this->assertArrayHasKey('rules', $data['state']['transitions'][0]);
+    }
+
+    public function testDecomposition()
+    {
+        $transition = Transition::make(['one', 'two'], ['three', 'four']);
+
+        $transitions = TransitionCollection::make(Transition::decompose($transition));
+
+        $this->assertCount(4, $transitions);
+        $this->assertTrue($transitions->from('one')->to('three')->isNotEmpty());
+        $this->assertTrue($transitions->from('one')->to('four')->isNotEmpty());
+        $this->assertTrue($transitions->from('two')->to('three')->isNotEmpty());
+        $this->assertTrue($transitions->from('two')->to('four')->isNotEmpty());
+    }
+
+    public function testDecompositionUnique()
+    {
+        $name = Str::random();
+        $transition = Transition::make(['one', 'two'], ['one', 'two'])
+            ->as($name);
+
+        $transitions = TransitionCollection::make(Transition::decompose($transition));
+
+        $this->assertCount(2, $transitions);
+        $this->assertTrue($transitions->from('one')->to('two')->isNotEmpty());
+        $this->assertTrue($transitions->from('two')->to('one')->isNotEmpty());
+
+        $this->assertEquals($name, $transitions->from('one')->to('two')->first()->caption());
+        $this->assertEquals($name, $transitions->from('two')->to('one')->first()->caption());
     }
 }

@@ -19,7 +19,7 @@ class TransitionCollection extends Collection
 
     public static function make($items = []): static
     {
-        $collection = new static();
+        $collection = [];
 
         foreach ($items as $item) {
 
@@ -28,12 +28,15 @@ class TransitionCollection extends Collection
             }
 
             if ($item instanceof Transition) {
-                $collection->add($item);
+                // It may be multiple definitions in one...
+                foreach (Transition::decompose($item) as $decomposed) {
+                    // Filter unique transitions
+                    $collection[State::scalar($decomposed->source).State::scalar($decomposed->target)] = $decomposed;
+                }
             }
-
         }
 
-        return $collection;
+        return new static(array_values($collection));
     }
     /**
      * Transitions from given state.

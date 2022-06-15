@@ -41,7 +41,7 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        $fallback = Str::snake(class_basename($this->engine->blueprint())) .
+        $fallback = ($this->engine ? Str::snake(class_basename($this->engine->blueprint())) : 'testing') .
             ".states." . self::scalar($this->value);
 
         return $this->caption ?? $fallback;

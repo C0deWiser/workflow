@@ -7,7 +7,7 @@ use Codewiser\Workflow\StateMachineEngine;
 
 trait HasStateMachineEngine
 {
-    protected ?StateMachineEngine $engine;
+    protected ?StateMachineEngine $engine = null;
 
     /**
      * Vivify transition with StateMachineEngine.

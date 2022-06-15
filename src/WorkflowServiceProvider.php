@@ -2,7 +2,7 @@
 
 namespace Codewiser\Workflow;
 
-use Closure;
+use Codewiser\Workflow\Commands\ValidateCommand;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Listeners\TransitionListener;
@@ -15,7 +15,15 @@ class WorkflowServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
-        Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleModelInitialized']);
-        Event::listen(ModelTransited::class, [TransitionListener::class, 'handleModelTransited']);
+        if (config('services.workflow.history')) {
+            Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleModelInitialized']);
+            Event::listen(ModelTransited::class, [TransitionListener::class, 'handleModelTransited']);
+        }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ValidateCommand::class
+            ]);
+        }
     }
 }
