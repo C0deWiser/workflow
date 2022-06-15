@@ -26,7 +26,7 @@ class BlueprintValidator
                     'source' => State::scalar($transition->source),
                     'target' => State::scalar($transition->target),
                     'caption' => $transition->caption(),
-                    'prerequisites' => is_null($transition->prerequisites()) ? 'No' : 'Yes',
+                    'prerequisites' => $transition->prerequisites()->isEmpty() ? 'No' : 'Yes',
                     'authorization' => is_null($transition->authorization()) ? 'No' : 'Yes',
                     'rules' => json_encode($transition->validationRules(true)),
                     'additional' => json_encode($transition->additional()),

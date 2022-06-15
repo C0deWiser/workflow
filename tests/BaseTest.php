@@ -2,9 +2,9 @@
 
 namespace Tests;
 
-use Codewiser\Workflow\Example\Article;
-use Codewiser\Workflow\Example\ArticleWorkflow;
-use Codewiser\Workflow\Example\State;
+use Codewiser\Workflow\Example\ExampleArticle;
+use Codewiser\Workflow\Example\ExampleWorkflow;
+use Codewiser\Workflow\Example\ExampleEnum;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\StateCollection;
@@ -22,12 +22,12 @@ class BaseTest extends TestCase
     {
         parent::setUp();
 
-        ArticleWorkflow::$enum = true;
+        ExampleWorkflow::$enum = true;
     }
 
     public function testBasics()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
 
         $this->assertNull($post->state, 'State is not initialized');
 
@@ -49,13 +49,13 @@ class BaseTest extends TestCase
 
     public function testEnumStateCollection()
     {
-        if (ArticleWorkflow::$enum) {
-            $collection = StateCollection::make(State::cases());
+        if (ExampleWorkflow::$enum) {
+            $collection = StateCollection::make(ExampleEnum::cases());
 
             $this->assertNotNull($collection->one('first'));
-            $this->assertNotNull($collection->one(State::first));
+            $this->assertNotNull($collection->one(ExampleEnum::first));
             $this->assertNotNull($collection->one('second'));
-            $this->assertNotNull($collection->one(State::second));
+            $this->assertNotNull($collection->one(ExampleEnum::second));
 
             $this->expectException(ItemNotFoundException::class);
             $collection->one('third');
@@ -79,17 +79,17 @@ class BaseTest extends TestCase
 
     public function testEnumTransitionCollection()
     {
-        if (ArticleWorkflow::$enum) {
-            $collection = TransitionCollection::make([[State::first, State::second], [State::second, State::first]]);
+        if (ExampleWorkflow::$enum) {
+            $collection = TransitionCollection::make([[ExampleEnum::first, ExampleEnum::second], [ExampleEnum::second, ExampleEnum::first]]);
 
-            $this->assertCount(1, $collection->from(State::first));
-            $this->assertCount(1, $collection->from(State::second));
+            $this->assertCount(1, $collection->from(ExampleEnum::first));
+            $this->assertCount(1, $collection->from(ExampleEnum::second));
             $this->assertCount(1, $collection->from('first'));
             $this->assertCount(1, $collection->from('second'));
             $this->assertCount(0, $collection->from('third'));
 
-            $this->assertCount(1, $collection->to(State::first));
-            $this->assertCount(1, $collection->to(State::second));
+            $this->assertCount(1, $collection->to(ExampleEnum::first));
+            $this->assertCount(1, $collection->to(ExampleEnum::second));
             $this->assertCount(1, $collection->to('first'));
             $this->assertCount(1, $collection->to('second'));
             $this->assertCount(0, $collection->to('third'));
@@ -100,7 +100,7 @@ class BaseTest extends TestCase
 
     public function testTransitions()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $this->assertCount(3, $post->state->transitions());
@@ -108,7 +108,7 @@ class BaseTest extends TestCase
 
     public function testJson()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $transition = $post->state->transitions()->first();
@@ -123,7 +123,7 @@ class BaseTest extends TestCase
 
     public function testUniqueTransitions()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $this->assertCount(3, $post->state->engine()->transitions()->to('first'));
@@ -131,7 +131,7 @@ class BaseTest extends TestCase
 
     public function testRelevantTransitions()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state->transitions()
@@ -143,7 +143,7 @@ class BaseTest extends TestCase
 
     public function testTransitRecoverable()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state = 'recoverable';
@@ -155,7 +155,7 @@ class BaseTest extends TestCase
 
     public function testTransitFatal()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state = 'fatal';
@@ -167,7 +167,7 @@ class BaseTest extends TestCase
 
     public function testTransitUnauthorized()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         // Transition is not authorized
@@ -177,7 +177,7 @@ class BaseTest extends TestCase
 
     public function testTransitUnknown()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $post->state = Str::random();
@@ -189,7 +189,7 @@ class BaseTest extends TestCase
 
     public function testToArray()
     {
-        $post = new Article();
+        $post = new ExampleArticle();
         $post->setRawAttributes(['state' => 'first'], true);
 
         $data = $post->toArray();

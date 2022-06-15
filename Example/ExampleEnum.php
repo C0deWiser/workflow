@@ -2,7 +2,7 @@
 
 namespace Codewiser\Workflow\Example;
 
-enum State
+enum ExampleEnum
 {
     case first;
     case second;

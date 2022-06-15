@@ -11,16 +11,16 @@ use Illuminate\Database\Eloquent\Model;
  * @package App
  *
  * @property string $body
- * @property State|null $state
- * @property State|null $next
+ * @property ExampleEnum|null $state
+ * @property ExampleEnum|null $next
  */
-class Article extends Model
+class ExampleArticle extends Model
 {
     use HasWorkflow;
 
     public $casts = [
-        'state' => ArticleWorkflow::class,
-        'next' => ArticleWorkflow::class
+        'state' => ExampleWorkflow::class,
+        'next' => ExampleWorkflow::class
     ];
 
     public function test1()

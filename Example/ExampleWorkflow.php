@@ -7,7 +7,7 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
 
-class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+class ExampleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     public static bool $enum = true;
 
