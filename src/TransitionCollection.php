@@ -31,7 +31,10 @@ class TransitionCollection extends Collection
                 // It may be multiple definitions in one...
                 foreach (Transition::decompose($item) as $decomposed) {
                     // Filter unique transitions
-                    $collection[State::scalar($decomposed->source).State::scalar($decomposed->target)] = $decomposed;
+                    $key = State::scalar($decomposed->source).State::scalar($decomposed->target);
+                    if (!isset($collection[$key])) {
+                        $collection[$key] = $decomposed;
+                    }
                 }
             }
         }
