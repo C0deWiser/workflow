@@ -63,7 +63,7 @@ class ValidateCommand extends Command
 
         $this->table(['Value', 'Caption', 'Additional', 'Error'], $validator->states());
 
-        $this->table(['Source', 'Target', 'Caption', 'Issues', 'Auth', 'Rules', 'Additional', 'Errors'], $validator->transitions());
+        $this->table(['Source', 'Target', 'Caption', 'Issues', 'Auth', 'Context', 'Additional', 'Errors'], $validator->transitions());
 
         return self::SUCCESS;
     }
