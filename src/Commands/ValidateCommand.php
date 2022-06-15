@@ -65,6 +65,12 @@ class ValidateCommand extends Command
 
         $this->table(['Source', 'Target', 'Caption', 'Issues', 'Auth', 'Context', 'Additional', 'Errors'], $validator->transitions());
 
+        if ($validator->valid) {
+            $this->info("Blueprint {$class} is valid");
+        } else {
+            $this->error("Blueprint {$class} is invalid");
+        }
+
         return self::SUCCESS;
     }
 

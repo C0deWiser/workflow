@@ -9,6 +9,7 @@ class BlueprintValidator
 {
     public StateCollection $states;
     public TransitionCollection $transitions;
+    public bool $valid = true;
 
     public function __construct(public WorkflowBlueprint $blueprint)
     {
@@ -36,11 +37,13 @@ class BlueprintValidator
                     $this->states->one($transition->source);
                 } catch (ItemNotFoundException) {
                     $row['errors'][] = 'Source Not Found';
+                    $this->valid = false;
                 }
                 try {
                     $this->states->one($transition->target);
                 } catch (ItemNotFoundException) {
                     $row['errors'][] = 'Target Not Found';
+                    $this->valid = false;
                 }
 
                 $row['errors'] = implode(', ', $row['errors']);
@@ -65,6 +68,7 @@ class BlueprintValidator
                     $this->states->one($state);
                 } catch (MultipleItemsFoundException) {
                     $row['error'] = "State {$row['value']} defined few times.";
+                    $this->valid = false;
                 }
 
                 return $row;
