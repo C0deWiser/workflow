@@ -82,7 +82,7 @@ class ValidateCommand extends Command
                     'source' => State::scalar($transition->source()),
                     'target' => State::scalar($transition->target()),
                     'caption' => $transition->caption(),
-                    'issues' => $transition->issues(),
+                    'prerequisites' => !is_null($transition->prerequisites()),
                     'authorization' => !is_null($transition->authorization()),
                     'rules' => $transition->validationRules(true),
                     'additional' => json_encode($transition->additional()),
