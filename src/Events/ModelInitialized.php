@@ -16,7 +16,6 @@ class ModelInitialized
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public Model              $model,
         public StateMachineEngine $engine
     )
     {

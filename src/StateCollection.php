@@ -18,7 +18,7 @@ class StateCollection extends Collection
 
         foreach ($items as $item) {
 
-            if (State::enum($item) || is_scalar($item)) {
+            if ($item instanceof BackedEnum || is_scalar($item)) {
                 $item = State::make($item);
             }
 
@@ -31,17 +31,22 @@ class StateCollection extends Collection
         return $collection;
     }
 
+    public function initial(): State
+    {
+        return $this->first();
+    }
+
     /**
      * Get the exact one state from collection.
      *
-     * @param State|BackedEnum|string|int $state
+     * @param BackedEnum|string|int $state
      * @throws ItemNotFoundException
      * @throws MultipleItemsFoundException
      */
-    public function one(mixed $state): State
+    public function one(BackedEnum|string|int $state): State
     {
         return $this->sole(function (State $st) use ($state) {
-            return State::scalar($st) === State::scalar($state);
+            return $st->is($state);
         });
     }
 }

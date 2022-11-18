@@ -28,42 +28,35 @@ class TransitionCollection extends Collection
             }
 
             if ($item instanceof Transition) {
-                // It may be multiple definitions in one...
-                foreach (Transition::decompose($item) as $decomposed) {
-                    // Filter unique transitions
-                    $key = State::scalar($decomposed->source).State::scalar($decomposed->target);
-                    if (!isset($collection[$key])) {
-                        $collection[$key] = $decomposed;
-                    }
+                // Filter unique transitions
+                $key = ($item->source instanceof BackedEnum ? $item->source->value : $item->source)
+                    . ($item->target instanceof BackedEnum ? $item->target->value : $item->target);
+                if (!isset($collection[$key])) {
+                    $collection[$key] = $item;
                 }
             }
         }
 
         return new static(array_values($collection));
     }
+
     /**
      * Transitions from given state.
-     *
-     * @param State|BackedEnum|string|int $state
-     * @return $this
      */
-    public function from(mixed $state): static
+    public function from(BackedEnum|string|int $state): static
     {
         return $this->filter(function (Transition $transition) use ($state) {
-            return State::scalar($transition->source) === State::scalar($state);
+            return $transition->source === $state;
         });
     }
 
     /**
      * Transitions to given state.
-     *
-     * @param State|BackedEnum|string|int $state
-     * @return $this
      */
-    public function to(mixed $state): static
+    public function to(BackedEnum|string|int $state): static
     {
         return $this->filter(function (Transition $transition) use ($state) {
-            return State::scalar($transition->target) === State::scalar($state);
+            return $transition->target === $state;
         });
     }
 
@@ -87,14 +80,14 @@ class TransitionCollection extends Collection
     /**
      * Authorized transitions.
      */
-    public function authorized(): static
+    public function onlyAuthorized(): static
     {
         return $this->filter(function (Transition $transition) {
             if ($ability = $transition->authorization()) {
                 if (is_string($ability)) {
-                    return Gate::allows($ability, $transition->engine()->model());
+                    return Gate::allows($ability, $transition->engine()->getModel());
                 } elseif (is_callable($ability)) {
-                    return call_user_func($ability, $transition->engine()->model());
+                    return call_user_func($ability, $transition->engine()->getModel());
                 }
             }
             return true;

@@ -3,15 +3,17 @@
 
 namespace Codewiser\Workflow;
 
+use BackedEnum;
 use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 use Illuminate\Support\Str;
 
-class StateMachineEngine
+class StateMachineEngine implements Arrayable
 {
     protected ?TransitionCollection $transitions = null;
     protected ?StateCollection $states = null;
@@ -23,13 +25,11 @@ class StateMachineEngine
      */
     protected array $context = [];
 
-    /**
-     * @param WorkflowBlueprint $blueprint
-     * @param Model $model
-     */
     public function __construct(
         protected WorkflowBlueprint $blueprint,
-        protected Model             $model)
+        protected Model             $model,
+        protected string            $attribute
+    )
     {
         //
     }
@@ -37,7 +37,7 @@ class StateMachineEngine
     /**
      * Get model's Workflow Blueprint.
      */
-    public function blueprint(): WorkflowBlueprint
+    public function getBlueprint(): WorkflowBlueprint
     {
         return $this->blueprint;
     }
@@ -71,11 +71,13 @@ class StateMachineEngine
     }
 
     /**
-     * Get workflow initial state.
+     * Get possible transitions from current state.
+     *
+     * @return TransitionCollection<Transition>
      */
-    public function initial(): State
+    public function getRoutes(): TransitionCollection
     {
-        return $this->states()->first();
+        return $this->getCurrent()?->transitions() ?? TransitionCollection::make();
     }
 
     /**
@@ -93,8 +95,58 @@ class StateMachineEngine
     /**
      * @return Model
      */
-    public function model(): Model
+    public function getModel(): Model
     {
         return $this->model;
+    }
+
+    /**
+     * @return string
+     */
+    public function getAttribute(): string
+    {
+        return $this->attribute;
+    }
+
+    /**
+     * Authorize transition to the new state.
+     *
+     * @param BackedEnum|string|int $target
+     * @throws ItemNotFoundException
+     * @throws MultipleItemsFoundException
+     * @throws AuthorizationException
+     */
+    public function authorize(BackedEnum|string|int $target): static
+    {
+        $transition = $this->getRoutes()
+            ->to($target)
+            ->sole();
+
+        if ($ability = $transition->authorization()) {
+            if (is_string($ability)) {
+                Gate::authorize($ability, $this->getModel());
+            } elseif (is_callable($ability)) {
+                if (!call_user_func($ability, $this->getModel())) {
+                    throw new AuthorizationException();
+                }
+            }
+        }
+
+        return $this;
+    }
+
+    public function getCurrent(): ?State
+    {
+        $value = $this->model->getAttribute($this->attribute);
+
+        return $value ? $this->states()->one($value) : null;
+    }
+
+    public function toArray()
+    {
+        return $this->getCurrent()?->toArray() +
+            [
+                'transitions' => $this->getRoutes()->onlyAuthorized()->toArray()
+            ];
     }
 }

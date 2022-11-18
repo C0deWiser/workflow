@@ -51,20 +51,22 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 You may use `Enum` instead of scalar values:
 
 ```php
+use \Codewiser\Workflow\Example\Enum;
+
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     public function states(): array
     {
-        return State::cases();
+        return Enum::cases();
     }
     
     public function transitions(): array
     {
         return [
-            [State::new, State::review],
-            [State::review, State::published],
-            [State::review, State::correction],
-            [State::correction, State::review]
+            [Enum::new, Enum::review],
+            [Enum::review, Enum::published],
+            [Enum::review, Enum::correction],
+            [Enum::correction, Enum::review]
         ];
     }
 }
@@ -73,13 +75,22 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 Finally, include trait and cast attribute with a blueprint that you just create.
 
 ```php
+use \Codewiser\Workflow\Example\Enum;
+use \Codewiser\Workflow\Example\ArticleWorkflow;
+use \Codewiser\Workflow\StateMachineEngine;
+
 class Article extends Model
 {
     use \Codewiser\Workflow\Traits\HasWorkflow;
     
     public $casts = [
-        'state' => ArticleWorkflow::class
+        'state' => Enum::class
     ];
+    
+    public function state(): StateMachineEngine
+    {
+        return $this->workflow(ArticleWorkflow::class, 'state');
+    }
 }
 ```
 
@@ -90,13 +101,15 @@ That's it.
 Workflow observes Model and keeps state machine consistency healthy.
 
 ```php
+use \Codewiser\Workflow\Example\Enum;
+
 // creating: will set proper initial state
 $article = new \Codewiser\Workflow\Example\Article();
 $article->save();
-assert($article->state->value == 'new');
+assert($article->state->value == Enum::new);
 
 // updating: will examine state machine consistency
-$article->state = 'review';
+$article->state = Enum::review;
 $article->save();
 // No exceptions thrown
 ```
@@ -106,6 +119,7 @@ $article->save();
 In an example above we describe blueprint with scalar or enum values, but actually they will be transformed to the objects. Those objects bring some additional functionality to the states and transitions, such as caption translations, transition authorization, routing rules etc...
 
 ```php
+use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 
@@ -114,40 +128,20 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
     public function states(): array
     {
         return [
-            State::make('new'),
-            State::make('review'),
-            State::make('published'),
-            State::make('correction'),
+            State::make(Enum::new),
+            State::make(Enum::review),
+            State::make(Enum::published),
+            State::make(Enum::correction),
         ];
     }
     
     public function transitions(): array
     {
         return [
-            Transition::make('new', 'review'),
-            Transition::make('review', 'published'),
-            Transition::make('review', 'correction'),
-            Transition::make('correction', 'review')
-        ];
-    }
-}
-```
-
-### Plural Transitions
-
-You may define multiple transitions as one, passing array of source or/and target states:
-
-```php
-use \Codewiser\Workflow\Transition;
-
-class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
-{    
-    public function transitions(): array
-    {
-        return [
-            Transition::make(['new', 'correction'], 'review'),
-            Transition::make('review', 'published'),
-            Transition::make('review', 'correction')
+            Transition::make(Enum::new, Enum::review),
+            Transition::make(Enum::review, Enum::published),
+            Transition::make(Enum::review, Enum::correction),
+            Transition::make(Enum::correction, Enum::review)
         ];
     }
 }
@@ -176,7 +170,7 @@ And provide action name to `Transition::authorizedBy()`:
 ```php
 use \Codewiser\Workflow\Transition;
 
-Transition::make('new', 'review')
+Transition::make(Enum::new, Enum::review)
     ->authorizedBy('transitToReview');
 ```
 
@@ -186,7 +180,7 @@ Transition::make('new', 'review')
 use \Codewiser\Workflow\Transition;
 use \Illuminate\Support\Facades\Gate;
 
-Transition::make('new', 'review')
+Transition::make(Enum::new, Enum::review)
     ->authorizedBy(fn(Article $article) => Gate::allows('transitToReview', $article));
 ```
 
@@ -197,11 +191,11 @@ To get only transitions, authorized to the current user, use `authorized` method
 ```php
 $article = new \Codewiser\Workflow\Example\Article();
 
-$transitions = $article->state
+$transitions = $article->state()
     // Get transitions from model's current state.
-    ->transitions()
+    ->getRoutes()
     // Filter only authorized transitions. 
-    ->authorized();
+    ->onlyAuthorized();
 ```
 
 ### Authorizing Transition
@@ -215,7 +209,7 @@ public function update(Request $request, \Codewiser\Workflow\Example\Article $ar
     
     if ($state = $request->get('state')) {
         // Check if user allowed to make this transition
-        $article->state->authorize($state);
+        $article->state()->authorize($state);
     }
     
     $article->fill($request->validated());
@@ -314,7 +308,7 @@ public function update(Request $request, \Codewiser\Workflow\Example\Article $ar
     $this->authorize('update', $article);
     
     if ($state = $request->get('state')) {
-        $article->state
+        $article->state()
             // Authorize transition
             ->authorize($state)
             // Put transition context
@@ -403,7 +397,7 @@ public function show(\Codewiser\Workflow\Example\Article $article)
     
     $data = $article->toArray();
     
-    $data['state']['transitions'] = $article->state->transitions()->authorized()->toArray();
+    $data['state'] = $article->state()->toArray();
     
     return $data;
 }

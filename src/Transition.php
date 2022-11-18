@@ -30,67 +30,19 @@ class Transition implements Arrayable, Injectable
 
     /**
      * Instantiate new transition.
-     *
-     * @param array|BackedEnum|string|int $source
-     * @param array|BackedEnum|string|int $target
      */
-    public static function make(mixed $source, mixed $target): static
+    public static function make(BackedEnum|string|int $source, BackedEnum|string|int $target): static
     {
         return new static($source, $target);
     }
 
     public function __construct(
-        public mixed $source,
-        public mixed $target
+        public BackedEnum|string|int $source,
+        public BackedEnum|string|int $target
     )
     {
         $this->prerequisites = new Collection();
         $this->callbacks = new Collection();
-    }
-
-    /**
-     * As transition definition may be multiple, this method decompose it to array of single definitions.
-     *
-     * @param Transition $transition
-     * @return array<Transition>
-     */
-    public static function decompose(Transition $transition): array
-    {
-        $transitions = [];
-
-        if (is_array($transition->source) && is_array($transition->target)) {
-            // Multiple transitions in one
-            foreach ($transition->source as $source) {
-                foreach ($transition->target as $target) {
-                    if ($source != $target) {
-                        $singleTransition = clone $transition;
-                        $singleTransition->source = $source;
-                        $singleTransition->target = $target;
-                        $transitions[] = $singleTransition;
-                    }
-                }
-            }
-        } elseif (is_array($transition->source)) {
-            foreach ($transition->source as $source) {
-                if ($source != $transition->target) {
-                    $singleTransition = clone $transition;
-                    $singleTransition->source = $source;
-                    $transitions[] = $singleTransition;
-                }
-            }
-        } elseif (is_array($transition->target)) {
-            foreach ($transition->target as $target) {
-                if ($transition->source != $target) {
-                    $singleTransition = clone $transition;
-                    $singleTransition->target = $target;
-                    $transitions[] = $singleTransition;
-                }
-            }
-        } else {
-            $transitions[] = $transition;
-        }
-
-        return $transitions;
     }
 
     /**
@@ -137,8 +89,8 @@ class Transition implements Arrayable, Injectable
     {
         return [
                 'name' => $this->caption(),
-                'source' => $this->source,
-                'target' => $this->target,
+                'source' => $this->source->value,
+                'target' => $this->target->value,
                 'issues' => $this->issues(),
                 'rules' => $this->validationRules(true)
             ] + $this->additional();
@@ -149,10 +101,7 @@ class Transition implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        $fallback = ($this->engine ? Str::snake(class_basename($this->engine->blueprint())) : 'testing') .
-            ".transitions." . State::scalar($this->source) . "." . State::scalar($this->target);
-
-        return $this->caption ?? $fallback;
+        return $this->caption ?? "{$this->source->name} - {$this->target->name}";
     }
 
     /**
@@ -209,7 +158,7 @@ class Transition implements Arrayable, Injectable
         return $this->prerequisites()
             ->map(function ($condition) {
                 try {
-                    call_user_func($condition, $this->engine->model());
+                    call_user_func($condition, $this->engine->getModel());
                 } catch (TransitionFatalException $e) {
                 } catch (TransitionRecoverableException $e) {
                     // Collect only recoverable messages
@@ -247,7 +196,7 @@ class Transition implements Arrayable, Injectable
     public function validate(): static
     {
         foreach ($this->prerequisites() as $condition) {
-            call_user_func($condition, $this->engine->model());
+            call_user_func($condition, $this->engine->getModel());
         }
         return $this;
     }

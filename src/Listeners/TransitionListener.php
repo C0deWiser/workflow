@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Listeners;
 
+use BackedEnum;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Models\TransitionHistory;
@@ -17,7 +18,7 @@ class TransitionListener
         $log = new TransitionHistory;
 
         $log->transitionable()->associate($model);
-        $log->blueprint = $engine->blueprint()::class;
+        $log->blueprint = $engine->getBlueprint()::class;
 
         if (($user = auth()->user()) && ($user instanceof Model)) {
             $log->performer()->associate($user);
@@ -28,19 +29,24 @@ class TransitionListener
 
     public function handleModelInitialized(ModelInitialized $event): void
     {
-        $log = $this->newRecordFor($event->model, $event->engine);
+        $log = $this->newRecordFor($event->engine->getModel(), $event->engine);
 
-        $log->target = State::scalar($event->engine->initial());
+        $state = $event->engine->states()->initial()->state;
+
+        $log->target = $state instanceof BackedEnum ? $state->value : $state;
 
         $log->save();
     }
 
     public function handleModelTransited(ModelTransited $event): void
     {
-        $log = $this->newRecordFor($event->model, $event->engine);
+        $log = $this->newRecordFor($event->engine->getModel(), $event->engine);
 
-        $log->source = State::scalar($event->transition->source());
-        $log->target = State::scalar($event->transition->target());
+        $source = $event->transition->source();
+        $target = $event->transition->target();
+
+        $log->source = $source instanceof BackedEnum ? $source->value : $source;
+        $log->target = $target instanceof BackedEnum ? $target->value : $target;
 
         try {
             if ($context = $event->transition->context()) {

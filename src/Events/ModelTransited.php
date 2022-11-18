@@ -17,7 +17,6 @@ class ModelTransited
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public Model              $model,
         public StateMachineEngine $engine,
         public Transition         $transition
     )

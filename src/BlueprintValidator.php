@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow;
 
+use BackedEnum;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
@@ -23,8 +24,8 @@ class BlueprintValidator
         return $this->transitions
             ->map(function (Transition $transition) {
                 $row = [
-                    'source' => State::scalar($transition->source),
-                    'target' => State::scalar($transition->target),
+                    'source' => $transition->source instanceof BackedEnum ? $transition->source->value : $transition->source,
+                    'target' => $transition->target instanceof BackedEnum ? $transition->target->value : $transition->target,
                     'caption' => $transition->caption(),
                     'prerequisites' => $transition->prerequisites()->isEmpty() ? 'No' : 'Yes',
                     'authorization' => is_null($transition->authorization()) ? 'No' : 'Yes',
@@ -58,14 +59,14 @@ class BlueprintValidator
         return $this->states
             ->map(function (State $state) {
                 $row = [
-                    'value' => State::scalar($state->value),
+                    'value' => $state->state instanceof BackedEnum ? $state->state->value : $state->state,
                     'caption' => $state->caption(),
                     'additional' => json_encode($state->additional()),
                     'error' => null
                 ];
 
                 try {
-                    $this->states->one($state);
+                    $this->states->one($state->state);
                 } catch (MultipleItemsFoundException) {
                     $row['error'] = "State {$row['value']} defined few times.";
                     $this->valid = false;

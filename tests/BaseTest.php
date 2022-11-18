@@ -2,9 +2,9 @@
 
 namespace Tests;
 
-use Codewiser\Workflow\Example\ExampleArticle;
-use Codewiser\Workflow\Example\ExampleWorkflow;
-use Codewiser\Workflow\Example\ExampleEnum;
+use Codewiser\Workflow\Example\Article;
+use Codewiser\Workflow\Example\ArticleWorkflow;
+use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\StateCollection;
@@ -18,28 +18,22 @@ use PHPUnit\Framework\TestCase;
 
 class BaseTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        ExampleWorkflow::$enum = true;
-    }
-
     public function testBasics()
     {
-        $post = new ExampleArticle();
+        $post = new Article();
 
         $this->assertNull($post->state, 'State is not initialized');
 
         // Implicit init (using observer)
         $this->assertTrue((new StateMachineObserver)->creating($post));
-        $this->assertEquals($post->state->engine()->initial()->value, $post->state->value, 'State value was initialized on creating event');
+        $this->assertEquals($post->state()->states()->first()->state, $post->state, 'State value was initialized on creating event');
     }
 
     public function testStateCollection()
     {
         $collection = StateCollection::make(['first', 'second']);
 
+        $this->assertCount(2, $collection);
         $this->assertNotNull($collection->one('first'));
         $this->assertNotNull($collection->one('second'));
 
@@ -49,19 +43,16 @@ class BaseTest extends TestCase
 
     public function testEnumStateCollection()
     {
-        if (ExampleWorkflow::$enum) {
-            $collection = StateCollection::make(ExampleEnum::cases());
 
-            $this->assertNotNull($collection->one('first'));
-            $this->assertNotNull($collection->one(ExampleEnum::first));
-            $this->assertNotNull($collection->one('second'));
-            $this->assertNotNull($collection->one(ExampleEnum::second));
+        $collection = StateCollection::make(Enum::cases());
 
-            $this->expectException(ItemNotFoundException::class);
-            $collection->one('third');
-        }
+        $this->assertNotNull($collection->one(Enum::new));
+        $this->assertNotNull($collection->one(Enum::review));
+        $this->assertNotNull($collection->one(Enum::published));
+        $this->assertNotNull($collection->one(Enum::correction));
 
-        $this->assertTrue(true);
+        $this->expectException(ItemNotFoundException::class);
+        $collection->one('third');
     }
 
     public function testTransitionCollection()
@@ -79,40 +70,34 @@ class BaseTest extends TestCase
 
     public function testEnumTransitionCollection()
     {
-        if (ExampleWorkflow::$enum) {
-            $collection = TransitionCollection::make([[ExampleEnum::first, ExampleEnum::second], [ExampleEnum::second, ExampleEnum::first]]);
+        $collection = TransitionCollection::make([[Enum::new, Enum::review], [Enum::review, Enum::published]]);
 
-            $this->assertCount(1, $collection->from(ExampleEnum::first));
-            $this->assertCount(1, $collection->from(ExampleEnum::second));
-            $this->assertCount(1, $collection->from('first'));
-            $this->assertCount(1, $collection->from('second'));
-            $this->assertCount(0, $collection->from('third'));
+        $this->assertCount(1, $collection->from(Enum::new));
+        $this->assertCount(1, $collection->from(Enum::review));
+        $this->assertCount(0, $collection->from(Enum::published));
+        $this->assertCount(0, $collection->from('third'));
 
-            $this->assertCount(1, $collection->to(ExampleEnum::first));
-            $this->assertCount(1, $collection->to(ExampleEnum::second));
-            $this->assertCount(1, $collection->to('first'));
-            $this->assertCount(1, $collection->to('second'));
-            $this->assertCount(0, $collection->to('third'));
-        }
+        $this->assertCount(0, $collection->to(Enum::new));
+        $this->assertCount(1, $collection->to(Enum::review));
+        $this->assertCount(1, $collection->to(Enum::published));
+        $this->assertCount(0, $collection->to('third'));
 
-        $this->assertTrue(true);
     }
 
     public function testTransitions()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
 
-        $this->assertCount(3, $post->state->transitions());
+        $this->assertCount(1, $post->state()->getRoutes());
     }
 
     public function testJson()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
 
-        $transition = $post->state->transitions()->first();
-        $data = $transition->toArray();
+        $data = $post->state()->transitions()->first()->toArray();
 
         $this->assertArrayHasKey('name', $data);
         $this->assertArrayHasKey('source', $data);
@@ -123,30 +108,31 @@ class BaseTest extends TestCase
 
     public function testUniqueTransitions()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
 
-        $this->assertCount(3, $post->state->engine()->transitions()->to('first'));
+        $this->assertCount(1, $post->state()->getRoutes()->to(Enum::review));
+        $this->assertCount(0, $post->state()->getRoutes()->to(Enum::published));
     }
 
     public function testRelevantTransitions()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
 
-        $post->state->transitions()
+        $post->state()->getRoutes()
             ->each(function (Transition $transition) use ($post) {
                 // Assert that every relevant transition starts from current state
-                $this->assertTrue($post->state->is($transition->source));
+                $this->assertEquals($post->state, $transition->source);
             });
     }
 
     public function testTransitRecoverable()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
 
-        $post->state = 'recoverable';
+        $post->state = Enum::review;
 
         // Observer prevents changing state as the transition has unresolved Recoverable condition
         $this->expectException(TransitionRecoverableException::class);
@@ -155,10 +141,10 @@ class BaseTest extends TestCase
 
     public function testTransitFatal()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::review], true);
 
-        $post->state = 'fatal';
+        $post->state = Enum::published;
 
         // Observer prevents changing state as the transition has unresolved Fatal condition
         $this->expectException(TransitionFatalException::class);
@@ -167,20 +153,20 @@ class BaseTest extends TestCase
 
     public function testTransitUnauthorized()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::correction], true);
 
         // Transition is not authorized
         $this->expectException(AuthorizationException::class);
-        $post->state->authorize('deny');
+        $post->state()->authorize(Enum::review);
     }
 
     public function testTransitUnknown()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
 
-        $post->state = Str::random();
+        $post->state = Enum::empty;
 
         // Observer prevents changing state to unknown value
         $this->expectException(ItemNotFoundException::class);
@@ -189,48 +175,18 @@ class BaseTest extends TestCase
 
     public function testToArray()
     {
-        $post = new ExampleArticle();
-        $post->setRawAttributes(['state' => 'first'], true);
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
 
-        $data = $post->toArray();
+        $data = $post->state()->toArray();
 
-        $data['state']['transitions'] = $post->state->transitions()->authorized()->toArray();
-
-        $this->assertArrayHasKey('state', $data);
-        $this->assertArrayHasKey('transitions', $data['state']);
-        $this->assertArrayHasKey('name', $data['state']['transitions'][0]);
-        $this->assertArrayHasKey('source', $data['state']['transitions'][0]);
-        $this->assertArrayHasKey('target', $data['state']['transitions'][0]);
-        $this->assertArrayHasKey('issues', $data['state']['transitions'][0]);
-        $this->assertArrayHasKey('rules', $data['state']['transitions'][0]);
-    }
-
-    public function testDecomposition()
-    {
-        $transition = Transition::make(['one', 'two'], ['three', 'four']);
-
-        $transitions = TransitionCollection::make(Transition::decompose($transition));
-
-        $this->assertCount(4, $transitions);
-        $this->assertTrue($transitions->from('one')->to('three')->isNotEmpty());
-        $this->assertTrue($transitions->from('one')->to('four')->isNotEmpty());
-        $this->assertTrue($transitions->from('two')->to('three')->isNotEmpty());
-        $this->assertTrue($transitions->from('two')->to('four')->isNotEmpty());
-    }
-
-    public function testDecompositionUnique()
-    {
-        $name = Str::random();
-        $transition = Transition::make(['one', 'two'], ['one', 'two'])
-            ->as($name);
-
-        $transitions = TransitionCollection::make(Transition::decompose($transition));
-
-        $this->assertCount(2, $transitions);
-        $this->assertTrue($transitions->from('one')->to('two')->isNotEmpty());
-        $this->assertTrue($transitions->from('two')->to('one')->isNotEmpty());
-
-        $this->assertEquals($name, $transitions->from('one')->to('two')->first()->caption());
-        $this->assertEquals($name, $transitions->from('two')->to('one')->first()->caption());
+        $this->assertArrayHasKey('name', $data);
+        $this->assertArrayHasKey('value', $data);
+        $this->assertArrayHasKey('transitions', $data);
+        $this->assertArrayHasKey('name', $data['transitions'][0]);
+        $this->assertArrayHasKey('source', $data['transitions'][0]);
+        $this->assertArrayHasKey('target', $data['transitions'][0]);
+        $this->assertArrayHasKey('issues', $data['transitions'][0]);
+        $this->assertArrayHasKey('rules', $data['transitions'][0]);
     }
 }

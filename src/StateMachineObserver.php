@@ -5,6 +5,7 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
+use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -21,13 +22,21 @@ class StateMachineObserver
     {
         $blueprints = [];
 
-        foreach ($model->getCasts() as $attribute => $caster) {
-            if (is_subclass_of($caster, WorkflowBlueprint::class)) {
-                if ($state = $model->getAttribute($attribute)) {
-                    /* @var State $state */
-                    $blueprints[$attribute] = $state->engine();
-                } else {
-                    $blueprints[$attribute] = $caster::engine($model, $attribute);
+        $reflect = new \ReflectionClass($model);
+        foreach ($reflect->getMethods() as $method) {
+
+            if ($method->isPublic()) {
+                $return_type = $method->getReturnType();
+
+                if ($return_type instanceof \ReflectionNamedType &&
+                    $return_type->getName() == StateMachineEngine::class) {
+                    $blueprints[] = $method->invoke($model);
+                } elseif ($return_type instanceof \ReflectionUnionType &&
+                    $return_type->getTypes() == [StateMachineEngine::class]) {
+                    $blueprints[] = $method->invoke($model);
+                } elseif ($return_type instanceof \ReflectionIntersectionType &&
+                    $return_type->getTypes() == [StateMachineEngine::class]) {
+                    $blueprints[] = $method->invoke($model);
                 }
             }
         }
@@ -38,8 +47,8 @@ class StateMachineObserver
     public function creating(Model $model): bool
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine, $attribute) use ($model) {
-                $model->setAttribute($attribute, $engine->initial());
+            ->each(function (StateMachineEngine $engine) use ($model) {
+                $model->setAttribute($engine->getAttribute(), $engine->states()->initial()->state);
             });
 
         return true;
@@ -48,9 +57,9 @@ class StateMachineObserver
     public function created(Model $model): void
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine, $attribute) use ($model) {
+            ->each(function (StateMachineEngine $engine) {
                 // For Event Listener
-                event(new ModelInitialized($model, $engine));
+                event(new ModelInitialized($engine));
             });
     }
 
@@ -59,7 +68,9 @@ class StateMachineObserver
         // If one transition is invalid, all update is invalid
         return $this->getWorkflowListing($model)
             // Rejecting successful validations
-            ->reject(function (StateMachineEngine $engine, $attribute) use ($model) {
+            ->reject(function (StateMachineEngine $engine) use ($model) {
+
+                $attribute = $engine->getAttribute();
 
                 if (
                     $model->isDirty($attribute) &&
@@ -95,7 +106,9 @@ class StateMachineObserver
     public function updated(Model $model): void
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine, $attribute) use ($model) {
+            ->each(function (StateMachineEngine $engine) use ($model) {
+
+                $attribute = $engine->getAttribute();
 
                 if (
                     $model->wasChanged($attribute) &&
@@ -117,7 +130,7 @@ class StateMachineObserver
                     }
 
                     // For Event Listener
-                    event(new ModelTransited($model->fresh(), $engine, $transition));
+                    event(new ModelTransited($engine, $transition));
 
                     // For Transition Callback
                     $transition->callbacks()

@@ -14,5 +14,5 @@ interface Injectable
     /**
      * Get State Machine Engine.
      */
-    public function engine(): StateMachineEngine;
+    public function engine(): ?StateMachineEngine;
 }
