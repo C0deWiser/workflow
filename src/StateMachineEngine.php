@@ -4,14 +4,10 @@
 namespace Codewiser\Workflow;
 
 use BackedEnum;
-use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\ItemNotFoundException;
-use Illuminate\Support\MultipleItemsFoundException;
-use Illuminate\Support\Str;
 
 class StateMachineEngine implements Arrayable
 {
@@ -92,28 +88,34 @@ class StateMachineEngine implements Arrayable
         return $this->context;
     }
 
-    /**
-     * @return Model
-     */
     public function getModel(): Model
     {
         return $this->model;
     }
 
-    /**
-     * @return string
-     */
     public function getAttribute(): string
     {
         return $this->attribute;
     }
 
     /**
+     * Transit model's state to a new value.
+     */
+    public function transit(BackedEnum|string|int $state): void
+    {
+        $this->getModel()->setAttribute(
+            $this->getAttribute(),
+            $state
+        );
+
+        $this->getModel()->save();
+    }
+
+    /**
      * Authorize transition to the new state.
      *
      * @param BackedEnum|string|int $target
-     * @throws ItemNotFoundException
-     * @throws MultipleItemsFoundException
+     * @return StateMachineEngine
      * @throws AuthorizationException
      */
     public function authorize(BackedEnum|string|int $target): static
@@ -142,11 +144,10 @@ class StateMachineEngine implements Arrayable
         return $value ? $this->states()->one($value) : null;
     }
 
-    public function toArray()
+    public function toArray(): array
     {
-        return $this->getCurrent()?->toArray() +
-            [
-                'transitions' => $this->getRoutes()->onlyAuthorized()->toArray()
-            ];
+        return $this->getCurrent()?->toArray() ?? [] + [
+            'transitions' => $this->getRoutes()->onlyAuthorized()->toArray()
+        ];
     }
 }
