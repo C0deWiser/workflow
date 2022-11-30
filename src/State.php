@@ -20,12 +20,12 @@ class State implements Arrayable, Injectable
     /**
      * State new instance.
      */
-    public static function make(BackedEnum|string|int $state): static
+    public static function make(BackedEnum|string|int $value): static
     {
-        return new static($state);
+        return new static($value);
     }
 
-    public function __construct(public BackedEnum|string|int $state)
+    public function __construct(public BackedEnum|string|int $value)
     {
         //
     }
@@ -35,7 +35,7 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->caption ?? ($this->state instanceof BackedEnum ? $this->state->name : $this->state);
+        return $this->caption ?? ($this->value instanceof BackedEnum ? $this->value->name : $this->value);
     }
 
     /**
@@ -47,7 +47,7 @@ class State implements Arrayable, Injectable
     {
         return $this->engine
             ->transitions()
-            ->from($this->state)
+            ->from($this->value)
             ->withoutForbidden();
     }
 
@@ -66,7 +66,7 @@ class State implements Arrayable, Injectable
     {
         return [
                 'name' => $this->caption(),
-                'value' => $this->state instanceof BackedEnum ? $this->state->value : $this->state,
+                'value' => $this->value instanceof BackedEnum ? $this->value->value : $this->value,
             ] + $this->additional();
     }
 
@@ -78,6 +78,6 @@ class State implements Arrayable, Injectable
      */
     public function is(BackedEnum|string|int $state): bool
     {
-        return $this->state === $state;
+        return $this->value === $state;
     }
 }

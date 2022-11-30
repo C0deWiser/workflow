@@ -12,6 +12,7 @@ use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -27,6 +28,7 @@ class Transition implements Arrayable, Injectable
     protected array $rules = [];
     protected mixed $authorization = null;
     protected array $context = [];
+    protected array $listeners = [];
 
     /**
      * Instantiate new transition.
@@ -56,11 +58,39 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
+     * Listen for Eloquent `saved`, `created` and `updated` events.
+     */
+    public function listenTo(string $event, ?callable $listener): static
+    {
+        $this->listeners[$event] = $listener;
+
+        return $this;
+    }
+
+    /**
+     * Get event listener if it was defined.
+     */
+    public function listener(string $event): mixed
+    {
+        return $this->listeners[$event] ?? null;
+    }
+
+    /**
      * Add prerequisite to the transition.
      */
     public function before(callable $prerequisite): static
     {
         $this->prerequisites->push($prerequisite);
+
+        return $this;
+    }
+
+    /**
+     * Hide transition from humans, so only robots can move it.
+     */
+    public function hidden(): static
+    {
+        $this->authorizedBy(fn() => false);
 
         return $this;
     }
@@ -87,13 +117,17 @@ class Transition implements Arrayable, Injectable
 
     public function toArray(): array
     {
+        $rules = $this->validationRules(true) ? ['rules' => $this->validationRules(true)] : [];
+        $issues = $this->issues() ? ['issues' => $this->issues()] : [];
+
         return [
                 'name' => $this->caption(),
                 'source' => $this->source->value,
                 'target' => $this->target->value,
-                'issues' => $this->issues(),
-                'rules' => $this->validationRules(true)
-            ] + $this->additional();
+            ]
+            + $rules
+            + $issues
+            + $this->additional();
     }
 
     /**
@@ -129,6 +163,21 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
+     * Check if transition authorized.
+     */
+    public function authorized(): bool
+    {
+        if ($ability = $this->authorization()) {
+            if (is_string($ability)) {
+                return Gate::allows($ability, $this->engine()->model());
+            } elseif (is_callable($ability)) {
+                return call_user_func($ability, $this->engine()->model());
+            }
+        }
+        return true;
+    }
+
+    /**
      * Get registered preconditions.
      *
      * @return Collection<callable>
@@ -158,7 +207,7 @@ class Transition implements Arrayable, Injectable
         return $this->prerequisites()
             ->map(function ($condition) {
                 try {
-                    call_user_func($condition, $this->engine->getModel());
+                    call_user_func($condition, $this->engine->model());
                 } catch (TransitionFatalException $e) {
                 } catch (TransitionRecoverableException $e) {
                     // Collect only recoverable messages
@@ -196,7 +245,7 @@ class Transition implements Arrayable, Injectable
     public function validate(): static
     {
         foreach ($this->prerequisites() as $condition) {
-            call_user_func($condition, $this->engine->getModel());
+            call_user_func($condition, $this->engine->model());
         }
         return $this;
     }
@@ -222,5 +271,13 @@ class Transition implements Arrayable, Injectable
         }
 
         return $this->context;
+    }
+
+    /**
+     * Run this transition.
+     */
+    public function run()
+    {
+        $this->engine()->moveTo($this->target);
     }
 }

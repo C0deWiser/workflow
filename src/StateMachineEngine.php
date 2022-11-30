@@ -67,48 +67,56 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Get possible transitions from current state.
+     * Get possible transitions from the current state.
      *
      * @return TransitionCollection<Transition>
      */
-    public function getRoutes(): TransitionCollection
+    public function routes(): TransitionCollection
     {
-        return $this->getCurrent()?->transitions() ?? TransitionCollection::make();
+        return $this->state()?->transitions() ?? TransitionCollection::make();
     }
 
     /**
      * Get or set transition additional context.
      */
-    public function context(array $context = null): array
+    public function context(array $context = null): self|array
     {
         if (is_array($context)) {
             $this->context = $context;
+
+            return $this;
         }
 
         return $this->context;
     }
 
-    public function getModel(): Model
+    /**
+     * Get model attached.
+     */
+    public function model(): Model
     {
         return $this->model;
     }
 
-    public function getAttribute(): string
+    /**
+     * Get model's attribute attached.
+     */
+    public function attribute(): string
     {
         return $this->attribute;
     }
 
     /**
-     * Transit model's state to a new value.
+     * Change model's state to a new value.
      */
-    public function transit(BackedEnum|string|int $state): void
+    public function moveTo(BackedEnum|string|int $state): void
     {
-        $this->getModel()->setAttribute(
-            $this->getAttribute(),
+        $this->model()->setAttribute(
+            $this->attribute(),
             $state
         );
 
-        $this->getModel()->save();
+        $this->model()->save();
     }
 
     /**
@@ -120,15 +128,15 @@ class StateMachineEngine implements Arrayable
      */
     public function authorize(BackedEnum|string|int $target): static
     {
-        $transition = $this->getRoutes()
+        $transition = $this->routes()
             ->to($target)
             ->sole();
 
         if ($ability = $transition->authorization()) {
             if (is_string($ability)) {
-                Gate::authorize($ability, $this->getModel());
+                Gate::authorize($ability, $this->model());
             } elseif (is_callable($ability)) {
-                if (!call_user_func($ability, $this->getModel())) {
+                if (!call_user_func($ability, $this->model())) {
                     throw new AuthorizationException();
                 }
             }
@@ -137,7 +145,10 @@ class StateMachineEngine implements Arrayable
         return $this;
     }
 
-    public function getCurrent(): ?State
+    /**
+     * Get current state.
+     */
+    public function state(): ?State
     {
         $value = $this->model->getAttribute($this->attribute);
 
@@ -146,8 +157,7 @@ class StateMachineEngine implements Arrayable
 
     public function toArray(): array
     {
-        return $this->getCurrent()?->toArray() ?? [] + [
-            'transitions' => $this->getRoutes()->onlyAuthorized()->toArray()
-        ];
+        return ($this->state()?->toArray() ?? [])
+        + ['transitions' => $this->routes()->onlyAuthorized()->toArray()];
     }
 }

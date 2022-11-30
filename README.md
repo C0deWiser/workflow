@@ -193,7 +193,7 @@ $article = new \Codewiser\Workflow\Example\Article();
 
 $transitions = $article->state()
     // Get transitions from model's current state.
-    ->getRoutes()
+    ->routes()
     // Filter only authorized transitions. 
     ->onlyAuthorized();
 ```
@@ -207,7 +207,7 @@ public function update(Request $request, \Codewiser\Workflow\Example\Article $ar
 {
     $this->authorize('update', $article);
     
-    if ($state = $request->get('state')) {
+    if ($state = $request->input('state')) {
         // Check if user allowed to make this transition
         $article->state()->authorize($state);
     }
@@ -312,12 +312,10 @@ public function update(Request $request, \Codewiser\Workflow\Example\Article $ar
             // Authorize transition
             ->authorize($state)
             // Put transition context
-            ->context($request->all());
-
-        $article->state = $state;        
+            ->context($request->all())
+            // Change state
+            ->moveTo($state);        
     }
-    
-    $article->save();
 }
 ```
 
@@ -346,7 +344,7 @@ class ArticleWorkflow extends WorkflowBlueprint
     protected function transitions(): array
     {
         return [
-            Transition::make('new', 'published')->as('Publish')
+            Transition::make('new', 'published')->as(__('Publish'))
         ];
     }
 }
@@ -420,14 +418,12 @@ The payload will be like that:
         "issues": [
           "Publisher should provide a foreword."
         ],
-        "rules": [],
         "level": "success"
       },
       {
         "source": "review",
         "target": "correction",
         "name": "Send to Correction",
-        "issues": [],
         "rules": {
           "reason": ["required", "string", "min:100"]
         },

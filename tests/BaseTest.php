@@ -89,7 +89,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $this->assertCount(1, $post->state()->getRoutes());
+        $this->assertCount(1, $post->state()->routes());
     }
 
     public function testJson()
@@ -111,8 +111,8 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $this->assertCount(1, $post->state()->getRoutes()->to(Enum::review));
-        $this->assertCount(0, $post->state()->getRoutes()->to(Enum::published));
+        $this->assertCount(1, $post->state()->routes()->to(Enum::review));
+        $this->assertCount(0, $post->state()->routes()->to(Enum::published));
     }
 
     public function testRelevantTransitions()
@@ -120,7 +120,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $post->state()->getRoutes()
+        $post->state()->routes()
             ->each(function (Transition $transition) use ($post) {
                 // Assert that every relevant transition starts from current state
                 $this->assertEquals($post->state, $transition->source);

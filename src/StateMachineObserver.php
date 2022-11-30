@@ -44,11 +44,22 @@ class StateMachineObserver
         return collect($blueprints);
     }
 
+    public function saved(Model $model): void
+    {
+        $this->getWorkflowListing($model)
+            ->each(function (StateMachineEngine $engine) {
+                if (!$this->wasTransited($engine)) {
+                    // Do not listen to transit events!
+                    $this->subscribers('saved', $engine);
+                }
+            });
+    }
+
     public function creating(Model $model): bool
     {
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
-                $model->setAttribute($engine->getAttribute(), $engine->states()->initial()->state);
+                $model->setAttribute($engine->attribute(), $engine->states()->initial()->value);
             });
 
         return true;
@@ -60,6 +71,8 @@ class StateMachineObserver
             ->each(function (StateMachineEngine $engine) {
                 // For Event Listener
                 event(new ModelInitialized($engine));
+
+                $this->subscribers('created', $engine);
             });
     }
 
@@ -70,21 +83,10 @@ class StateMachineObserver
             // Rejecting successful validations
             ->reject(function (StateMachineEngine $engine) use ($model) {
 
-                $attribute = $engine->getAttribute();
+                if ($transition = $this->nowTransiting($engine)) {
 
-                if (
-                    $model->isDirty($attribute) &&
-                    ($source = $model->getOriginal($attribute)) &&
-                    ($target = $model->getAttribute($attribute))
-                ) {
-
-                    $transition = $engine->transitions()
-                        ->from($source)
-                        ->to($target)
-                        // Find or die!
-                        ->sole()
-                        // May throw an Exception
-                        ->validate();
+                    // May throw an Exception
+                    $transition->validate();
 
                     // Pass context to transition for validation. May throw an Exception
                     $transition->context($engine->context());
@@ -108,18 +110,7 @@ class StateMachineObserver
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
 
-                $attribute = $engine->getAttribute();
-
-                if (
-                    $model->wasChanged($attribute) &&
-                    ($source = $model->getOriginal($attribute)) &&
-                    ($target = $model->getAttribute($attribute))
-                ) {
-
-                    $transition = $engine->transitions()
-                        ->from($source)
-                        ->to($target)
-                        ->sole();
+                if ($transition = $this->wasTransited($engine)) {
 
                     // Context was validated while `updating`. Just use it
                     $transition->context($engine->context());
@@ -137,7 +128,61 @@ class StateMachineObserver
                         ->each(function ($callback) use ($model, $engine) {
                             call_user_func($callback, $model->fresh(), $engine->context());
                         });
+                } else {
+                    // Do not listen to transit events!
+                    $this->subscribers('updated', $engine);
                 }
             });
+    }
+
+    protected function nowTransiting(StateMachineEngine $engine):?Transition
+    {
+        $model = $engine->model();
+        $attribute = $engine->attribute();
+
+        if ($model->isDirty($attribute) &&
+            ($source = $model->getOriginal($attribute)) &&
+            ($target = $model->getAttribute($attribute)) &&
+            $source != $target) {
+
+            return $engine->transitions()
+                ->from($source)
+                ->to($target)
+                ->sole();
+        }
+
+        return null;
+    }
+
+    protected function wasTransited(StateMachineEngine $engine):?Transition
+    {
+        $model = $engine->model();
+        $attribute = $engine->attribute();
+
+        if ($model->wasChanged($attribute) &&
+            ($source = $model->getOriginal($attribute)) &&
+            ($target = $model->getAttribute($attribute)) &&
+            $source != $target) {
+
+            return $engine->transitions()
+                ->from($source)
+                ->to($target)
+                ->sole();
+        }
+
+        return null;
+    }
+
+    protected function subscribers(string $event, StateMachineEngine $engine): void
+    {
+        $engine
+            ->routes()
+            ->listeningTo($event)
+            ->each(function (Transition $transition) use ($engine) {
+                $callback = $transition->listener('updated');
+                if (is_callable($callback)) {
+                    call_user_func($callback, $engine->model(), $transition);
+                }
+            });;
     }
 }

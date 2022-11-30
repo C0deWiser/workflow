@@ -29,9 +29,9 @@ class TransitionListener
 
     public function handleModelInitialized(ModelInitialized $event): void
     {
-        $log = $this->newRecordFor($event->engine->getModel(), $event->engine);
+        $log = $this->newRecordFor($event->engine->model(), $event->engine);
 
-        $state = $event->engine->states()->initial()->state;
+        $state = $event->engine->states()->initial()->value;
 
         $log->target = $state instanceof BackedEnum ? $state->value : $state;
 
@@ -40,7 +40,7 @@ class TransitionListener
 
     public function handleModelTransited(ModelTransited $event): void
     {
-        $log = $this->newRecordFor($event->engine->getModel(), $event->engine);
+        $log = $this->newRecordFor($event->engine->model(), $event->engine);
 
         $source = $event->transition->source();
         $target = $event->transition->target();

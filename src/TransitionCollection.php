@@ -41,7 +41,18 @@ class TransitionCollection extends Collection
     }
 
     /**
-     * Transitions from given state.
+     * Get transitions that listen to given Eloquent event.
+     */
+    public function listeningTo(string $event): static
+    {
+        return $this
+            ->filter(function (Transition $transition) use ($event) {
+                return (boolean)$transition->listener($event);
+            });
+    }
+
+    /**
+     * Get transitions from given state.
      */
     public function from(BackedEnum|string|int $state): static
     {
@@ -51,7 +62,7 @@ class TransitionCollection extends Collection
     }
 
     /**
-     * Transitions to given state.
+     * Get transitions to given state.
      */
     public function to(BackedEnum|string|int $state): static
     {
@@ -61,36 +72,31 @@ class TransitionCollection extends Collection
     }
 
     /**
-     * Transitions without fatal conditions.
+     * Get transitions without fatal conditions.
      */
     public function withoutForbidden(): static
     {
-        return $this->reject(function (Transition $transition) {
-            try {
-                $transition->validate();
-            } catch (TransitionFatalException) {
-                return true;
-            } catch (TransitionRecoverableException) {
+        return $this
+            ->reject(function (Transition $transition) {
+                try {
+                    $transition->validate();
+                } catch (TransitionFatalException) {
+                    return true;
+                } catch (TransitionRecoverableException) {
 
-            }
-            return false;
-        });
+                }
+                return false;
+            });
     }
 
     /**
-     * Authorized transitions.
+     * Get authorized transitions.
      */
     public function onlyAuthorized(): static
     {
-        return $this->filter(function (Transition $transition) {
-            if ($ability = $transition->authorization()) {
-                if (is_string($ability)) {
-                    return Gate::allows($ability, $transition->engine()->getModel());
-                } elseif (is_callable($ability)) {
-                    return call_user_func($ability, $transition->engine()->getModel());
-                }
-            }
-            return true;
-        });
+        return $this
+            ->filter(function (Transition $transition) {
+                return $transition->authorized();
+            });
     }
 }

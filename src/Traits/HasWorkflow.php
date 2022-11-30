@@ -15,6 +15,10 @@ trait HasWorkflow
 {
     protected static function bootHasWorkflow()
     {
+        static::saved(function (Model $model) {
+            (new StateMachineObserver)->saved($model);
+        });
+
         static::creating(function (Model $model) {
             return (new StateMachineObserver)->creating($model);
         });
@@ -34,15 +38,15 @@ trait HasWorkflow
 
     public array $state_machines = [];
 
-    protected function workflow(string|WorkflowBlueprint $blueprint, string $on): StateMachineEngine
+    protected function workflow(string|WorkflowBlueprint $blueprint, string $attribute): StateMachineEngine
     {
-        if (!isset($this->state_machines[$on])) {
+        if (!isset($this->state_machines[$attribute])) {
 
             $blueprint = $blueprint instanceof WorkflowBlueprint ?: new $blueprint;
 
-            $this->state_machines[$on] = new StateMachineEngine($blueprint, $this, $on);
+            $this->state_machines[$attribute] = new StateMachineEngine($blueprint, $this, $attribute);
         }
 
-        return $this->state_machines[$on];
+        return $this->state_machines[$attribute];
     }
 }

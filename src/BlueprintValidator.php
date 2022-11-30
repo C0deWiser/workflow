@@ -59,14 +59,14 @@ class BlueprintValidator
         return $this->states
             ->map(function (State $state) {
                 $row = [
-                    'value' => $state->state instanceof BackedEnum ? $state->state->value : $state->state,
+                    'value' => $state->value instanceof BackedEnum ? $state->value->value : $state->value,
                     'caption' => $state->caption(),
                     'additional' => json_encode($state->additional()),
                     'error' => null
                 ];
 
                 try {
-                    $this->states->one($state->state);
+                    $this->states->one($state->value);
                 } catch (MultipleItemsFoundException) {
                     $row['error'] = "State {$row['value']} defined few times.";
                     $this->valid = false;
