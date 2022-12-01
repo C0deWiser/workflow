@@ -193,7 +193,7 @@ $article = new \Codewiser\Workflow\Example\Article();
 
 $transitions = $article->state()
     // Get transitions from model's current state.
-    ->routes()
+    ->transitions()
     // Filter only authorized transitions. 
     ->onlyAuthorized();
 ```
@@ -307,14 +307,12 @@ public function update(Request $request, \Codewiser\Workflow\Example\Article $ar
 {
     $this->authorize('update', $article);
     
-    if ($state = $request->get('state')) {
+    if ($state = $request->input('state')) {
         $article->state()
             // Authorize transition
             ->authorize($state)
-            // Put transition context
-            ->context($request->all())
-            // Change state
-            ->moveTo($state);        
+            // Change state passing additional context
+            ->transit($state, $request->all());        
     }
 }
 ```

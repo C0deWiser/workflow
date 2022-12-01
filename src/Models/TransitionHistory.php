@@ -88,8 +88,8 @@ class TransitionHistory extends Model
             try {
 
                 $transition = TransitionCollection::make($this->blueprint()->transitions())
-                    ->from($source)
-                    ->to($target)
+                    ->from($source->value)
+                    ->to($target->value)
                     ->sole();
 
                 if ($context = $this->context) {

@@ -13,7 +13,6 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -50,7 +49,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Authorize transition using policy ability (or closure).
      */
-    public function authorizedBy(string|callable $ability): static
+    public function authorizedBy(false|string|callable $ability): static
     {
         $this->authorization = $ability;
 
@@ -90,7 +89,7 @@ class Transition implements Arrayable, Injectable
      */
     public function hidden(): static
     {
-        $this->authorizedBy(fn() => false);
+        $this->authorizedBy(false);
 
         return $this;
     }
@@ -117,7 +116,7 @@ class Transition implements Arrayable, Injectable
 
     public function toArray(): array
     {
-        $rules = $this->validationRules(true) ? ['rules' => $this->validationRules(true)] : [];
+        $rules = $this->validationRules() ? ['rules' => $this->validationRules(true)] : [];
         $issues = $this->issues() ? ['issues' => $this->issues()] : [];
 
         return [
@@ -143,7 +142,7 @@ class Transition implements Arrayable, Injectable
      */
     public function source(): State
     {
-        return $this->engine->states()->one($this->source);
+        return $this->engine->getStateListing()->one($this->source);
     }
 
     /**
@@ -151,13 +150,13 @@ class Transition implements Arrayable, Injectable
      */
     public function target(): State
     {
-        return $this->engine->states()->one($this->target);
+        return $this->engine->getStateListing()->one($this->target);
     }
 
     /**
      * Ability to authorize.
      */
-    public function authorization(): string|callable|null
+    public function authorization(): false|string|callable|null
     {
         return $this->authorization;
     }
@@ -168,10 +167,12 @@ class Transition implements Arrayable, Injectable
     public function authorized(): bool
     {
         if ($ability = $this->authorization()) {
-            if (is_string($ability)) {
-                return Gate::allows($ability, $this->engine()->model());
+            if (is_bool($ability)) {
+                return $ability;
+            } elseif (is_string($ability)) {
+                return Gate::allows($ability, $this->engine()->model);
             } elseif (is_callable($ability)) {
-                return call_user_func($ability, $this->engine()->model());
+                return call_user_func($ability, $this->engine()->model);
             }
         }
         return true;
@@ -207,8 +208,9 @@ class Transition implements Arrayable, Injectable
         return $this->prerequisites()
             ->map(function ($condition) {
                 try {
-                    call_user_func($condition, $this->engine->model());
-                } catch (TransitionFatalException $e) {
+                    call_user_func($condition, $this->engine->model);
+                } catch (TransitionFatalException) {
+                    // Skip
                 } catch (TransitionRecoverableException $e) {
                     // Collect only recoverable messages
                     return $e->getMessage();
@@ -245,7 +247,7 @@ class Transition implements Arrayable, Injectable
     public function validate(): static
     {
         foreach ($this->prerequisites() as $condition) {
-            call_user_func($condition, $this->engine->model());
+            call_user_func($condition, $this->engine->model);
         }
         return $this;
     }
@@ -278,6 +280,6 @@ class Transition implements Arrayable, Injectable
      */
     public function run()
     {
-        $this->engine()->moveTo($this->target);
+        $this->engine()->transit($this->target);
     }
 }

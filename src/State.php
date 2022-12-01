@@ -46,7 +46,7 @@ class State implements Arrayable, Injectable
     public function transitions(): TransitionCollection
     {
         return $this->engine
-            ->transitions()
+            ->getTransitionListing()
             ->from($this->value)
             ->withoutForbidden();
     }

@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow\Contracts;
 
 use Codewiser\Workflow\StateMachineEngine;
+use Illuminate\Database\Eloquent\Model;
 
 interface Injectable
 {
@@ -14,5 +15,5 @@ interface Injectable
     /**
      * Get State Machine Engine.
      */
-    public function engine(): ?StateMachineEngine;
+    public function engine(): StateMachineEngine;
 }

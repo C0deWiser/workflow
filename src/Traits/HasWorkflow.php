@@ -36,6 +36,11 @@ trait HasWorkflow
         });
     }
 
+    /**
+     * Backdoor property to pass transition context to the StateMachineObserver.
+     */
+    public array $transition_context = [];
+
     public array $state_machines = [];
 
     protected function workflow(string|WorkflowBlueprint $blueprint, string $attribute): StateMachineEngine

@@ -14,28 +14,13 @@ class StateMachineEngine implements Arrayable
     protected ?TransitionCollection $transitions = null;
     protected ?StateCollection $states = null;
 
-    /**
-     * Transition additional context.
-     *
-     * @var array
-     */
-    protected array $context = [];
-
     public function __construct(
-        protected WorkflowBlueprint $blueprint,
-        protected Model             $model,
-        protected string            $attribute
+        readonly public WorkflowBlueprint $blueprint,
+        readonly public Model             $model,
+        readonly public string            $attribute
     )
     {
         //
-    }
-
-    /**
-     * Get model's Workflow Blueprint.
-     */
-    public function getBlueprint(): WorkflowBlueprint
-    {
-        return $this->blueprint;
     }
 
     /**
@@ -43,7 +28,7 @@ class StateMachineEngine implements Arrayable
      *
      * @return StateCollection<State>
      */
-    public function states(): StateCollection
+    public function getStateListing(): StateCollection
     {
         if (!$this->states) {
             $this->states = StateCollection::make($this->blueprint->states())->injectWith($this);
@@ -57,7 +42,7 @@ class StateMachineEngine implements Arrayable
      *
      * @return TransitionCollection<Transition>
      */
-    public function transitions(): TransitionCollection
+    public function getTransitionListing(): TransitionCollection
     {
         if (!$this->transitions) {
             $this->transitions = TransitionCollection::make($this->blueprint->transitions())->injectWith($this);
@@ -71,52 +56,28 @@ class StateMachineEngine implements Arrayable
      *
      * @return TransitionCollection<Transition>
      */
-    public function routes(): TransitionCollection
+    public function transitions(): TransitionCollection
     {
         return $this->state()?->transitions() ?? TransitionCollection::make();
     }
 
     /**
-     * Get or set transition additional context.
+     * Change model's state to a new value, passing optional context.
      */
-    public function context(array $context = null): self|array
+    public function transit(BackedEnum|string|int $state, array $context = []): void
     {
-        if (is_array($context)) {
-            $this->context = $context;
-
-            return $this;
-        }
-
-        return $this->context;
-    }
-
-    /**
-     * Get model attached.
-     */
-    public function model(): Model
-    {
-        return $this->model;
-    }
-
-    /**
-     * Get model's attribute attached.
-     */
-    public function attribute(): string
-    {
-        return $this->attribute;
-    }
-
-    /**
-     * Change model's state to a new value.
-     */
-    public function moveTo(BackedEnum|string|int $state): void
-    {
-        $this->model()->setAttribute(
-            $this->attribute(),
+        $this->model->setAttribute(
+            $this->attribute,
             $state
         );
 
-        $this->model()->save();
+        if (property_exists($this->model, 'transition_context')) {
+            $this->model->transition_context = [
+                $this->attribute => $context
+            ];
+        }
+
+        $this->model->save();
     }
 
     /**
@@ -128,15 +89,15 @@ class StateMachineEngine implements Arrayable
      */
     public function authorize(BackedEnum|string|int $target): static
     {
-        $transition = $this->routes()
+        $transition = $this->transitions()
             ->to($target)
             ->sole();
 
         if ($ability = $transition->authorization()) {
             if (is_string($ability)) {
-                Gate::authorize($ability, $this->model());
+                Gate::authorize($ability, $this->model);
             } elseif (is_callable($ability)) {
-                if (!call_user_func($ability, $this->model())) {
+                if (!call_user_func($ability, $this->model)) {
                     throw new AuthorizationException();
                 }
             }
@@ -152,12 +113,23 @@ class StateMachineEngine implements Arrayable
     {
         $value = $this->model->getAttribute($this->attribute);
 
-        return $value ? $this->states()->one($value) : null;
+        return $value ? $this->getStateListing()->one($value) : null;
+    }
+
+    /**
+     * Check if state has given value.
+     *
+     * @param BackedEnum|string|int $state
+     * @return bool
+     */
+    public function is(BackedEnum|string|int $state): bool
+    {
+        return $this->state()?->is($state);
     }
 
     public function toArray(): array
     {
         return ($this->state()?->toArray() ?? [])
-        + ['transitions' => $this->routes()->onlyAuthorized()->toArray()];
+            + ['transitions' => $this->transitions()->onlyAuthorized()->toArray()];
     }
 }

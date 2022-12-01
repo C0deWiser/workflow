@@ -39,7 +39,6 @@ class StateCollection extends Collection
     /**
      * Get the exact one state from collection.
      *
-     * @param BackedEnum|string|int $state
      * @throws ItemNotFoundException
      * @throws MultipleItemsFoundException
      */

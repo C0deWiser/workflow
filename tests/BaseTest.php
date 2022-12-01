@@ -26,7 +26,7 @@ class BaseTest extends TestCase
 
         // Implicit init (using observer)
         $this->assertTrue((new StateMachineObserver)->creating($post));
-        $this->assertEquals($post->state()->states()->first()->state, $post->state, 'State value was initialized on creating event');
+        $this->assertEquals($post->state()->getStateListing()->first()->state, $post->state, 'State value was initialized on creating event');
     }
 
     public function testStateCollection()
@@ -89,7 +89,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $this->assertCount(1, $post->state()->routes());
+        $this->assertCount(1, $post->state()->transitions());
     }
 
     public function testJson()
@@ -97,7 +97,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $data = $post->state()->transitions()->first()->toArray();
+        $data = $post->state()->getTransitionListing()->first()->toArray();
 
         $this->assertArrayHasKey('name', $data);
         $this->assertArrayHasKey('source', $data);
@@ -111,8 +111,8 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $this->assertCount(1, $post->state()->routes()->to(Enum::review));
-        $this->assertCount(0, $post->state()->routes()->to(Enum::published));
+        $this->assertCount(1, $post->state()->transitions()->to(Enum::review));
+        $this->assertCount(0, $post->state()->transitions()->to(Enum::published));
     }
 
     public function testRelevantTransitions()
@@ -120,7 +120,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $post->state()->routes()
+        $post->state()->transitions()
             ->each(function (Transition $transition) use ($post) {
                 // Assert that every relevant transition starts from current state
                 $this->assertEquals($post->state, $transition->source);

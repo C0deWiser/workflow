@@ -5,9 +5,13 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
-use Codewiser\Workflow\Traits\HasWorkflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use ReflectionClass;
+use ReflectionException;
+use ReflectionIntersectionType;
+use ReflectionNamedType;
+use ReflectionUnionType;
 
 /**
  * Initiates State Machine, watches for changes, fires Event.
@@ -17,24 +21,25 @@ class StateMachineObserver
     /**
      * @param Model $model
      * @return Collection<StateMachineEngine>
+     * @throws ReflectionException
      */
     private function getWorkflowListing(Model $model): Collection
     {
         $blueprints = [];
 
-        $reflect = new \ReflectionClass($model);
+        $reflect = new ReflectionClass($model);
         foreach ($reflect->getMethods() as $method) {
 
             if ($method->isPublic()) {
                 $return_type = $method->getReturnType();
 
-                if ($return_type instanceof \ReflectionNamedType &&
+                if ($return_type instanceof ReflectionNamedType &&
                     $return_type->getName() == StateMachineEngine::class) {
                     $blueprints[] = $method->invoke($model);
-                } elseif ($return_type instanceof \ReflectionUnionType &&
+                } elseif ($return_type instanceof ReflectionUnionType &&
                     $return_type->getTypes() == [StateMachineEngine::class]) {
                     $blueprints[] = $method->invoke($model);
-                } elseif ($return_type instanceof \ReflectionIntersectionType &&
+                } elseif ($return_type instanceof ReflectionIntersectionType &&
                     $return_type->getTypes() == [StateMachineEngine::class]) {
                     $blueprints[] = $method->invoke($model);
                 }
@@ -59,7 +64,7 @@ class StateMachineObserver
     {
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
-                $model->setAttribute($engine->attribute(), $engine->states()->initial()->value);
+                $model->setAttribute($engine->attribute, $engine->getStateListing()->initial()->value);
             });
 
         return true;
@@ -88,9 +93,6 @@ class StateMachineObserver
                     // May throw an Exception
                     $transition->validate();
 
-                    // Pass context to transition for validation. May throw an Exception
-                    $transition->context($engine->context());
-
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
                         if ($model->fireTransitionEvent('transiting', true, $engine, $transition) === false) {
@@ -112,9 +114,6 @@ class StateMachineObserver
 
                 if ($transition = $this->wasTransited($engine)) {
 
-                    // Context was validated while `updating`. Just use it
-                    $transition->context($engine->context());
-
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
                         $model->fresh()->fireTransitionEvent('transited', false, $engine, $transition);
@@ -125,8 +124,8 @@ class StateMachineObserver
 
                     // For Transition Callback
                     $transition->callbacks()
-                        ->each(function ($callback) use ($model, $engine) {
-                            call_user_func($callback, $model->fresh(), $engine->context());
+                        ->each(function ($callback) use ($model, $transition) {
+                            call_user_func($callback, $model->fresh(), $transition->context());
                         });
                 } else {
                     // Do not listen to transit events!
@@ -137,18 +136,21 @@ class StateMachineObserver
 
     protected function nowTransiting(StateMachineEngine $engine):?Transition
     {
-        $model = $engine->model();
-        $attribute = $engine->attribute();
+        $model = $engine->model;
+        $attribute = $engine->attribute;
 
         if ($model->isDirty($attribute) &&
             ($source = $model->getOriginal($attribute)) &&
             ($target = $model->getAttribute($attribute)) &&
             $source != $target) {
 
-            return $engine->transitions()
+            return $engine->getTransitionListing()
                 ->from($source)
                 ->to($target)
-                ->sole();
+                // Transition must exist
+                ->sole()
+                // Pass context to transition for validation. May throw an Exception
+                ->context($this->context($model, $attribute));
         }
 
         return null;
@@ -156,32 +158,46 @@ class StateMachineObserver
 
     protected function wasTransited(StateMachineEngine $engine):?Transition
     {
-        $model = $engine->model();
-        $attribute = $engine->attribute();
+        $model = $engine->model;
+        $attribute = $engine->attribute;
 
         if ($model->wasChanged($attribute) &&
             ($source = $model->getOriginal($attribute)) &&
             ($target = $model->getAttribute($attribute)) &&
             $source != $target) {
 
-            return $engine->transitions()
+            return $engine->getTransitionListing()
                 ->from($source)
                 ->to($target)
-                ->sole();
+                // Transition must exist
+                ->sole()
+                // Pass context to transition, so it will be accessible in events.
+                ->context($this->context($model, $attribute));
         }
 
         return null;
     }
 
+    protected function context(Model $model, string $attribute): array
+    {
+        if (property_exists($model, 'transition_context')) {
+            if (isset($model->transition_context[$attribute])) {
+                return $model->transition_context[$attribute];
+            }
+        }
+
+        return [];
+    }
+
     protected function subscribers(string $event, StateMachineEngine $engine): void
     {
         $engine
-            ->routes()
+            ->transitions()
             ->listeningTo($event)
             ->each(function (Transition $transition) use ($engine) {
                 $callback = $transition->listener('updated');
                 if (is_callable($callback)) {
-                    call_user_func($callback, $engine->model(), $transition);
+                    call_user_func($callback, $engine->model, $transition);
                 }
             });;
     }

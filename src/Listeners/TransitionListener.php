@@ -18,7 +18,7 @@ class TransitionListener
         $log = new TransitionHistory;
 
         $log->transitionable()->associate($model);
-        $log->blueprint = $engine->getBlueprint()::class;
+        $log->blueprint = $engine->blueprint::class;
 
         if (($user = auth()->user()) && ($user instanceof Model)) {
             $log->performer()->associate($user);
@@ -29,9 +29,9 @@ class TransitionListener
 
     public function handleModelInitialized(ModelInitialized $event): void
     {
-        $log = $this->newRecordFor($event->engine->model(), $event->engine);
+        $log = $this->newRecordFor($event->engine->model, $event->engine);
 
-        $state = $event->engine->states()->initial()->value;
+        $state = $event->engine->state()->value;
 
         $log->target = $state instanceof BackedEnum ? $state->value : $state;
 
@@ -40,7 +40,7 @@ class TransitionListener
 
     public function handleModelTransited(ModelTransited $event): void
     {
-        $log = $this->newRecordFor($event->engine->model(), $event->engine);
+        $log = $this->newRecordFor($event->engine->model, $event->engine);
 
         $source = $event->transition->source();
         $target = $event->transition->target();
