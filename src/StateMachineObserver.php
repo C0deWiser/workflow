@@ -134,7 +134,7 @@ class StateMachineObserver
             });
     }
 
-    protected function nowTransiting(StateMachineEngine $engine):?Transition
+    protected function nowTransiting(StateMachineEngine $engine): ?Transition
     {
         $model = $engine->model;
         $attribute = $engine->attribute;
@@ -144,19 +144,22 @@ class StateMachineObserver
             ($target = $model->getAttribute($attribute)) &&
             $source != $target) {
 
-            return $engine->getTransitionListing()
+            $transition = $engine->getTransitionListing()
                 ->from($source)
                 ->to($target)
                 // Transition must exist
-                ->sole()
-                // Pass context to transition for validation. May throw an Exception
-                ->context($this->context($model, $attribute));
+                ->sole();
+
+            // Pass context to transition for validation. May throw an Exception
+            $transition->context($this->context($model, $attribute));
+
+            return $transition;
         }
 
         return null;
     }
 
-    protected function wasTransited(StateMachineEngine $engine):?Transition
+    protected function wasTransited(StateMachineEngine $engine): ?Transition
     {
         $model = $engine->model;
         $attribute = $engine->attribute;
@@ -166,13 +169,16 @@ class StateMachineObserver
             ($target = $model->getAttribute($attribute)) &&
             $source != $target) {
 
-            return $engine->getTransitionListing()
+            $transition = $engine->getTransitionListing()
                 ->from($source)
                 ->to($target)
                 // Transition must exist
-                ->sole()
-                // Pass context to transition, so it will be accessible in events.
-                ->context($this->context($model, $attribute));
+                ->sole();
+
+            // Pass context to transition, so it will be accessible in events.
+            $transition->context($this->context($model, $attribute));
+
+            return $transition;
         }
 
         return null;
