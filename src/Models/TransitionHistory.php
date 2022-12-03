@@ -6,6 +6,7 @@ use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
+use Codewiser\Workflow\Value;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -51,22 +52,31 @@ class TransitionHistory extends Model
         return $this->morphTo();
     }
 
-    public function blueprint(): WorkflowBlueprint
+    public function blueprint(): ?WorkflowBlueprint
     {
         $class = $this->blueprint;
 
-        return new $class;
+        return class_exists($class) ? new $class : null;
+    }
+
+    protected function state($value): ?State
+    {
+        if ($blueprint = $this->blueprint()) {
+            foreach ($blueprint->states() as $state) {
+                // Weak comparison
+                if (Value::scalar($state) == $value) {
+                    return State::make($state);
+                }
+            }
+        }
+
+        return null;
     }
 
     public function source(): ?State
     {
         if ($source = $this->source) {
-            try {
-                return StateCollection::make($this->blueprint()->states())
-                    ->one($source);
-            } catch (Exception) {
-
-            }
+            return $this->state($source);
         }
 
         return null;
@@ -74,20 +84,17 @@ class TransitionHistory extends Model
 
     public function target(): ?State
     {
-        try {
-            return StateCollection::make($this->blueprint()->states())
-                ->one($this->target);
-        } catch (Exception) {
-            return null;
-        }
+        return $this->state($this->target);
     }
 
     public function transition(): ?Transition
     {
-        if (($source = $this->source()) && ($target = $this->target())) {
+        $blueprint = $this->blueprint();
+
+        if ($blueprint && ($source = $this->source()) && ($target = $this->target())) {
             try {
 
-                $transition = TransitionCollection::make($this->blueprint()->transitions())
+                $transition = TransitionCollection::make($blueprint->transitions())
                     ->from($source->value)
                     ->to($target->value)
                     ->sole();
@@ -98,8 +105,8 @@ class TransitionHistory extends Model
 
                 return $transition;
 
-            } catch (Exception) {
-
+            } catch (Exception $exception) {
+                //
             }
         }
 

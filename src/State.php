@@ -2,32 +2,38 @@
 
 namespace Codewiser\Workflow;
 
-use BackedEnum;
 use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\ItemNotFoundException;
-use Illuminate\Support\MultipleItemsFoundException;
 
 class State implements Arrayable, Injectable
 {
     use HasAttributes, HasStateMachineEngine, HasCaption;
 
     /**
-     * State new instance.
+     * @var \BackedEnum|string|int
      */
-    public static function make(BackedEnum|string|int $value): static
+    public $value;
+
+    /**
+     * State new instance.
+     *
+     * @param \BackedEnum|string|int $value
+     * @return static
+     */
+    public static function make($value): State
     {
         return new static($value);
     }
 
-    public function __construct(public BackedEnum|string|int $value)
+    /**
+     * @param \BackedEnum|string|int $value
+     */
+    public function __construct($value)
     {
-        //
+        $this->value = $value;
     }
 
     /**
@@ -35,7 +41,7 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->caption ?? ($this->value instanceof BackedEnum ? $this->value->name : $this->value);
+        return $this->caption ?? Value::name($this);
     }
 
     /**
@@ -53,8 +59,10 @@ class State implements Arrayable, Injectable
 
     /**
      * Get available transition to the given state.
+     *
+     * @param \BackedEnum|string|int $state
      */
-    public function transitionTo(BackedEnum|string|int $state): ?Transition
+    public function transitionTo($state): ?Transition
     {
         return $this
             ->transitions()
@@ -66,17 +74,17 @@ class State implements Arrayable, Injectable
     {
         return [
                 'name' => $this->caption(),
-                'value' => $this->value instanceof BackedEnum ? $this->value->value : $this->value,
+                'value' => Value::scalar($this),
             ] + $this->additional();
     }
 
     /**
      * Check if state is equal to current.
      *
-     * @param BackedEnum|string|int $state
+     * @param \BackedEnum|string|int $state
      * @return bool
      */
-    public function is(BackedEnum|string|int $state): bool
+    public function is($state): bool
     {
         return $this->value === $state;
     }

@@ -2,7 +2,6 @@
 
 namespace Codewiser\Workflow;
 
-use BackedEnum;
 use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
@@ -22,34 +21,96 @@ class Transition implements Arrayable, Injectable
 {
     use HasAttributes, HasStateMachineEngine, HasCaption;
 
-    protected Collection $prerequisites;
-    protected Collection $callbacks;
-    protected array $rules = [];
-    protected mixed $authorization = null;
-    protected array $context = [];
-    protected array $listeners = [];
+    /**
+     * Source state.
+     *
+     * @var \BackedEnum|string|int
+     */
+    public $source;
+
+    /**
+     * Target state.
+     *
+     * @var \BackedEnum|string|int
+     */
+    public $target;
+
+    /**
+     * Callable collection, that would be invoked before transit.
+     *
+     * @var Collection
+     */
+    protected $prerequisites;
+
+    /**
+     * Callable collection, that would be invoked after transit.
+     *
+     * @var Collection
+     */
+    protected $callbacks;
+
+    /**
+     * Validation rules for the transition context.
+     *
+     * @var array
+     */
+    protected $rules = [];
+
+    /**
+     * Instructions to authorize transit.
+     *
+     * null — without authorization
+     * false — denies transit
+     * string — invoke policy ability
+     * callable — will be invoked for authorization
+     *
+     * @var null|boolean|string|callable
+     */
+    protected $authorization = null;
+
+    /**
+     * Transit context.
+     *
+     * @var array
+     */
+    protected $context = [];
+
+    /**
+     * @var array
+     */
+    protected $listeners = [];
 
     /**
      * Instantiate new transition.
+     *
+     * @param \BackedEnum|string|int $source
+     * @param \BackedEnum|string|int $target
+     * @return static
      */
-    public static function make(BackedEnum|string|int $source, BackedEnum|string|int $target): static
+    public static function make($source, $target): Transition
     {
         return new static($source, $target);
     }
 
-    public function __construct(
-        public BackedEnum|string|int $source,
-        public BackedEnum|string|int $target
-    )
+    /**
+     * @param \BackedEnum|string|int $source
+     * @param \BackedEnum|string|int $target
+     */
+    public function __construct($source, $target)
     {
+        $this->source = $source;
+        $this->target = $target;
+
         $this->prerequisites = new Collection();
         $this->callbacks = new Collection();
     }
 
     /**
      * Authorize transition using policy ability (or closure).
+     *
+     * @param false|string|callable $ability
      */
-    public function authorizedBy(false|string|callable $ability): static
+    public function authorizedBy($ability): self
     {
         $this->authorization = $ability;
 
@@ -59,7 +120,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Listen for Eloquent `saved`, `created` and `updated` events.
      */
-    public function listenTo(string $event, ?callable $listener): static
+    public function listenTo(string $event, ?callable $listener): self
     {
         $this->listeners[$event] = $listener;
 
@@ -69,7 +130,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Get event listener if it was defined.
      */
-    public function listener(string $event): mixed
+    public function listener(string $event): ?callable
     {
         return $this->listeners[$event] ?? null;
     }
@@ -77,7 +138,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Add prerequisite to the transition.
      */
-    public function before(callable $prerequisite): static
+    public function before(callable $prerequisite): self
     {
         $this->prerequisites->push($prerequisite);
 
@@ -87,7 +148,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Hide transition from humans, so only robots can move it.
      */
-    public function hidden(): static
+    public function hidden(): self
     {
         $this->authorizedBy(false);
 
@@ -97,7 +158,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Callback(s) will run after transition is done.
      */
-    public function after(callable $callback): static
+    public function after(callable $callback): self
     {
         $this->callbacks->push($callback);
 
@@ -107,7 +168,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Add requirement(s) to transition payload.
      */
-    public function rules(array $rules): static
+    public function rules(array $rules): self
     {
         $this->rules = $rules;
 
@@ -121,8 +182,8 @@ class Transition implements Arrayable, Injectable
 
         return [
                 'name' => $this->caption(),
-                'source' => $this->source->value,
-                'target' => $this->target->value,
+                'source' => Value::scalar($this->source),
+                'target' => Value::scalar($this->target),
             ]
             + $rules
             + $issues
@@ -134,7 +195,7 @@ class Transition implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->caption ?? "{$this->source->name} - {$this->target->name}";
+        return $this->caption ?? Value::name($this->source) . " - " . Value::name($this->target);
     }
 
     /**
@@ -155,8 +216,10 @@ class Transition implements Arrayable, Injectable
 
     /**
      * Ability to authorize.
+     *
+     * @return false|string|callable|null
      */
-    public function authorization(): false|string|callable|null
+    public function authorization()
     {
         return $this->authorization;
     }
@@ -166,7 +229,7 @@ class Transition implements Arrayable, Injectable
      */
     public function authorized(): bool
     {
-        if ($ability = $this->authorization()) {
+        if (!is_null($ability = $this->authorization())) {
             if (is_bool($ability)) {
                 return $ability;
             } elseif (is_string($ability)) {
@@ -175,6 +238,7 @@ class Transition implements Arrayable, Injectable
                 return call_user_func($ability, $this->engine()->model);
             }
         }
+
         return true;
     }
 
@@ -209,11 +273,11 @@ class Transition implements Arrayable, Injectable
             ->map(function ($condition) {
                 try {
                     call_user_func($condition, $this->engine->model);
-                } catch (TransitionFatalException) {
+                } catch (TransitionFatalException $exception) {
                     // Skip
-                } catch (TransitionRecoverableException $e) {
+                } catch (TransitionRecoverableException $exception) {
                     // Collect only recoverable messages
-                    return $e->getMessage();
+                    return $exception->getMessage();
                 }
                 return '';
             })
@@ -244,10 +308,12 @@ class Transition implements Arrayable, Injectable
      *
      * @throws TransitionFatalException|TransitionRecoverableException
      */
-    public function validate(): static
+    public function validate(): self
     {
         foreach ($this->prerequisites() as $condition) {
-            call_user_func($condition, $this->engine->model);
+            if (is_callable($condition)) {
+                call_user_func($condition, $this->engine->model);
+            }
         }
         return $this;
     }
@@ -255,9 +321,12 @@ class Transition implements Arrayable, Injectable
     /**
      * Get or set and validate transition additional context.
      *
+     * @param array|string|null $context
+     * @return mixed
      * @throws ValidationException
+     *
      */
-    public function context(mixed $context = null): mixed
+    public function context($context = null)
     {
         if (is_array($context)) {
 

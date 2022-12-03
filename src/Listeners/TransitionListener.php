@@ -2,12 +2,12 @@
 
 namespace Codewiser\Workflow\Listeners;
 
-use BackedEnum;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\Value;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
@@ -18,7 +18,7 @@ class TransitionListener
         $log = new TransitionHistory;
 
         $log->transitionable()->associate($model);
-        $log->blueprint = $engine->blueprint::class;
+        $log->blueprint = get_class($engine->blueprint);
 
         if (($user = auth()->user()) && ($user instanceof Model)) {
             $log->performer()->associate($user);
@@ -31,9 +31,9 @@ class TransitionListener
     {
         $log = $this->newRecordFor($event->engine->model, $event->engine);
 
-        $state = $event->engine->state()->value;
-
-        $log->target = $state instanceof BackedEnum ? $state->value : $state;
+        $log->target = Value::scalar(
+            $event->engine->state()
+        );
 
         $log->save();
     }
@@ -42,17 +42,19 @@ class TransitionListener
     {
         $log = $this->newRecordFor($event->engine->model, $event->engine);
 
-        $source = $event->transition->source();
-        $target = $event->transition->target();
+        $log->source = Value::scalar(
+            $event->transition->source()
+        );
 
-        $log->source = $source instanceof BackedEnum ? $source->value : $source;
-        $log->target = $target instanceof BackedEnum ? $target->value : $target;
+        $log->target = Value::scalar(
+            $event->transition->target()
+        );
 
         try {
             if ($context = $event->transition->context()) {
                 $log->context = $context;
             }
-        } catch (ValidationException) {
+        } catch (ValidationException $exception) {
             // Actually it was successfully validated...
         }
 

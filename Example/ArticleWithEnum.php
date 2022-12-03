@@ -11,14 +11,14 @@ use Illuminate\Database\Eloquent\Model;
  * @package App
  *
  * @property string $body
- * @property string|null $state
+ * @property Enum|null $state
  */
-class Article extends Model
+class ArticleWithEnum extends Model
 {
     use HasWorkflow;
 
-    protected $attributes = [
-        'state' => null
+    public $casts = [
+        'state' => Enum::class
     ];
 
     public function state(): StateMachineEngine

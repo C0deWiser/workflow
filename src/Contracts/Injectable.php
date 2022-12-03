@@ -3,14 +3,15 @@
 namespace Codewiser\Workflow\Contracts;
 
 use Codewiser\Workflow\StateMachineEngine;
-use Illuminate\Database\Eloquent\Model;
 
 interface Injectable
 {
     /**
-     * Vivify transition with StateMachineEngine.
+     * Vivify object with StateMachineEngine.
+     *
+     * @return $this
      */
-    public function inject(StateMachineEngine $engine): static;
+    public function inject(StateMachineEngine $engine);
 
     /**
      * Get State Machine Engine.

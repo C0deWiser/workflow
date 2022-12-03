@@ -3,14 +3,8 @@
 namespace Codewiser\Workflow\Commands;
 
 use Codewiser\Workflow\BlueprintValidator;
-use Codewiser\Workflow\State;
-use Codewiser\Workflow\StateCollection;
-use Codewiser\Workflow\Transition;
-use Codewiser\Workflow\TransitionCollection;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Illuminate\Console\Command;
-use Illuminate\Support\ItemNotFoundException;
-use Illuminate\Support\MultipleItemsFoundException;
 
 class ValidateCommand extends Command
 {
@@ -46,16 +40,17 @@ class ValidateCommand extends Command
     public function handle(): int
     {
         $class = $this->option('class');
+        $className = class_basename($class);
 
         if (!class_exists($class)) {
-            $this->error("{$class} Not Found");
+            $this->error("$className Not Found");
             return self::INVALID;
         }
 
         $blueprint = new $class();
 
         if (!($blueprint instanceof WorkflowBlueprint)) {
-            $this->warn("{$class} Not a WorkflowBlueprint instance");
+            $this->warn("$className Not a WorkflowBlueprint instance");
             return self::INVALID;
         }
 
@@ -66,12 +61,12 @@ class ValidateCommand extends Command
         $this->table(['Source', 'Target', 'Caption', 'Issues', 'Auth', 'Context', 'Additional', 'Errors'], $validator->transitions());
 
         if ($validator->valid) {
-            $this->info("Blueprint {$class} is valid");
+            $this->info("Blueprint $className is valid");
+            return self::SUCCESS;
         } else {
-            $this->error("Blueprint {$class} is invalid");
+            $this->error("Blueprint $className is invalid");
+            return self::FAILURE;
         }
-
-        return self::SUCCESS;
     }
 
 }

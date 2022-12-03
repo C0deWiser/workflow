@@ -5,7 +5,6 @@ namespace Codewiser\Workflow\Traits;
 use Codewiser\Workflow\StateMachineEngine;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Codewiser\Workflow\StateMachineObserver;
 
 /**
@@ -38,12 +37,22 @@ trait HasWorkflow
 
     /**
      * Backdoor property to pass transition context to the StateMachineObserver.
+     *
+     * @var array
      */
-    public array $transition_context = [];
+    public $transition_context = [];
 
-    public array $state_machines = [];
+    /**
+     * @var array
+     */
+    public $state_machines = [];
 
-    protected function workflow(string|WorkflowBlueprint $blueprint, string $attribute): StateMachineEngine
+    /**
+     * @param string|WorkflowBlueprint $blueprint
+     * @param string $attribute
+     * @return StateMachineEngine
+     */
+    protected function workflow($blueprint, string $attribute): StateMachineEngine
     {
         if (!isset($this->state_machines[$attribute])) {
 

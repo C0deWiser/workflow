@@ -4,12 +4,20 @@ namespace Codewiser\Workflow\Traits;
 
 trait HasAttributes
 {
-    protected array $additional = [];
+    /**
+     * @var array
+     */
+    protected $additional = [];
 
     /**
      * Set any additional attribute: color, order etc
+     *
+     * @param string $attribute
+     * @param mixed $value
+     *
+     * @return $this
      */
-    public function set(string $attribute, mixed $value): self
+    public function set(string $attribute, $value): self
     {
         $this->additional[$attribute] = $value;
 

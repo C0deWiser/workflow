@@ -2,18 +2,35 @@
 
 namespace Codewiser\Workflow;
 
-use BackedEnum;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
 class BlueprintValidator
 {
-    public StateCollection $states;
-    public TransitionCollection $transitions;
-    public bool $valid = true;
+    /**
+     * @var StateCollection
+     */
+    public $states;
 
-    public function __construct(public WorkflowBlueprint $blueprint)
+    /**
+     * @var TransitionCollection
+     */
+    public $transitions;
+
+    /**
+     * @var bool
+     */
+    public $valid = true;
+
+    /**
+     * @var WorkflowBlueprint
+     */
+    public $blueprint;
+
+    public function __construct(WorkflowBlueprint $blueprint)
     {
+        $this->blueprint = $blueprint;
+
         $this->states = StateCollection::make($blueprint->states());
 
         $this->transitions = TransitionCollection::make($blueprint->transitions());
@@ -24,8 +41,8 @@ class BlueprintValidator
         return $this->transitions
             ->map(function (Transition $transition) {
                 $row = [
-                    'source' => $transition->source instanceof BackedEnum ? $transition->source->value : $transition->source,
-                    'target' => $transition->target instanceof BackedEnum ? $transition->target->value : $transition->target,
+                    'source' => Value::scalar($transition->source()),
+                    'target' => Value::scalar($transition->target()),
                     'caption' => $transition->caption(),
                     'prerequisites' => $transition->prerequisites()->isEmpty() ? 'No' : 'Yes',
                     'authorization' => is_null($transition->authorization()) ? 'No' : 'Yes',
@@ -36,13 +53,13 @@ class BlueprintValidator
 
                 try {
                     $this->states->one($transition->source);
-                } catch (ItemNotFoundException) {
+                } catch (ItemNotFoundException $exception) {
                     $row['errors'][] = 'Source Not Found';
                     $this->valid = false;
                 }
                 try {
                     $this->states->one($transition->target);
-                } catch (ItemNotFoundException) {
+                } catch (ItemNotFoundException $exception) {
                     $row['errors'][] = 'Target Not Found';
                     $this->valid = false;
                 }
@@ -59,7 +76,7 @@ class BlueprintValidator
         return $this->states
             ->map(function (State $state) {
                 $row = [
-                    'value' => $state->value instanceof BackedEnum ? $state->value->value : $state->value,
+                    'value' => Value::scalar($state),
                     'caption' => $state->caption(),
                     'additional' => json_encode($state->additional()),
                     'error' => null
@@ -67,7 +84,7 @@ class BlueprintValidator
 
                 try {
                     $this->states->one($state->value);
-                } catch (MultipleItemsFoundException) {
+                } catch (MultipleItemsFoundException $exception) {
                     $row['error'] = "State {$row['value']} defined few times.";
                     $this->valid = false;
                 }

@@ -6,34 +6,28 @@ use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Transition;
 
-class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+class ArticleEnumWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     public function states(): array
     {
-        return [
-            'new',
-            'review',
-            'published',
-            'correction',
-            'empty'
-        ];
+        return Enum::cases();
     }
 
     public function transitions(): array
     {
         return [
-            Transition::make('new', 'review')
+            Transition::make(Enum::new, Enum::review)
                 ->before(function (Article $model) {
                     throw new TransitionRecoverableException();
                 })
                 ->set('color', 'red'),
 
-            Transition::make('review', 'published')->as('Fatal transition')
+            Transition::make(Enum::review, Enum::published)->as('Fatal transition')
                 ->before(function (Article $model) {
                     throw new TransitionFatalException();
                 }),
 
-            Transition::make('review', 'correction')
+            Transition::make(Enum::review, Enum::correction)
                 ->rules([
                     'comment' => 'required'
                 ])
@@ -42,8 +36,8 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
                     $model->body = $context['comment'];
                 }),
 
-            Transition::make('correction', 'review')
-                ->authorizedBy(function () {
+            Transition::make(Enum::correction, Enum::review)
+                ->authorizedBy(function (Article $model) {
                     return false;
                 }),
 

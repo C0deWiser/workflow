@@ -4,12 +4,15 @@ namespace Codewiser\Workflow\Traits;
 
 trait HasCaption
 {
-    protected ?string $caption = null;
+    /**
+     * @var string|null
+     */
+    protected $caption = null;
 
     /**
      * Set State caption.
      */
-    public function as(string $caption): static
+    public function as(string $caption): self
     {
         if ($caption)
             $this->caption = $caption;

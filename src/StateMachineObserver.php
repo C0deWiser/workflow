@@ -9,9 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use ReflectionClass;
 use ReflectionException;
-use ReflectionIntersectionType;
 use ReflectionNamedType;
-use ReflectionUnionType;
 
 /**
  * Initiates State Machine, watches for changes, fires Event.
@@ -21,7 +19,6 @@ class StateMachineObserver
     /**
      * @param Model $model
      * @return Collection<StateMachineEngine>
-     * @throws ReflectionException
      */
     private function getWorkflowListing(Model $model): Collection
     {
@@ -35,12 +32,6 @@ class StateMachineObserver
 
                 if ($return_type instanceof ReflectionNamedType &&
                     $return_type->getName() == StateMachineEngine::class) {
-                    $blueprints[] = $method->invoke($model);
-                } elseif ($return_type instanceof ReflectionUnionType &&
-                    $return_type->getTypes() == [StateMachineEngine::class]) {
-                    $blueprints[] = $method->invoke($model);
-                } elseif ($return_type instanceof ReflectionIntersectionType &&
-                    $return_type->getTypes() == [StateMachineEngine::class]) {
                     $blueprints[] = $method->invoke($model);
                 }
             }
@@ -205,6 +196,6 @@ class StateMachineObserver
                 if (is_callable($callback)) {
                     call_user_func($callback, $engine->model, $transition);
                 }
-            });;
+            });
     }
 }

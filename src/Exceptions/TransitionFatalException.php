@@ -9,7 +9,10 @@ use Throwable;
  */
 class TransitionFatalException extends TransitionException
 {
-    public int $status = 403;
+    /**
+     * @var int
+     */
+    public $status = 403;
 
     public function __construct($message = "Transition is disabled", $code = 0, Throwable $previous = null)
     {

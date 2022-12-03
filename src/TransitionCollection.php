@@ -2,7 +2,6 @@
 
 namespace Codewiser\Workflow;
 
-use BackedEnum;
 use Codewiser\Workflow\Traits\Injection;
 use Illuminate\Support\Collection;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
@@ -17,7 +16,7 @@ class TransitionCollection extends Collection
 {
     use Injection;
 
-    public static function make($items = []): static
+    public static function make($items = []): TransitionCollection
     {
         $collection = [];
 
@@ -29,8 +28,9 @@ class TransitionCollection extends Collection
 
             if ($item instanceof Transition) {
                 // Filter unique transitions
-                $key = ($item->source instanceof BackedEnum ? $item->source->value : $item->source)
-                    . ($item->target instanceof BackedEnum ? $item->target->value : $item->target);
+                $key = Value::scalar($item->source)
+                    . Value::scalar($item->target);
+
                 if (!isset($collection[$key])) {
                     $collection[$key] = $item;
                 }
@@ -43,7 +43,7 @@ class TransitionCollection extends Collection
     /**
      * Get transitions that listen to given Eloquent event.
      */
-    public function listeningTo(string $event): static
+    public function listeningTo(string $event): self
     {
         return $this
             ->filter(function (Transition $transition) use ($event) {
@@ -53,8 +53,10 @@ class TransitionCollection extends Collection
 
     /**
      * Get transitions from given state.
+     *
+     * @param \BackedEnum|string|int $state
      */
-    public function from(BackedEnum|string|int $state): static
+    public function from($state): self
     {
         return $this->filter(function (Transition $transition) use ($state) {
             return $transition->source === $state;
@@ -63,8 +65,10 @@ class TransitionCollection extends Collection
 
     /**
      * Get transitions to given state.
+     *
+     * @param \BackedEnum|string|int $state
      */
-    public function to(BackedEnum|string|int $state): static
+    public function to($state): self
     {
         return $this->filter(function (Transition $transition) use ($state) {
             return $transition->target === $state;
@@ -74,15 +78,15 @@ class TransitionCollection extends Collection
     /**
      * Get transitions without fatal conditions.
      */
-    public function withoutForbidden(): static
+    public function withoutForbidden(): self
     {
         return $this
             ->reject(function (Transition $transition) {
                 try {
                     $transition->validate();
-                } catch (TransitionFatalException) {
+                } catch (TransitionFatalException $exception) {
                     return true;
-                } catch (TransitionRecoverableException) {
+                } catch (TransitionRecoverableException $exception) {
 
                 }
                 return false;
@@ -92,7 +96,7 @@ class TransitionCollection extends Collection
     /**
      * Get authorized transitions.
      */
-    public function onlyAuthorized(): static
+    public function onlyAuthorized(): self
     {
         return $this
             ->filter(function (Transition $transition) {

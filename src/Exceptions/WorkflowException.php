@@ -2,11 +2,16 @@
 
 namespace Codewiser\Workflow\Exceptions;
 
-class WorkflowException extends \Exception
-{
-    public int $status = 500;
+use Exception;
 
-    public function jsonSerialize()
+class WorkflowException extends Exception
+{
+    /**
+     * @var int
+     */
+    public $status = 500;
+
+    public function jsonSerialize(): array
     {
         return [
             'message' => $this->getMessage()

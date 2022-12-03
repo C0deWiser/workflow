@@ -6,7 +6,6 @@ use Codewiser\Workflow\StateMachineEngine;
 use Codewiser\Workflow\Transition;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Queue\SerializesModels;
 
 /**
@@ -16,11 +15,19 @@ class ModelTransited
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(
-        public StateMachineEngine $engine,
-        public Transition         $transition
-    )
+    /**
+     * @var StateMachineEngine
+     */
+    public $engine;
+
+    /**
+     * @var Transition
+     */
+    public $transition;
+
+    public function __construct(StateMachineEngine $engine, Transition $transition)
     {
-        //
+        $this->engine = $engine;
+        $this->transition = $transition;
     }
 }

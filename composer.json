@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "php": "^8.1",
+        "php": "^7.3|^8.0",
         "laravel/framework": ">=8.0",
         "ext-json": "*"
     },
@@ -22,7 +22,7 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
-            "Codewiser\\Workflow\\Example\\": "example/"
+            "Codewiser\\Workflow\\Example\\": "Example/"
         }
     },
     "require-dev": {
