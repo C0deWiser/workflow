@@ -148,7 +148,9 @@ class Transition implements Arrayable, Injectable
             ]
             + $rules
             + $issues
-            + $this->additional();
+            + $this->additional()
+            // In general, target additional is enough for a transition
+            + $this->target()->additional();
     }
 
     /**
