@@ -9,6 +9,7 @@ use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -227,19 +228,21 @@ class Transition implements Arrayable, Injectable
     /**
      * Check if transition authorized.
      */
-    public function authorized(): bool
+    public function authorized(): ?self
     {
+        $allowed = null;
+
         if (!is_null($ability = $this->authorization())) {
             if (is_bool($ability)) {
-                return $ability;
+                $allowed = $ability;
             } elseif (is_string($ability)) {
-                return Gate::allows($ability, $this->engine()->model);
+                $allowed = Gate::allows($ability, $this->engine()->model);
             } elseif (is_callable($ability)) {
-                return call_user_func($ability, $this->engine()->model);
+                $allowed = call_user_func($ability, $this->engine()->model);
             }
         }
 
-        return true;
+        return $allowed === false ? null : $this;
     }
 
     /**
@@ -347,8 +350,8 @@ class Transition implements Arrayable, Injectable
     /**
      * Run this transition.
      */
-    public function run()
+    public function run(): Model
     {
-        $this->engine()->transit($this->target);
+        return $this->engine()->transit($this->target);
     }
 }

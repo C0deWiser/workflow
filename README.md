@@ -272,7 +272,9 @@ public function update(Request $request, \Codewiser\Workflow\Example\Article $ar
             // Authorize transition
             ->authorize($state)
             // Transit to the new state, passing additional context
-            ->transit($state, $request->all());        
+            ->transit($state, $request->all())
+            // Now save model
+            ->save();        
     }
 }
 ```

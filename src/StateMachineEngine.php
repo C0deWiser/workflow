@@ -81,12 +81,13 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Change model's state to a new value, passing optional context.
+     * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
      * @param \BackedEnum|string|int $state
      * @param array $context
+     * @return Model
      */
-    public function transit($state, array $context = []): void
+    public function transit($state, array $context = []): Model
     {
         $this->model->setAttribute(
             $this->attribute,
@@ -100,7 +101,7 @@ class StateMachineEngine implements Arrayable
             ];
         }
 
-        $this->model->save();
+        return $this->model;
     }
 
     /**
@@ -148,11 +149,39 @@ class StateMachineEngine implements Arrayable
         return $this->state() && $this->state()->is($state);
     }
 
+    /**
+     * Check if state doesn't have given value.
+     *
+     * @param \BackedEnum|string|int $state
+     */
+    public function isNot($state): bool
+    {
+        return $this->state() || $this->state()->isNot($state);
+    }
+
     public function toArray(): array
     {
         $state = $this->state() ? $this->state()->toArray() : [];
         $transitions = $this->transitions()->onlyAuthorized()->toArray();
 
         return $state + ['transitions' => $transitions];
+    }
+
+    /**
+     * Observer watches for transitions...
+     */
+    public function observer(): StateMachineObserver
+    {
+        return new StateMachineObserver($this);
+    }
+
+    /**
+     * Get the transition from the current state, if it exists.
+     *
+     * @param \BackedEnum|string|int $target
+     */
+    public function transitionTo($target): ?Transition
+    {
+        return $this->state()->transitionTo($target);
     }
 }

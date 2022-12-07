@@ -79,7 +79,7 @@ class State implements Arrayable, Injectable
     }
 
     /**
-     * Check if state is equal to current.
+     * Check if state equals to current.
      *
      * @param \BackedEnum|string|int $state
      * @return bool
@@ -87,5 +87,16 @@ class State implements Arrayable, Injectable
     public function is($state): bool
     {
         return $this->value === $state;
+    }
+
+    /**
+     * Check if state doesn't equal to current.
+     *
+     * @param \BackedEnum|string|int $state
+     * @return bool
+     */
+    public function isNot($state): bool
+    {
+        return $this->value !== $state;
     }
 }
