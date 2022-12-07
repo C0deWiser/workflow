@@ -14,10 +14,6 @@ trait HasWorkflow
 {
     protected static function bootHasWorkflow()
     {
-        static::saved(function (Model $model) {
-            (new StateMachineObserver)->saved($model);
-        });
-
         static::creating(function (Model $model) {
             return (new StateMachineObserver)->creating($model);
         });

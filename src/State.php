@@ -4,13 +4,14 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Traits\HasAttributes;
+use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Illuminate\Contracts\Support\Arrayable;
 
 class State implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks;
 
     /**
      * @var \BackedEnum|string|int

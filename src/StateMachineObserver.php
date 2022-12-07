@@ -57,24 +57,14 @@ class StateMachineObserver
         return collect($blueprints);
     }
 
-    public function saved(Model $model): void
-    {
-        $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) {
-
-                $this->withEngine($engine)
-                    ->notifySubscribers('saved');
-            });
-    }
-
     public function creating(Model $model): bool
     {
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
+
+                // Set initial state
                 $model->setAttribute($engine->attribute, $engine->getStateListing()->initial()->value);
 
-                $this->withEngine($engine)
-                    ->notifySubscribers('creating');
             });
 
         return true;
@@ -83,14 +73,15 @@ class StateMachineObserver
     public function created(Model $model): void
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) {
+            ->each(function (StateMachineEngine $engine) use ($model) {
 
-                // For Event Listener
+                // Fire event
                 event(new ModelInitialized($engine));
 
-                $this->withEngine($engine)
-                    ->notifySubscribers('created');
-
+                $engine->state()->callbacks()
+                    ->each(function ($callback) use ($model) {
+                        call_user_func($callback, $model->fresh());
+                    });
             });
     }
 
@@ -101,8 +92,7 @@ class StateMachineObserver
             // Rejecting successful validations
             ->reject(function (StateMachineEngine $engine) use ($model) {
 
-                $this->withEngine($engine)
-                    ->notifySubscribers('updating');
+                $this->withEngine($engine);
 
                 if ($transition = $this->nowTransiting()) {
 
@@ -128,8 +118,7 @@ class StateMachineObserver
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
 
-                $this->withEngine($engine)
-                    ->notifySubscribers('updated');
+                $this->withEngine($engine);
 
                 if ($transition = $this->wasTransited()) {
 
@@ -141,11 +130,15 @@ class StateMachineObserver
                     // For Event Listener
                     event(new ModelTransited($engine, $transition));
 
-                    // For Transition Callback
+                    // Transition callbacks
                     $transition->callbacks()
+                        // State callbacks
+                        ->merge($transition->target()->callbacks())
                         ->each(function ($callback) use ($model, $transition) {
                             call_user_func($callback, $model->fresh(), $transition->context());
                         });
+
+
                 }
             });
     }
@@ -219,20 +212,5 @@ class StateMachineObserver
         }
 
         return [];
-    }
-
-    protected function notifySubscribers(string $event): void
-    {
-        if ($engine = $this->engine) {
-            $engine
-                ->transitions()
-                ->listeningTo($event)
-                ->each(function (Transition $transition) use ($engine, $event) {
-                    $callback = $transition->listener($event);
-                    if (is_callable($callback)) {
-                        call_user_func($callback, $engine->model, $transition);
-                    }
-                });
-        }
     }
 }

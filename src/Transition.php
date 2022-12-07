@@ -6,6 +6,7 @@ use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Traits\HasAttributes;
+use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Illuminate\Contracts\Support\Arrayable;
@@ -20,7 +21,7 @@ use Illuminate\Validation\ValidationException;
  */
 class Transition implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks;
 
     /**
      * Source state.
@@ -42,13 +43,6 @@ class Transition implements Arrayable, Injectable
      * @var Collection
      */
     protected $prerequisites;
-
-    /**
-     * Callable collection, that would be invoked after transit.
-     *
-     * @var Collection
-     */
-    protected $callbacks;
 
     /**
      * Validation rules for the transition context.
@@ -77,11 +71,6 @@ class Transition implements Arrayable, Injectable
     protected $context = [];
 
     /**
-     * @var array
-     */
-    protected $listeners = [];
-
-    /**
      * Instantiate new transition.
      *
      * @param \BackedEnum|string|int $source
@@ -103,7 +92,6 @@ class Transition implements Arrayable, Injectable
         $this->target = $target;
 
         $this->prerequisites = new Collection();
-        $this->callbacks = new Collection();
     }
 
     /**
@@ -116,24 +104,6 @@ class Transition implements Arrayable, Injectable
         $this->authorization = $ability;
 
         return $this;
-    }
-
-    /**
-     * Listen for Eloquent `saved`, `created` and `updated` events.
-     */
-    public function listenTo(string $event, ?callable $listener): self
-    {
-        $this->listeners[$event] = $listener;
-
-        return $this;
-    }
-
-    /**
-     * Get event listener if it was defined.
-     */
-    public function listener(string $event): ?callable
-    {
-        return $this->listeners[$event] ?? null;
     }
 
     /**
@@ -152,16 +122,6 @@ class Transition implements Arrayable, Injectable
     public function hidden(): self
     {
         $this->authorizedBy(false);
-
-        return $this;
-    }
-
-    /**
-     * Callback(s) will run after transition is done.
-     */
-    public function after(callable $callback): self
-    {
-        $this->callbacks->push($callback);
 
         return $this;
     }
@@ -256,16 +216,6 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Get registered transition callbacks.
-     *
-     * @return Collection<callable>
-     */
-    public function callbacks(): Collection
-    {
-        return $this->callbacks;
-    }
-
-    /**
      * Get list of problems with the transition.
      *
      * @return array<string>
@@ -348,10 +298,13 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Run this transition.
+     * Run this transition, passing optional context. Returns Model for you to save it.
+     *
+     * @param array $context
+     * @return Model
      */
-    public function run(): Model
+    public function transit(array $context = []): Model
     {
-        return $this->engine()->transit($this->target);
+        return $this->engine()->transit($this->target, $context);
     }
 }

@@ -386,6 +386,25 @@ The payload will be like that:
 
 ## Events
 
+### State Callback
+
+You may define state callback(s), that will be called then state is reached.
+
+Callback is a `callable` with `Model` and `context` arguments.
+
+```php
+use \Codewiser\Workflow\State;
+
+State::make('correcting')
+    ->after(function(Article $article, array $context) {
+        $article->author->notify(
+            new ArticleHasProblemNotification(
+                $article, $context['reason']
+            )
+        );
+    }); 
+```
+
 ### Transition Callback
 
 You may define transition callback(s), that will be called after transition were successfully performed.

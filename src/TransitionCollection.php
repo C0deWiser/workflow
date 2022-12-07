@@ -41,17 +41,6 @@ class TransitionCollection extends Collection
     }
 
     /**
-     * Get transitions that listen to given Eloquent event.
-     */
-    public function listeningTo(string $event): self
-    {
-        return $this
-            ->filter(function (Transition $transition) use ($event) {
-                return (boolean)$transition->listener($event);
-            });
-    }
-
-    /**
      * Get transitions from given state.
      *
      * @param \BackedEnum|string|int $state
