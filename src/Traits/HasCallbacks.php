@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 trait HasCallbacks
@@ -31,5 +32,18 @@ trait HasCallbacks
         $this->callbacks[] = $callback;
 
         return $this;
+    }
+
+    /**
+     * Run callbacks.
+     *
+     * @return void
+     */
+    public function invoke(Model $model)
+    {
+        $this->callbacks()
+            ->each(function (callable $callback) use ($model) {
+                call_user_func($callback, $model->fresh());
+            });
     }
 }

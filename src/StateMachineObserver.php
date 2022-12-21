@@ -78,10 +78,8 @@ class StateMachineObserver
                 // Fire event
                 event(new ModelInitialized($engine));
 
-                $engine->state()->callbacks()
-                    ->each(function ($callback) use ($model) {
-                        call_user_func($callback, $model->fresh());
-                    });
+                // Run state callbacks
+                $engine->state()->invoke($model);
             });
     }
 
@@ -131,14 +129,9 @@ class StateMachineObserver
                     event(new ModelTransited($engine, $transition));
 
                     // Transition callbacks
-                    $transition->callbacks()
-                        // State callbacks
-                        ->merge($transition->target()->callbacks())
-                        ->each(function ($callback) use ($model, $transition) {
-                            call_user_func($callback, $model->fresh(), $transition->context());
-                        });
-
-
+                    $transition->invoke($model);
+                    // State callbacks
+                    $transition->target()->invoke($model);
                 }
             });
     }
