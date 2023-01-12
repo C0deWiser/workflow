@@ -41,13 +41,13 @@ class BlueprintValidator
         return $this->transitions
             ->map(function (Transition $transition) {
                 $row = [
-                    'source' => Value::scalar($transition->source()),
-                    'target' => Value::scalar($transition->target()),
-                    'caption' => $transition->caption(),
+                    'source' => Value::scalar($transition->source),
+                    'target' => Value::scalar($transition->target),
+                    'caption' => $transition->caption ?? $this->states->one($transition->target)->caption(),
                     'prerequisites' => $transition->prerequisites()->isEmpty() ? 'No' : 'Yes',
                     'authorization' => is_null($transition->authorization()) ? 'No' : 'Yes',
                     'rules' => json_encode($transition->validationRules(true)),
-                    'additional' => json_encode($transition->additional()),
+                    'additional' => json_encode($transition->additional() + $this->states->one($transition->target)->additional()),
                     'errors' => []
                 ];
 

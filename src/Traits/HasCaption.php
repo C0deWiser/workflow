@@ -7,7 +7,7 @@ trait HasCaption
     /**
      * @var string|null
      */
-    protected $caption = null;
+    public $caption = null;
 
     /**
      * Set State caption.

@@ -4,10 +4,15 @@ namespace Codewiser\Workflow\Commands;
 
 use Codewiser\Workflow\BlueprintValidator;
 use Codewiser\Workflow\Commands\Traits\ClassDiscover;
+use Codewiser\Workflow\State;
+use Codewiser\Workflow\StateCollection;
+use Codewiser\Workflow\Transition;
+use Codewiser\Workflow\TransitionCollection;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
-class ValidateCommand extends Command
+class ShowCommand extends Command
 {
     use ClassDiscover;
 
@@ -16,14 +21,14 @@ class ValidateCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'workflow:validate {--class=}';
+    protected $signature = 'workflow:show {--class=}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Validate workflow blueprint';
+    protected $description = 'Display workflow scheme';
 
     /**
      * Execute the console command.
@@ -48,19 +53,21 @@ class ValidateCommand extends Command
             return self::INVALID;
         }
 
-        $validator = new BlueprintValidator($blueprint);
+        $transitions = TransitionCollection::make($blueprint->transitions());
+        $states = StateCollection::make($blueprint->states());
 
-        $this->table(['Value', 'Caption', 'Additional', 'Error'], $validator->states());
+        $states
+            ->each(function (State $state) use ($states, $transitions) {
+                $this->info($state->caption());
 
-        $this->table(['Source', 'Target', 'Caption', 'Issues', 'Auth', 'Context', 'Additional', 'Errors'], $validator->transitions());
+                $transitions->from($state->value)
+                    ->each(function (Transition $transition) use ($states) {
+                        $target = $states->one($transition->target)->caption();
+                        $this->warn("\t{$transition->caption}->{$target}");
+                    });
+            });
 
-        if ($validator->valid) {
-            $this->info("Blueprint $className is valid");
-            return self::SUCCESS;
-        } else {
-            $this->error("Blueprint $className is invalid");
-            return self::FAILURE;
-        }
+        return self::SUCCESS;
     }
 
 }
