@@ -39,11 +39,11 @@ trait HasCallbacks
      *
      * @return void
      */
-    public function invoke(Model $model)
+    public function invoke(Model $model, array $context = [])
     {
         $this->callbacks()
-            ->each(function (callable $callback) use ($model) {
-                call_user_func($callback, $model->fresh());
+            ->each(function (callable $callback) use ($model, $context) {
+                call_user_func($callback, $model->fresh(), $context);
             });
     }
 }

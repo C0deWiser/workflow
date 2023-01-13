@@ -129,9 +129,9 @@ class StateMachineObserver
                     event(new ModelTransited($engine, $transition));
 
                     // Transition callbacks
-                    $transition->invoke($model);
+                    $transition->invoke($model, $transition->context());
                     // State callbacks
-                    $transition->target()->invoke($model);
+                    $transition->target()->invoke($model, $transition->context());
                 }
             });
     }
