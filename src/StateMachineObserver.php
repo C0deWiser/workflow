@@ -79,7 +79,7 @@ class StateMachineObserver
                 event(new ModelInitialized($engine));
 
                 // Run state callbacks
-                $engine->state()->invoke($model);
+                $engine->state()->invoke($model, null);
             });
     }
 
@@ -129,9 +129,9 @@ class StateMachineObserver
                     event(new ModelTransited($engine, $transition));
 
                     // Transition callbacks
-                    $transition->invoke($model, $transition->context());
+                    $transition->invoke($model, $transition->source(), $transition->context());
                     // State callbacks
-                    $transition->target()->invoke($model, $transition->context());
+                    $transition->target()->invoke($model, $transition->source(), $transition->context());
                 }
             });
     }

@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Codewiser\Workflow\State;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -39,11 +40,11 @@ trait HasCallbacks
      *
      * @return void
      */
-    public function invoke(Model $model, array $context = [])
+    public function invoke(Model $model, ?State $previous, array $context = [])
     {
         $this->callbacks()
-            ->each(function (callable $callback) use ($model, $context) {
-                call_user_func($callback, $model->fresh(), $context);
+            ->each(function (callable $callback) use ($model, $previous, $context) {
+                call_user_func($callback, $model->fresh(), $previous, $context);
             });
     }
 }

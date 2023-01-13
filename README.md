@@ -396,7 +396,7 @@ Callback is a `callable` with `Model` and `context` arguments.
 use \Codewiser\Workflow\State;
 
 State::make('correcting')
-    ->after(function(Article $article, array $context) {
+    ->after(function(Article $article, ?State $previous, array $context) {
         $article->author->notify(
             new ArticleHasProblemNotification(
                 $article, $context['reason']
@@ -412,13 +412,14 @@ You may define transition callback(s), that will be called after transition were
 Callback is a `callable` with `Model` and `context` arguments.
 
 ```php
+use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 
 Transition::make('review', 'correcting')
     ->rules([
         'reason' => 'required|string|min:100'
     ])
-    ->after(function(Article $article, array $context) {
+    ->after(function(Article $article, ?State $previous, array $context) {
         $article->author->notify(
             new ArticleHasProblemNotification(
                 $article, $context['reason']
