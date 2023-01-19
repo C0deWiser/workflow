@@ -38,7 +38,7 @@ trait HasValidationRules
     /**
      * Add requirement(s) to transition payload.
      */
-    public function rules(array $rules): Transition
+    public function rules(array $rules): self
     {
         $this->rules = $rules;
 
