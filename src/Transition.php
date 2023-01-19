@@ -158,7 +158,7 @@ class Transition implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->caption ?? Value::name($this->source) . " - " . Value::name($this->target)->caption();
+        return $this->caption ?? Value::name($this->source) . " - " . Value::name($this->target);
     }
 
     /**

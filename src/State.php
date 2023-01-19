@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Injectable;
+use Codewiser\Workflow\Contracts\StateEnum;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
@@ -42,7 +43,12 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->caption ?? Value::name($this);
+        return $this->caption ?? ($this->value instanceof StateEnum ? $this->value->caption() : Value::name($this));
+    }
+
+    public function additional(): array
+    {
+        return $this->additional + ($this->value instanceof StateEnum ? $this->value->attributes() : []);
     }
 
     /**
