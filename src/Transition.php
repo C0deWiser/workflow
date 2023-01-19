@@ -9,6 +9,7 @@ use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
+use Codewiser\Workflow\Traits\HasValidationRules;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -21,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  */
 class Transition implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules;
 
     /**
      * Source state.
@@ -36,20 +37,6 @@ class Transition implements Arrayable, Injectable
      * @var \BackedEnum|string|int
      */
     public $target;
-
-    /**
-     * Callable collection, that would be invoked before transit.
-     *
-     * @var Collection
-     */
-    protected $prerequisites;
-
-    /**
-     * Validation rules for the transition context.
-     *
-     * @var array
-     */
-    protected $rules = [];
 
     /**
      * Instructions to authorize transit.
@@ -69,6 +56,13 @@ class Transition implements Arrayable, Injectable
      * @var array
      */
     protected $context = [];
+
+    /**
+     * Callable collection, that would be invoked before transit.
+     *
+     * @var Collection
+     */
+    protected $prerequisites;
 
     /**
      * Instantiate new transition.
@@ -127,18 +121,36 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Add requirement(s) to transition payload.
+     * Examine transition preconditions.
+     *
+     * @throws TransitionFatalException|TransitionRecoverableException
      */
-    public function rules(array $rules): self
+    public function validate(): Transition
     {
-        $this->rules = $rules;
-
+        foreach ($this->prerequisites() as $condition) {
+            if (is_callable($condition)) {
+                call_user_func($condition, $this->engine->model);
+            }
+        }
         return $this;
+    }
+
+    /**
+     * Get registered preconditions.
+     *
+     * @return Collection<callable>
+     */
+    public function prerequisites(): Collection
+    {
+        return $this->prerequisites;
     }
 
     public function toArray(): array
     {
-        $rules = $this->validationRules() ? ['rules' => $this->validationRules(true)] : [];
+        $rules = ($this->validationRules() || $this->target()->validationRules())
+            ? ['rules' => $this->validationRules(true) + $this->target()->validationRules(true)]
+            : [];
+
         $issues = $this->issues() ? ['issues' => $this->issues()] : [];
 
         return [
@@ -208,16 +220,6 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Get registered preconditions.
-     *
-     * @return Collection<callable>
-     */
-    public function prerequisites(): Collection
-    {
-        return $this->prerequisites;
-    }
-
-    /**
      * Get list of problems with the transition.
      *
      * @return array<string>
@@ -241,39 +243,6 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Get attributes, that must be provided into transit() method.
-     */
-    public function validationRules($explode = false): array
-    {
-        $rules = $this->rules;
-
-        if ($explode) {
-            foreach ($rules as $attribute => $rule) {
-                if (is_string($rule)) {
-                    $rules[$attribute] = explode('|', $rule);
-                }
-            }
-        }
-
-        return $rules;
-    }
-
-    /**
-     * Examine transition preconditions.
-     *
-     * @throws TransitionFatalException|TransitionRecoverableException
-     */
-    public function validate(): self
-    {
-        foreach ($this->prerequisites() as $condition) {
-            if (is_callable($condition)) {
-                call_user_func($condition, $this->engine->model);
-            }
-        }
-        return $this;
-    }
-
-    /**
      * Get or set and validate transition additional context.
      *
      * @param array|string|null $context
@@ -285,7 +254,7 @@ class Transition implements Arrayable, Injectable
     {
         if (is_array($context)) {
 
-            if ($rules = $this->validationRules()) {
+            if ($rules = $this->validationRules() + $this->target()->validationRules()) {
                 $context = validator($context, $rules)->validate();
             }
 

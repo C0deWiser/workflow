@@ -8,11 +8,12 @@ use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
+use Codewiser\Workflow\Traits\HasValidationRules;
 use Illuminate\Contracts\Support\Arrayable;
 
 class State implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules;
 
     /**
      * @var \BackedEnum|string|int
