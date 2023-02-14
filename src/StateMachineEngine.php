@@ -95,13 +95,18 @@ class StateMachineEngine implements Arrayable
         );
 
         // Put context for later use in observer
+        $this->setContext($context);
+
+        return $this->model;
+    }
+
+    public function setContext(array $context = [])
+    {
         if (property_exists($this->model, 'transition_context')) {
             $this->model->transition_context = [
                 $this->attribute => $context
             ];
         }
-
-        return $this->model;
     }
 
     /**

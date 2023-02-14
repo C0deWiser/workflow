@@ -15,7 +15,8 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             'review',
             'published',
             'correction',
-            'empty'
+            'empty',
+            'cumulative',
         ];
     }
 
@@ -47,6 +48,15 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
                     return false;
                 }),
 
+            Transition::make('new', 'cumulative')
+                ->withThreshold(
+                    fn (Article $model) => count($model->voices) < 3,
+                    fn (Article $model) => !in_array(auth()->id(), $model->voices),
+                    function (Article $model) {
+                        $model->voices = array_merge($model->voices, [auth()->id()]);
+                        $model->save();
+                    }
+                )
         ];
     }
 

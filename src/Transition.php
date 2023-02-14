@@ -50,12 +50,14 @@ class Transition implements Arrayable, Injectable
      */
     protected $authorization = null;
 
+    protected ?TransitionThreshold $threshold = null;
+
     /**
      * Transit context.
      *
      * @var array
      */
-    protected $context = [];
+    protected array $context = [];
 
     /**
      * Instantiate new transition.
@@ -125,6 +127,12 @@ class Transition implements Arrayable, Injectable
 
         $issues = $this->issues() ? ['issues' => $this->issues()] : [];
 
+        $threshold = $this->threshold ? [
+            'charged' => !$this->threshold->mayCharge($this),
+            'charging' => $this->threshold->charging($this),
+            'history' => $this->threshold->history($this),
+        ] : [];
+
         return [
                 'name' => $this->caption(),
                 'source' => Value::scalar($this->source),
@@ -132,6 +140,7 @@ class Transition implements Arrayable, Injectable
             ]
             + $rules
             + $issues
+            + $threshold
             + $this->additional()
             // In general, target additional is enough for a transition
             + $this->target()->additional();
@@ -159,6 +168,13 @@ class Transition implements Arrayable, Injectable
     public function target(): State
     {
         return $this->engine->getStateListing()->one($this->target);
+    }
+
+    public function withThreshold(callable $when, callable $allow, callable $callback): self
+    {
+        $this->threshold = new TransitionThreshold($when, $allow, $callback);
+
+        return $this;
     }
 
     /**
@@ -249,6 +265,16 @@ class Transition implements Arrayable, Injectable
      */
     public function transit(array $context = []): Model
     {
+        if ($threshold = $this->threshold) {
+            if ($threshold->mayCharge($this)) {
+                $this->context($context);
+                $threshold->charge($this);
+            }
+            if (!$threshold->charged($this)) {
+                return $this->engine()->model;
+            }
+        }
+
         return $this->engine()->transit($this->target, $context);
     }
 }

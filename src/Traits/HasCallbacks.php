@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\State;
+use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -40,26 +41,11 @@ trait HasCallbacks
      *
      * @return void
      */
-    public function invoke(Model $model, ?State $previous, array $context = [])
+    public function invoke(Model $model, ?Transition $transition)
     {
         $this->callbacks()
-            ->each(function (callable $callback) use ($model, $previous, $context) {
-
-                $params = [];
-                $reflection = new \ReflectionFunction($callback);
-
-                foreach ($reflection->getParameters() as $parameter) {
-                    if ($parameter->getPosition() == 0) {
-                        // Assume first parameter as Model
-                        $params[] = $model->fresh();
-                    } elseif ($parameter->getName() == 'previous') {
-                        $params[] = $previous;
-                    } elseif ($parameter->getName() == 'context') {
-                        $params[] = $context;
-                    }
-                }
-
-                $reflection->invokeArgs($params);
+            ->each(function (callable $callback) use ($model, $transition) {
+                call_user_func($callback, $model, $transition);
             });
     }
 }

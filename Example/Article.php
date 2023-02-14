@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property string $body
  * @property string|null $state
+ *
+ * @property array $voices
  */
 class Article extends Model
 {
