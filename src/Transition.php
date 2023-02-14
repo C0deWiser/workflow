@@ -8,12 +8,12 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
+use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  */
 class Transition implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites;
 
     /**
      * Source state.
@@ -58,13 +58,6 @@ class Transition implements Arrayable, Injectable
     protected $context = [];
 
     /**
-     * Callable collection, that would be invoked before transit.
-     *
-     * @var Collection
-     */
-    protected $prerequisites;
-
-    /**
      * Instantiate new transition.
      *
      * @param \BackedEnum|string|int $source
@@ -84,8 +77,6 @@ class Transition implements Arrayable, Injectable
     {
         $this->source = $source;
         $this->target = $target;
-
-        $this->prerequisites = new Collection();
     }
 
     /**
@@ -96,16 +87,6 @@ class Transition implements Arrayable, Injectable
     public function authorizedBy($ability): self
     {
         $this->authorization = $ability;
-
-        return $this;
-    }
-
-    /**
-     * Add prerequisite to the transition.
-     */
-    public function before(callable $prerequisite): self
-    {
-        $this->prerequisites->push($prerequisite);
 
         return $this;
     }
@@ -127,22 +108,13 @@ class Transition implements Arrayable, Injectable
      */
     public function validate(): Transition
     {
-        foreach ($this->prerequisites() as $condition) {
-            if (is_callable($condition)) {
+        $this->prerequisites()
+            ->merge($this->target()->prerequisites())
+            ->each(function ($condition) {
                 call_user_func($condition, $this->engine->model);
-            }
-        }
-        return $this;
-    }
+            });
 
-    /**
-     * Get registered preconditions.
-     *
-     * @return Collection<callable>
-     */
-    public function prerequisites(): Collection
-    {
-        return $this->prerequisites;
+        return $this;
     }
 
     public function toArray(): array
@@ -227,6 +199,7 @@ class Transition implements Arrayable, Injectable
     public function issues(): array
     {
         return $this->prerequisites()
+            ->merge($this->target()->prerequisites())
             ->map(function ($condition) {
                 try {
                     call_user_func($condition, $this->engine->model);
