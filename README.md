@@ -390,13 +390,13 @@ The payload will be like that:
 
 You may define state callback(s), that will be called then state is reached.
 
-Callback is a `callable` with `Model` and `context` arguments.
+Callback is a `callable` with `Model`, `previous` and `context` arguments. First argument is required, while two last are optional, but they MUST be named as `previous` and `context`.
 
 ```php
 use \Codewiser\Workflow\State;
 
 State::make('correcting')
-    ->after(function(Article $article, ?State $previous, array $context) {
+    ->after(function(Article $article, array $context, ?State $previous) {
         $article->author->notify(
             new ArticleHasProblemNotification(
                 $article, $context['reason']
@@ -409,7 +409,7 @@ State::make('correcting')
 
 You may define transition callback(s), that will be called after transition were successfully performed.
 
-Callback is a `callable` with `Model` and `context` arguments.
+It is absolutely the same as State Callback.
 
 ```php
 use \Codewiser\Workflow\State;

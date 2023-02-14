@@ -44,7 +44,22 @@ trait HasCallbacks
     {
         $this->callbacks()
             ->each(function (callable $callback) use ($model, $previous, $context) {
-                call_user_func($callback, $model->fresh(), $previous, $context);
+
+                $params = [];
+                $reflection = new \ReflectionFunction($callback);
+
+                foreach ($reflection->getParameters() as $parameter) {
+                    if ($parameter->getPosition() == 0) {
+                        // Assume first parameter as Model
+                        $params[] = $model->fresh();
+                    } elseif ($parameter->getName() == 'previous') {
+                        $params[] = $previous;
+                    } elseif ($parameter->getName() == 'context') {
+                        $params[] = $context;
+                    }
+                }
+
+                $reflection->invokeArgs($params);
             });
     }
 }
