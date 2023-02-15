@@ -209,16 +209,16 @@ class Transition implements Arrayable, Injectable
         $allowed = null;
 
         if (!is_null($ability = $this->authorization())) {
-            if (is_bool($ability)) {
-                $allowed = $ability;
-            } elseif (is_string($ability)) {
-                $allowed = Gate::allows($ability, $this->engine()->model);
-            } elseif (is_callable($ability)) {
-                try {
-                    $allowed = call_user_func($ability, $this->engine()->model);
-                } catch (AuthorizationException $exception) {
-                    $allowed = false;
+            try {
+                if (is_bool($ability)) {
+                    $allowed = $ability;
+                } elseif (is_string($ability)) {
+                    Gate::authorize($ability, [$this->engine()->model, $this]);
+                } elseif (is_callable($ability)) {
+                    $allowed = call_user_func($ability, $this->engine()->model, $this);
                 }
+            } catch (AuthorizationException $exception) {
+                $allowed = false;
             }
         }
 

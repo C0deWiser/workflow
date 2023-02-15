@@ -137,9 +137,9 @@ class StateMachineEngine implements Arrayable
 
         if ($ability = $transition->authorization()) {
             if (is_string($ability)) {
-                Gate::authorize($ability, $this->model);
+                Gate::authorize($ability, [$this->model, $transition]);
             } elseif (is_callable($ability)) {
-                if (!call_user_func($ability, $this->model)) {
+                if (!call_user_func($ability, $this->model, $transition)) {
                     throw new AuthorizationException();
                 }
             }

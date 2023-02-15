@@ -3,6 +3,7 @@
 * [Setup](#setup)
 * [Consistency](#consistency)
 * [Authorization](#authorization)
+* [Chargeable Transitions](#chargeable-transitions)
 * [Business Logic](#business-logic)
     * [Disabling Transitions](#disabling-transitions)
     * [Removing Transitions](#removing-transitions)
@@ -50,6 +51,26 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 
 > You may use `Enum` instead of scalar values.
 
+```php
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+{
+    public function states(): array
+    {
+        return Enum::cases();
+    }
+    
+    public function transitions(): array
+    {
+        return [
+            [Enum::new, Enum::review],
+            [Enum::review, Enum::published],
+            [Enum::review, Enum::correction],
+            [Enum::correction, Enum::review]
+        ];
+    }
+}
+```
+
 Next, include trait and create method to bind a blueprint to model's attribute.
 
 ```php
@@ -80,18 +101,18 @@ use \Codewiser\Workflow\Example\Enum;
 // creating: will set proper initial state
 $article = new \Codewiser\Workflow\Example\Article();
 $article->save();
-assert($article->state == 'new');
+assert($article->state == Enum::new);
 
 // updating: will examine state machine consistency
-$article->state = 'review';
+$article->state = Enum::review;
 $article->save();
 // No exceptions thrown
-assert($article->state == 'review');
+assert($article->state == Enum::review);
 ```
 
 ## State and Transition objects
 
-In an example above we describe blueprint with scalar values, but actually they will be transformed to the objects. Those objects bring some additional functionality to the states and transitions, such as caption translations, transit authorization, routing rules etc...
+In an example above we describe blueprint with scalar values, but actually they will be transformed to the objects. Those objects bring some additional functionality to the states and transitions, such as caption translations, transit authorization, routing rules, pre- and post-transition callbacks etc...
 
 ```php
 use \Codewiser\Workflow\State;
@@ -127,23 +148,33 @@ As model's actions are not allowed to any user, as changing state is not allowed
 
 ### Using Policy
 
-Provide ability name:
+Provide ability name. Package will examine given ability against associated model.
 
 ```php
 use \Codewiser\Workflow\Transition;
 
 Transition::make('new', 'review')
     ->authorizedBy('transit');
+
+class ArticlePolicy
+{
+    public function transit(User $user, Article $article, Transition $transition)
+    {
+        //
+    }
+}
 ```
 
 ### Using Closure
+
+Authorization Closure may return `true` or `false`, or throw `AuthorizationException`. 
 
 ```php
 use \Codewiser\Workflow\Transition;
 use \Illuminate\Support\Facades\Gate;
 
 Transition::make('new', 'review')
-    ->authorizedBy(fn(Article $article) => Gate::authorize('transit', $article));
+    ->authorizedBy(fn(Article $article, Transition $transition) => Gate::authorize('transit', [$article, $transition]));
 ```
 
 ### Authorized Transitions
@@ -165,7 +196,7 @@ $transitions = $article->state()
 When accepting user request, do not forget to authorize workflow state changing.
 
 ```php
-public function update(Request $request, \Codewiser\Workflow\Example\Article $article)
+public function update(Request $request, Article $article)
 {
     $this->authorize('update', $article);
     
@@ -210,7 +241,7 @@ Transition may have some prerequisites to a model. If model fits this conditions
 
 Prerequisite is a `callable` with `Model` argument. It may throw an exception.
 
-To disable transition, prerequisite should throw a `TransitionRecoverableException`. Leave helping instructions in exception message.
+To temporarily disable transition, prerequisite should throw a `TransitionRecoverableException`. Leave helping instructions in exception message.
 
 Here is an example of issues user may resolve.
 
@@ -416,12 +447,14 @@ The payload will be like that:
 
 You may define state callback(s), that will be called then state is reached.
 
-Callback is a `callable` with `Model`, `previous` and `context` arguments. First argument is required, while two last are optional, but they MUST be named as `previous` and `context`.
+Callback is a `callable` with `Model` and optional `Transition` arguments.
 
 ```php
+use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 
 State::make('correcting')
+    ->rules(['reason' => 'required|string|min:100'])
     ->after(function(Article $article, ?Transition $transition) {
         $article->author->notify(
             new ArticleHasProblemNotification(
@@ -441,9 +474,7 @@ It is absolutely the same as State Callback.
 use \Codewiser\Workflow\Transition;
 
 Transition::make('review', 'correcting')
-    ->rules([
-        'reason' => 'required|string|min:100'
-    ])
+    ->rules(['reason' => 'required|string|min:100'])
     ->after(function(Article $article, ?Transition $transition) {
         $article->author->notify(
             new ArticleHasProblemNotification(
