@@ -9,10 +9,8 @@ trait HasPrerequisites
 {
     /**
      * Callable collection, that would be invoked before transit.
-     *
-     * @var array
      */
-    protected $prerequisites = [];
+    protected array $prerequisites = [];
 
     /**
      * Get registered preconditions.
@@ -25,7 +23,7 @@ trait HasPrerequisites
     }
 
     /**
-     * Add prerequisite.
+     * Add prerequisite. Callback receives Model argument.
      */
     public function before(callable $prerequisite): Transition
     {

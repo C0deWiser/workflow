@@ -96,7 +96,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => 'new'], true);
 
-        $this->assertCount(1, $post->state()->transitions());
+        $this->assertCount(2, $post->state()->transitions());
     }
 
     public function testJson()
@@ -195,5 +195,26 @@ class BaseTest extends TestCase
         $this->assertArrayHasKey('target', $data['transitions'][0]);
         $this->assertArrayHasKey('issues', $data['transitions'][0]);
         //$this->assertArrayHasKey('rules', $data['transitions'][0]);
+    }
+
+    public function testChargeable()
+    {
+        $post = new Article();
+        $post->setRawAttributes(['state' => 'new'], true);
+
+        $data = $post->state()->toArray();
+        $this->assertArrayHasKey('charge', $data['transitions'][1]);
+        $this->assertEquals(0, $data['transitions'][1]['charge']['progress']);
+
+        $post->state()->transit('cumulative');
+        $data = $post->state()->toArray();
+        $this->assertEquals(1/3, $data['transitions'][1]['charge']['progress']);
+
+        $post->state()->transit('cumulative');
+        $data = $post->state()->toArray();
+        $this->assertEquals(2/3, $data['transitions'][1]['charge']['progress']);
+
+        $post->state()->transit('cumulative');
+        $this->assertTrue($post->state()->is('cumulative'));
     }
 }

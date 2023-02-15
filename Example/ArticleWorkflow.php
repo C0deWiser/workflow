@@ -2,12 +2,15 @@
 
 namespace Codewiser\Workflow\Example;
 
+use Codewiser\Workflow\Charge;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Transition;
 
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
+    protected static int $charge = 0;
+
     public function states(): array
     {
         return [
@@ -49,14 +52,14 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
                 }),
 
             Transition::make('new', 'cumulative')
-                ->withThreshold(
-                    fn (Article $model) => count($model->voices) < 3,
-                    fn (Article $model) => !in_array(auth()->id(), $model->voices),
+                ->chargeable(Charge::make(
                     function (Article $model) {
-                        $model->voices = array_merge($model->voices, [auth()->id()]);
-                        $model->save();
+                        return self::$charge / 3;
+                    },
+                    function (Article $model) {
+                        self::$charge++;
                     }
-                )
+                ))
         ];
     }
 

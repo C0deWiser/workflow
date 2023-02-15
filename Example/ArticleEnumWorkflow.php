@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Example;
 
+use Codewiser\Workflow\Charge;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Transition;
@@ -40,6 +41,16 @@ class ArticleEnumWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
                 ->authorizedBy(function (Article $model) {
                     return false;
                 }),
+
+            Transition::make(Enum::new, Enum::cumulative)
+                ->chargeable(Charge::make(
+                    function (Article $model) {
+                        return 1 / 3;
+                    },
+                    function (Article $model) {
+                        //
+                    }
+                ))
 
         ];
     }

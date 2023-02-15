@@ -11,10 +11,8 @@ trait HasCallbacks
 {
     /**
      * Callable collection, that would be invoked after event.
-     *
-     * @var array
      */
-    protected $callbacks = [];
+    protected array $callbacks = [];
 
     /**
      * Get registered transition callbacks.
@@ -28,6 +26,7 @@ trait HasCallbacks
 
     /**
      * Callback(s) will run after transition is done or state is reached.
+     * Callback receives Model and optional Transition arguments.
      */
     public function after(callable $callback): self
     {

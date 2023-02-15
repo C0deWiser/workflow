@@ -90,6 +90,7 @@ class TransitionCollection extends Collection
         return $this
             ->filter(function (Transition $transition) {
                 return $transition->authorized();
-            });
+            })
+            ->values();
     }
 }

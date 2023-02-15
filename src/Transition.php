@@ -11,6 +11,7 @@ use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -50,7 +51,7 @@ class Transition implements Arrayable, Injectable
      */
     protected $authorization = null;
 
-    protected ?TransitionThreshold $threshold = null;
+    protected ?Charge $charge = null;
 
     /**
      * Transit context.
@@ -127,10 +128,12 @@ class Transition implements Arrayable, Injectable
 
         $issues = $this->issues() ? ['issues' => $this->issues()] : [];
 
-        $threshold = $this->threshold ? [
-            'charged' => !$this->threshold->mayCharge($this),
-            'charging' => $this->threshold->charging($this),
-            'history' => $this->threshold->history($this),
+        $charge = $this->charge ? [
+            'charge' => [
+                'progress' => $this->charge->charging($this),
+                'allow' => $this->charge->mayCharge($this),
+                'history' => $this->charge->history($this),
+            ]
         ] : [];
 
         return [
@@ -140,7 +143,7 @@ class Transition implements Arrayable, Injectable
             ]
             + $rules
             + $issues
-            + $threshold
+            + $charge
             + $this->additional()
             // In general, target additional is enough for a transition
             + $this->target()->additional();
@@ -170,11 +173,22 @@ class Transition implements Arrayable, Injectable
         return $this->engine->getStateListing()->one($this->target);
     }
 
-    public function withThreshold(callable $when, callable $allow, callable $callback): self
+    /**
+     * Transition required to be charged to fire.
+     */
+    public function chargeable(Charge $charge): self
     {
-        $this->threshold = new TransitionThreshold($when, $allow, $callback);
+        $this->charge = $charge;
 
         return $this;
+    }
+
+    /**
+     * Get transition charge.
+     */
+    public function charge(): ?Charge
+    {
+        return $this->charge;
     }
 
     /**
@@ -200,7 +214,11 @@ class Transition implements Arrayable, Injectable
             } elseif (is_string($ability)) {
                 $allowed = Gate::allows($ability, $this->engine()->model);
             } elseif (is_callable($ability)) {
-                $allowed = call_user_func($ability, $this->engine()->model);
+                try {
+                    $allowed = call_user_func($ability, $this->engine()->model);
+                } catch (AuthorizationException $exception) {
+                    $allowed = false;
+                }
             }
         }
 
@@ -265,16 +283,6 @@ class Transition implements Arrayable, Injectable
      */
     public function transit(array $context = []): Model
     {
-        if ($threshold = $this->threshold) {
-            if ($threshold->mayCharge($this)) {
-                $this->context($context);
-                $threshold->charge($this);
-            }
-            if (!$threshold->charged($this)) {
-                return $this->engine()->model;
-            }
-        }
-
         return $this->engine()->transit($this->target, $context);
     }
 }

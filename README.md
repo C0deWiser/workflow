@@ -48,7 +48,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 }
 ```
 
-> You may use `Enum` instead of scalar values:
+> You may use `Enum` instead of scalar values.
 
 Next, include trait and create method to bind a blueprint to model's attribute.
 
@@ -143,7 +143,7 @@ use \Codewiser\Workflow\Transition;
 use \Illuminate\Support\Facades\Gate;
 
 Transition::make('new', 'review')
-    ->authorizedBy(fn(Article $article) => Gate::allows('transit', $article));
+    ->authorizedBy(fn(Article $article) => Gate::authorize('transit', $article));
 ```
 
 ### Authorized Transitions
@@ -179,6 +179,28 @@ public function update(Request $request, \Codewiser\Workflow\Example\Article $ar
     $article->save();
 }
 ```
+
+## Chargeable Transitions
+
+Chargeable transition will fire only then accumulates some charge. For example, we may want to publish an article only then at least three editors will accept it.
+
+```php
+use \Codewiser\Workflow\Charge;
+use \Codewiser\Workflow\Transition;
+
+Transition::make('review', 'publish')
+    ->chargeable(Charge::make(
+        progress: function(Article $article) {
+            return $article->accepts / 3;
+        },
+        callback: function (Article $article) {
+            $article->accepts++;
+            $article->save();
+        }
+    ));
+```
+
+`Charge` class has more options, that allows to provide vote statistics or prevent to vote twice. 
 
 ## Business Logic
 
@@ -285,7 +307,9 @@ After all you may handle this context in [events](#events).
 
 ## Translations
 
-You may define `State` and `Transition` objects with translatable caption.
+You may define `State` and `Transition` objects with translatable caption. Then using Enums you may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
+
+`Transition` without caption will inherit caption from its target `State`.
 
 ```php
 use \Codewiser\Workflow\State;
@@ -312,7 +336,9 @@ class ArticleWorkflow extends WorkflowBlueprint
 
 ## Additional Attributes
 
-Sometimes we need to add some additional attributes to the workflow states and transitions. For example, we may group states by levels and use this information to color states and transitions in user interface.
+Sometimes we need to add some additional attributes to the workflow states and transitions. For example, we may group states by levels and use this information to color states and transitions in user interface. Then using Enums you may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
+
+`Transition` inherits attributes from its target `State`.
 
 ```php
 use \Codewiser\Workflow\State;
@@ -393,13 +419,13 @@ You may define state callback(s), that will be called then state is reached.
 Callback is a `callable` with `Model`, `previous` and `context` arguments. First argument is required, while two last are optional, but they MUST be named as `previous` and `context`.
 
 ```php
-use \Codewiser\Workflow\State;
+use \Codewiser\Workflow\Transition;
 
 State::make('correcting')
-    ->after(function(Article $article, array $context, ?State $previous) {
+    ->after(function(Article $article, ?Transition $transition) {
         $article->author->notify(
             new ArticleHasProblemNotification(
-                $article, $context['reason']
+                $article, $transition->context('reason')
             )
         );
     }); 
@@ -412,17 +438,16 @@ You may define transition callback(s), that will be called after transition were
 It is absolutely the same as State Callback.
 
 ```php
-use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 
 Transition::make('review', 'correcting')
     ->rules([
         'reason' => 'required|string|min:100'
     ])
-    ->after(function(Article $article, ?State $previous, array $context) {
+    ->after(function(Article $article, ?Transition $transition) {
         $article->author->notify(
             new ArticleHasProblemNotification(
-                $article, $context['reason']
+                $article, $transition->context('reason')
             )
         );
     }); 

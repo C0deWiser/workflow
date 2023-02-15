@@ -89,6 +89,20 @@ class StateMachineEngine implements Arrayable
      */
     public function transit($state, array $context = []): Model
     {
+        // Charging transition?
+        if ($transition = $this->transitionTo($state)) {
+            if ($charge = $transition->charge()) {
+                if ($charge->mayCharge($transition)) {
+                    $transition->context($context);
+                    $charge->charge($transition);
+                }
+                if (!$charge->charged($transition)) {
+                    return $this->model;
+                }
+            }
+        }
+
+        // Fire transition
         $this->model->setAttribute(
             $this->attribute,
             $state

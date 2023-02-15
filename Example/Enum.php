@@ -9,4 +9,5 @@ enum Enum: string
     case published = 'recoverable';
     case correction = 'fatal';
     case empty = 'empty';
+    case cumulative = 'cumulative';
 }
