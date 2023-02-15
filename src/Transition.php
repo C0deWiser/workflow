@@ -47,7 +47,7 @@ class Transition implements Arrayable, Injectable
      * string — invoke policy ability
      * callable — will be invoked for authorization
      *
-     * @var null|boolean|string|callable
+     * @var null|string|callable
      */
     protected $authorization = null;
 
@@ -85,11 +85,12 @@ class Transition implements Arrayable, Injectable
     /**
      * Authorize transition using policy ability (or closure).
      *
-     * @param false|string|callable $ability
+     * @param callable|string|null $ability
+     * @param callable|null $callback
      */
-    public function authorizedBy($ability): self
+    public function authorizedBy($ability = null, callable $callback = null): self
     {
-        $this->authorization = $ability;
+        $this->authorization = $ability ?? $callback;
 
         return $this;
     }
@@ -99,7 +100,7 @@ class Transition implements Arrayable, Injectable
      */
     public function hidden(): self
     {
-        $this->authorizedBy(false);
+        $this->authorization = fn() => false;
 
         return $this;
     }
@@ -194,7 +195,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Ability to authorize.
      *
-     * @return false|string|callable|null
+     * @return string|callable|null
      */
     public function authorization()
     {
@@ -208,11 +209,9 @@ class Transition implements Arrayable, Injectable
     {
         $allowed = null;
 
-        if (!is_null($ability = $this->authorization())) {
+        if ($ability = $this->authorization()) {
             try {
-                if (is_bool($ability)) {
-                    $allowed = $ability;
-                } elseif (is_string($ability)) {
+                if (is_string($ability)) {
                     Gate::authorize($ability, [$this->engine()->model, $this]);
                 } elseif (is_callable($ability)) {
                     $allowed = call_user_func($ability, $this->engine()->model, $this);
