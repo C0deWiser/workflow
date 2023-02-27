@@ -2,7 +2,6 @@
 
 namespace Codewiser\Workflow\Traits;
 
-use Codewiser\Workflow\Transition;
 use Illuminate\Support\Collection;
 
 trait HasPrerequisites
@@ -25,7 +24,7 @@ trait HasPrerequisites
     /**
      * Add prerequisite. Callback receives Model argument.
      */
-    public function before(callable $prerequisite): Transition
+    public function before(callable $prerequisite): self
     {
         $this->prerequisites[] = $prerequisite;
 
