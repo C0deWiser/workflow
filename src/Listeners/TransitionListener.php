@@ -51,9 +51,7 @@ class TransitionListener
         );
 
         try {
-            if ($context = $event->transition->context()) {
-                $log->context = $context;
-            }
+            $log->context = $event->transition->context()->all() ?: null;
         } catch (ValidationException $exception) {
             // Actually it was successfully validated...
         }

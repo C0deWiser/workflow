@@ -12,6 +12,7 @@ use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -54,11 +55,9 @@ class Transition implements Arrayable, Injectable
     protected ?Charge $charge = null;
 
     /**
-     * Transit context.
-     *
-     * @var array
+     * Transition context.
      */
-    protected array $context = [];
+    protected ContextRepository $context;
 
     /**
      * Instantiate new transition.
@@ -80,6 +79,7 @@ class Transition implements Arrayable, Injectable
     {
         $this->source = $source;
         $this->target = $target;
+        $this->context = new ContextRepository;
     }
 
     /**
@@ -249,26 +249,21 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Get or set and validate transition additional context.
+     * Get or set (and validate) transition additional context.
      *
-     * @param array|string|null $context
-     * @return mixed
      * @throws ValidationException
-     *
      */
-    public function context($context = null)
+    public function context(array $context = null): ContextRepository
     {
         if (is_array($context)) {
 
-            if ($rules = $this->validationRules() + $this->target()->validationRules()) {
-                $context = validator($context, $rules)->validate();
+            $rules = $this->validationRules() + $this->target()->validationRules();
+
+            if ($rules) {
+                $this->context = new ContextRepository(
+                    validator($context, $rules)->validate()
+                );
             }
-
-            $this->context = $context;
-        }
-
-        if (is_string($context)) {
-            return Arr::get($this->context, $context);
         }
 
         return $this->context;

@@ -458,7 +458,7 @@ State::make('correcting')
     ->after(function(Article $article, ?Transition $transition) {
         $article->author->notify(
             new ArticleHasProblemNotification(
-                $article, $transition->context('reason')
+                $article, $transition?->context()->get('reason')
             )
         );
     }); 
@@ -478,7 +478,7 @@ Transition::make('review', 'correcting')
     ->after(function(Article $article, ?Transition $transition) {
         $article->author->notify(
             new ArticleHasProblemNotification(
-                $article, $transition->context('reason')
+                $article, $transition?->context()->get('reason')
             )
         );
     }); 
@@ -504,7 +504,7 @@ class ModelTransitedListener
                 // Article was send to correction, the reason described in context
                 $article->author->notify(
                     new ArticleHasProblemNotification(
-                        $article, $event->transition->context('reason')
+                        $article, $event->transition->context()->get('reason')
                     )
                 );
             }
