@@ -7,6 +7,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class StateMachineEngine implements Arrayable
 {
@@ -85,7 +86,9 @@ class StateMachineEngine implements Arrayable
      *
      * @param \BackedEnum|string|int $state
      * @param array $context
+     *
      * @return Model
+     * @throws ValidationException
      */
     public function transit($state, array $context = []): Model
     {
@@ -100,6 +103,8 @@ class StateMachineEngine implements Arrayable
                     return $this->model;
                 }
             }
+        } else {
+            throw new \Illuminate\Support\ItemNotFoundException();
         }
 
         // Fire transition
