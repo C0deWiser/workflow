@@ -182,7 +182,7 @@ class StateMachineEngine implements Arrayable
      */
     public function isNot($state): bool
     {
-        return $this->state() || $this->state()->isNot($state);
+        return $this->state() && $this->state()->isNot($state);
     }
 
     public function toArray(): array
