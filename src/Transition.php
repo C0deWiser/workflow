@@ -175,6 +175,18 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
+     * Check transition route.
+     *
+     * @param \BackedEnum|string|int $source
+     * @param \BackedEnum|string|int $target
+     * @return bool
+     */
+    public function route($source, $target): bool
+    {
+        return $this->source()->is($source) && $this->target()->is($target);
+    }
+
+    /**
      * Transition required to be charged to fire.
      */
     public function chargeable(Charge $charge): self
