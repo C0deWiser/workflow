@@ -9,7 +9,7 @@ interface StateEnum
     /**
      * Human readable state caption.
      */
-    public function caption(Model $model): string;
+    public function caption(): string;
 
     /**
      * State additional attributes (key->value array).
