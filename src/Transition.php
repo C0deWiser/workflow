@@ -11,11 +11,9 @@ use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -62,8 +60,9 @@ class Transition implements Arrayable, Injectable
     /**
      * Instantiate new transition.
      *
-     * @param \BackedEnum|string|int $source
-     * @param \BackedEnum|string|int $target
+     * @param  \BackedEnum|string|int  $source
+     * @param  \BackedEnum|string|int  $target
+     *
      * @return static
      */
     public static function make($source, $target): Transition
@@ -72,8 +71,8 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * @param \BackedEnum|string|int $source
-     * @param \BackedEnum|string|int $target
+     * @param  \BackedEnum|string|int  $source
+     * @param  \BackedEnum|string|int  $target
      */
     public function __construct($source, $target)
     {
@@ -85,8 +84,8 @@ class Transition implements Arrayable, Injectable
     /**
      * Authorize transition using policy ability (or closure).
      *
-     * @param callable|string|null $ability
-     * @param callable|null $callback
+     * @param  callable|string|null  $ability
+     * @param  callable|null  $callback
      */
     public function authorizedBy($ability = null, callable $callback = null): self
     {
@@ -132,13 +131,13 @@ class Transition implements Arrayable, Injectable
         $charge = $this->charge ? [
             'charge' => [
                 'progress' => $this->charge->charging($this),
-                'allow' => $this->charge->mayCharge($this),
-                'history' => $this->charge->history($this),
+                'allow'    => $this->charge->mayCharge($this),
+                'history'  => $this->charge->history($this),
             ]
         ] : [];
 
         return [
-                'name' => $this->caption(),
+                'name'   => $this->caption(),
                 'source' => Value::scalar($this->source),
                 'target' => Value::scalar($this->target),
             ]
@@ -155,7 +154,7 @@ class Transition implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->caption ?? Value::name($this->source) . " - " . Value::name($this->target);
+        return $this->resolveCaption($this->engine()->model) ?? $this->target()->caption();
     }
 
     /**
@@ -177,8 +176,9 @@ class Transition implements Arrayable, Injectable
     /**
      * Check transition route.
      *
-     * @param \BackedEnum|string|int $source
-     * @param \BackedEnum|string|int $target
+     * @param  \BackedEnum|string|int  $source
+     * @param  \BackedEnum|string|int  $target
+     *
      * @return bool
      */
     public function route($source, $target): bool
@@ -222,14 +222,10 @@ class Transition implements Arrayable, Injectable
         $allowed = null;
 
         if ($ability = $this->authorization()) {
-            try {
-                if (is_string($ability)) {
-                    Gate::authorize($ability, [$this->engine()->model, $this]);
-                } elseif (is_callable($ability)) {
-                    $allowed = call_user_func($ability, $this->engine()->model, $this);
-                }
-            } catch (AuthorizationException $exception) {
-                $allowed = false;
+            if (is_string($ability)) {
+                $allowed = Gate::allows($ability, [$this->engine()->model, $this]);
+            } elseif (is_callable($ability)) {
+                $allowed = call_user_func($ability, $this->engine()->model, $this);
             }
         }
 
@@ -284,7 +280,8 @@ class Transition implements Arrayable, Injectable
     /**
      * Run this transition, passing optional context. Returns Model for you to save it.
      *
-     * @param array $context
+     * @param  array  $context
+     *
      * @return Model
      */
     public function transit(array $context = []): Model

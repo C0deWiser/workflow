@@ -338,7 +338,8 @@ After all you may handle this context in [events](#events).
 
 ## Translations
 
-You may define `State` and `Transition` objects with translatable caption. Then using Enums you may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
+You may define `State` and `Transition` objects with translatable caption. 
+Then using Enums you may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
 
 `Transition` without caption will inherit caption from its target `State`.
 
@@ -353,7 +354,7 @@ class ArticleWorkflow extends WorkflowBlueprint
     {
         return [
             State::make('new')->as(__('Draft')),
-            State::make('published')->as(__('Published'))
+            State::make('published')->as(fn(Article $model) => __('Published'))
         ];
     }
     protected function transitions(): array

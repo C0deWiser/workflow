@@ -2,12 +2,14 @@
 
 namespace Codewiser\Workflow\Contracts;
 
+use Illuminate\Database\Eloquent\Model;
+
 interface StateEnum
 {
     /**
      * Human readable state caption.
      */
-    public function caption(): string;
+    public function caption(Model $model): string;
 
     /**
      * State additional attributes (key->value array).

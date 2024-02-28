@@ -2,22 +2,36 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Closure;
+use Illuminate\Database\Eloquent\Model;
+
 trait HasCaption
 {
-    /**
-     * @var string|null
-     */
-    public $caption = null;
+    protected $caption = null;
 
     /**
      * Set State caption.
+     *
+     * @param string|Closure $caption
      */
-    public function as(string $caption): self
+    public function as($caption): self
     {
-        if ($caption)
-            $this->caption = $caption;
+        $this->caption = $caption;
 
         return $this;
+    }
+
+    protected function resolveCaption(Model $model): ?string
+    {
+        if (is_callable($this->caption)) {
+            return call_user_func($this->caption, $model);
+        }
+
+        if (is_string($this->caption)) {
+            return $this->caption;
+        }
+
+        return null;
     }
 
     /**

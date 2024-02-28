@@ -45,7 +45,10 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->caption ?? ($this->value instanceof StateEnum ? $this->value->caption() : Value::name($this));
+        return $this->resolveCaption($this->engine()->model) ??
+            ($this->value instanceof StateEnum
+                ? $this->value->caption($this->engine()->model)
+                : Value::name($this));
     }
 
     public function additional(): array
@@ -60,7 +63,7 @@ class State implements Arrayable, Injectable
      */
     public function transitions(): TransitionCollection
     {
-        return $this->engine
+        return $this->engine()
             ->getTransitionListing()
             ->from($this->value)
             ->withoutForbidden();
