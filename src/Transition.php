@@ -53,11 +53,6 @@ class Transition implements Arrayable, Injectable
     protected ?Charge $charge = null;
 
     /**
-     * Transition context.
-     */
-    protected ContextRepository $context;
-
-    /**
      * Instantiate new transition.
      *
      * @param  \BackedEnum|string|int  $source

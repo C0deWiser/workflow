@@ -62,11 +62,12 @@ class StateMachineObserver
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
 
-                if (!$model->getAttribute($engine->attribute)) {
-                    // Set initial state
-                    $model->setAttribute($engine->attribute, $engine->getStateListing()->initial()->value);
-                }
+                $this->withEngine($engine);
 
+                $state = $this->nowCreating();
+
+                // Set initial state
+                $model->setAttribute($engine->attribute, $state->value);
             });
 
         return true;
@@ -77,11 +78,18 @@ class StateMachineObserver
         $this->getWorkflowListing($model)
             ->each(function (StateMachineEngine $engine) use ($model) {
 
+                $this->withEngine($engine);
+
+                $state = $this->wasCreated();
+
+                // Context for Events
+                $context = new Context($state);
+
                 // Fire event
-                event(new ModelInitialized($engine));
+                event(new ModelInitialized($engine, $context));
 
                 // Run state callbacks
-                $engine->state()->invoke($model, null);
+                $engine->state()->invoke($model, $context);
             });
     }
 
@@ -122,20 +130,62 @@ class StateMachineObserver
 
                 if ($transition = $this->wasTransited()) {
 
+                    // Context for Events
+                    $context = new Context($transition);
+
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
-                        $model->fresh()->fireTransitionEvent('transited', false, $engine, $transition);
+                        $model->fresh()->fireTransitionEvent('transited', false, $engine, $context);
                     }
 
                     // For Event Listener
-                    event(new ModelTransited($engine, $transition));
+                    event(new ModelTransited($engine, $context));
 
                     // Transition callbacks
-                    $transition->invoke($model, $transition);
+                    $transition->invoke($model, $context);
                     // State callbacks
-                    $transition->target()->invoke($model, $transition);
+                    $transition->target()->invoke($model, $context);
                 }
             });
+    }
+
+    public function nowCreating(): ?State
+    {
+        if ($engine = $this->engine) {
+            $model = $engine->model;
+            $attribute = $engine->attribute;
+
+            $state = $engine->state() ?? $engine->getStateListing()->initial();
+
+            // Pass context to state for validation. May throw an Exception
+            $state->context($this->context($model, $attribute));
+
+            return $state;
+        }
+
+        return null;
+    }
+
+    public function wasCreated(): ?State
+    {
+        if ($engine = $this->engine) {
+            $model = $engine->model;
+            $attribute = $engine->attribute;
+
+            $state = $engine->state();
+
+            // State must exist
+            if (!$state) {
+                throw new \Illuminate\Support\ItemNotFoundException('Initial state not found');
+            }
+
+            // Pass context to state, so it will be accessible in events.
+            $state->context($this->context($model, $attribute));
+
+            return $state;
+        }
+
+        return null;
     }
 
     /**

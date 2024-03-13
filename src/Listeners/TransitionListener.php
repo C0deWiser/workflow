@@ -29,32 +29,30 @@ class TransitionListener
 
     public function handleModelInitialized(ModelInitialized $event): void
     {
-        $log = $this->newRecordFor($event->engine->model, $event->engine);
+        $log = $this->newRecordFor($event->model, $event->engine);
 
         $log->target = Value::scalar(
-            $event->engine->state()
+            $event->context->target()
         );
+
+        $log->context = $event->context->data()->all() ?: null;
 
         $log->save();
     }
 
     public function handleModelTransited(ModelTransited $event): void
     {
-        $log = $this->newRecordFor($event->engine->model, $event->engine);
+        $log = $this->newRecordFor($event->model, $event->engine);
 
         $log->source = Value::scalar(
-            $event->transition->source()
+            $event->context->source()
         );
 
         $log->target = Value::scalar(
-            $event->transition->target()
+            $event->context->target()
         );
 
-        try {
-            $log->context = $event->transition->context()->all() ?: null;
-        } catch (ValidationException $exception) {
-            // Actually it was successfully validated...
-        }
+        $log->context = $event->context->data()->all() ?: null;
 
         $log->save();
     }

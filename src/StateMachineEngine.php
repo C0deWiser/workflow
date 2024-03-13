@@ -83,6 +83,21 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
+     * Init model's workflow with default state and optional context. Returns Model for you to save it.
+     *
+     * @param  array  $context
+     *
+     * @return Model
+     */
+    public function init(array $context = []): Model
+    {
+        // Put context for later use in observer
+        $this->setContext($context);
+
+        return $this->model;
+    }
+
+    /**
      * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
      * @param \BackedEnum|string|int $state

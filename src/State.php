@@ -10,7 +10,9 @@ use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
+use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Validation\ValidationException;
 
 class State implements Arrayable, Injectable
 {
@@ -38,6 +40,7 @@ class State implements Arrayable, Injectable
     public function __construct($value)
     {
         $this->value = $value;
+        $this->context = new ContextRepository;
     }
 
     /**
@@ -110,5 +113,26 @@ class State implements Arrayable, Injectable
     public function isNot($state): bool
     {
         return $this->value !== $state;
+    }
+
+    /**
+     * Get or set (and validate) transition additional context.
+     *
+     * @throws ValidationException
+     */
+    public function context(array $context = null): ContextRepository
+    {
+        if (is_array($context)) {
+
+            $rules = $this->validationRules();
+
+            if ($rules) {
+                $this->context = new ContextRepository(
+                    validator($context, $rules)->validate()
+                );
+            }
+        }
+
+        return $this->context;
     }
 }

@@ -2,9 +2,11 @@
 
 namespace Codewiser\Workflow\Events;
 
+use Codewiser\Workflow\Context;
 use Codewiser\Workflow\StateMachineEngine;
 use Codewiser\Workflow\Transition;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -21,13 +23,19 @@ class ModelTransited
     public $engine;
 
     /**
-     * @var Transition
+     * @var Model
      */
-    public $transition;
+    public $model;
 
-    public function __construct(StateMachineEngine $engine, Transition $transition)
+    /**
+     * @var Context
+     */
+    public $context;
+
+    public function __construct(StateMachineEngine $engine, Context $context)
     {
         $this->engine = $engine;
-        $this->transition = $transition;
+        $this->model = $engine->model;
+        $this->context = $context;
     }
 }

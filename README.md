@@ -300,7 +300,7 @@ User will see only one possible transition depending on order amount value.
 
 Sometimes application requires an additional context to perform a transition. For example, it may be a reason the article was rejected by the reviewer.
 
-First, declare validation rules in transition definition:
+First, declare validation rules in transition or state definition:
 
 ```php
 use \Codewiser\Workflow\Transition;
@@ -311,7 +311,30 @@ Transition::make('review', 'reject')
     ]);
 ```
 
-Next, set the transition context in the controller:
+Next, set the context in the controller.
+
+When creating a model:
+
+```php
+use Illuminate\Http\Request;
+
+public function store(Request $request)
+{
+    $this->authorize('create', \Codewiser\Workflow\Example\Article::class);
+    
+    $article = \Codewiser\Workflow\Example\Article::query()->make(
+        $request->all()
+    );
+    
+    $article->state()
+        // Init workflow, passing additional context
+        ->init($request->all())
+        // Now save model
+        ->save();
+}
+```
+
+When transiting model:
 
 ```php
 use Illuminate\Http\Request;
@@ -451,15 +474,16 @@ You may define state callback(s), that will be called then state is reached.
 Callback is a `callable` with `Model` and optional `Transition` arguments.
 
 ```php
+use \Codewiser\Workflow\Context;
 use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 
 State::make('correcting')
     ->rules(['reason' => 'required|string|min:100'])
-    ->after(function(Article $article, ?Transition $transition) {
+    ->after(function(Article $article, Context $context) {
         $article->author->notify(
             new ArticleHasProblemNotification(
-                $article, $transition?->context()->get('reason')
+                $article, $context->data()->get('reason')
             )
         );
     }); 
@@ -472,14 +496,15 @@ You may define transition callback(s), that will be called after transition were
 It is absolutely the same as State Callback.
 
 ```php
+use \Codewiser\Workflow\Context;
 use \Codewiser\Workflow\Transition;
 
 Transition::make('review', 'correcting')
     ->rules(['reason' => 'required|string|min:100'])
-    ->after(function(Article $article, ?Transition $transition) {
+    ->after(function(Article $article, Context $context) {
         $article->author->notify(
             new ArticleHasProblemNotification(
-                $article, $transition?->context()->get('reason')
+                $article, $context->data()->get('reason')
             )
         );
     }); 
@@ -501,11 +526,11 @@ class ModelTransitedListener
         if ($event->model instanceof Article) {
             $article = $event->model;
 
-            if ($event->transition->target()->is('correction')) {
+            if ($event->context->target()->is('correction')) {
                 // Article was send to correction, the reason described in context
                 $article->author->notify(
                     new ArticleHasProblemNotification(
-                        $article, $event->transition->context()->get('reason')
+                        $article, $event->context->data()->get('reason')
                     )
                 );
             }
