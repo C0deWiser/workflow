@@ -545,10 +545,6 @@ The Package may log transitions to database table.
 
 Register `\Codewiser\Workflow\WorkflowServiceProvider` in `providers` section of `config/app.php`.
 
-Run migrations:
-
-    php artisan migrate
-
 Add `workflow.history` into `config/services.php`:
 
 ```php
@@ -556,6 +552,11 @@ Add `workflow.history` into `config/services.php`:
         'history' => true
     ]
 ```
+
+Publish and run migrations:
+
+    php artisan vendor:publish --tag=workflow-migrations
+    php artisan migrate
 
 It's done.
 
