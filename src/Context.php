@@ -9,14 +9,14 @@ class Context
     /**
      * @var Transition|State
      */
-    protected $context;
+    protected $contextual;
 
     /**
-     * @param  Transition|State  $context
+     * @param  Transition|State  $contextual
      */
-    public function __construct($context)
+    public function __construct($contextual)
     {
-        $this->context = $context;
+        $this->contextual = $contextual;
     }
 
     /**
@@ -24,7 +24,7 @@ class Context
      */
     public function source(): ?State
     {
-        return $this->context instanceof Transition ? $this->context->source() : null;
+        return $this->contextual instanceof Transition ? $this->contextual->source() : null;
     }
 
     /**
@@ -32,7 +32,7 @@ class Context
      */
     public function target(): State
     {
-        return $this->context instanceof Transition ? $this->context->target() : $this->context;
+        return $this->contextual instanceof Transition ? $this->contextual->target() : $this->contextual;
     }
 
     /**
@@ -40,6 +40,6 @@ class Context
      */
     public function data(): ContextRepository
     {
-        return $this->context->context();
+        return $this->contextual->context();
     }
 }

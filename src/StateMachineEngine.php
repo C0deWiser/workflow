@@ -83,14 +83,23 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Init model's workflow with default state and optional context. Returns Model for you to save it.
+     * Init model's workflow with default (or any) state and optional context. Returns Model for you to save it.
      *
      * @param  array  $context
+     * @param  \BackedEnum|string|int|null  $state  Override initial state.
      *
      * @return Model
      */
-    public function init(array $context = []): Model
+    public function init(array $context = [], $state = null): Model
     {
+        // Set initial state
+        if ($state) {
+            $this->model->setAttribute(
+                $this->attribute,
+                $state
+            );
+        }
+
         // Put context for later use in observer
         $this->setContext($context);
 
@@ -100,8 +109,8 @@ class StateMachineEngine implements Arrayable
     /**
      * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
-     * @param \BackedEnum|string|int $state
-     * @param array $context
+     * @param  \BackedEnum|string|int  $state
+     * @param  array  $context
      *
      * @return Model
      * @throws ValidationException
@@ -148,7 +157,8 @@ class StateMachineEngine implements Arrayable
     /**
      * Authorize transition to the new state.
      *
-     * @param \BackedEnum|string|int $target
+     * @param  \BackedEnum|string|int  $target
+     *
      * @throws AuthorizationException
      */
     public function authorize($target): self
@@ -183,7 +193,7 @@ class StateMachineEngine implements Arrayable
     /**
      * Check if state has given value.
      *
-     * @param \BackedEnum|string|int $state
+     * @param  \BackedEnum|string|int  $state
      */
     public function is($state): bool
     {
@@ -193,7 +203,7 @@ class StateMachineEngine implements Arrayable
     /**
      * Check if state doesn't have given value.
      *
-     * @param \BackedEnum|string|int $state
+     * @param  \BackedEnum|string|int  $state
      */
     public function isNot($state): bool
     {
@@ -219,7 +229,7 @@ class StateMachineEngine implements Arrayable
     /**
      * Get the transition from the current state, if it exists.
      *
-     * @param \BackedEnum|string|int $target
+     * @param  \BackedEnum|string|int  $target
      */
     public function transitionTo($target): ?Transition
     {
