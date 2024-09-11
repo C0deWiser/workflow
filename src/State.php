@@ -7,16 +7,18 @@ use Codewiser\Workflow\Contracts\StateEnum;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
+use Codewiser\Workflow\Traits\HasFootprint;
 use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
 use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
 class State implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites, HasFootprint;
 
     /**
      * @var \BackedEnum|string|int
@@ -52,6 +54,15 @@ class State implements Arrayable, Injectable
             ($this->value instanceof StateEnum
                 ? $this->value->caption($this->engine()->model)
                 : Value::name($this));
+    }
+
+    public function chronicle(?Model $performer): ?string
+    {
+        if (is_callable($this->footprint)) {
+            return call_user_func($this->footprint, $this->engine()->model, $performer);
+        }
+
+        return null;
     }
 
     public function additional(): array

@@ -8,6 +8,7 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
+use Codewiser\Workflow\Traits\HasFootprint;
 use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
@@ -22,7 +23,7 @@ use Illuminate\Validation\ValidationException;
  */
 class Transition implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites, HasFootprint;
 
     /**
      * Source state.
@@ -150,6 +151,15 @@ class Transition implements Arrayable, Injectable
     public function caption(): string
     {
         return $this->resolveCaption($this->engine()->model) ?? $this->target()->caption();
+    }
+
+    public function chronicle(?Model $performer): ?string
+    {
+        if (is_callable($this->footprint)) {
+            $chronicle = call_user_func($this->footprint, $this->engine()->model, $performer);
+        }
+
+        return $chronicle ?? $this->target()->chronicle($performer);
     }
 
     /**
