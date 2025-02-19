@@ -9,8 +9,7 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * @method Transition first(callable $callback = null, $default = null)
- * @method Transition sole($key = null, $operator = null, $value = null)
+ * @extends Collection<int,Transition>
  */
 class TransitionCollection extends Collection
 {

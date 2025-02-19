@@ -33,18 +33,13 @@ trait HasWorkflow
 
     /**
      * Backdoor property to pass transition context to the StateMachineObserver.
-     *
-     * @var array
      */
-    public $transition_context = [];
+    public array $transition_context = [];
+
+    public array $state_machines = [];
 
     /**
-     * @var array
-     */
-    public $state_machines = [];
-
-    /**
-     * @param string|WorkflowBlueprint $blueprint
+     * @param class-string<WorkflowBlueprint>|WorkflowBlueprint $blueprint
      * @param string $attribute
      * @return StateMachineEngine
      */

@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @template TModel of \Illuminate\Database\Eloquent\Model
+ */
 class StateMachineEngine implements Arrayable
 {
     /**
@@ -88,7 +91,7 @@ class StateMachineEngine implements Arrayable
      * @param  array  $context
      * @param  \BackedEnum|string|int|null  $state  Override initial state.
      *
-     * @return Model
+     * @return TModel
      */
     public function init(array $context = [], $state = null): Model
     {
@@ -112,7 +115,7 @@ class StateMachineEngine implements Arrayable
      * @param  \BackedEnum|string|int  $state
      * @param  array  $context
      *
-     * @return Model
+     * @return TModel
      * @throws ValidationException
      * @throws ItemNotFoundException
      */

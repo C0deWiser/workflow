@@ -8,7 +8,7 @@ use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
 /**
- * @method State first(callable $callback = null, $default = null)
+ * @extends Collection<int,State>
  */
 class StateCollection extends Collection
 {
