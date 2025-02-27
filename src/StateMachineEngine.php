@@ -64,7 +64,7 @@ class StateMachineEngine implements Arrayable
     /**
      * Get all transitions in the workflow.
      *
-     * @return TransitionCollection<Transition>
+     * @return TransitionCollection<int,Transition>
      */
     public function getTransitionListing(): TransitionCollection
     {
@@ -78,7 +78,7 @@ class StateMachineEngine implements Arrayable
     /**
      * Get possible transitions from the current state.
      *
-     * @return TransitionCollection<Transition>
+     * @return TransitionCollection<int,Transition>
      */
     public function transitions(): TransitionCollection
     {

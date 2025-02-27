@@ -58,4 +58,23 @@ trait HasValidationRules
 
         return $this;
     }
+
+    public function mergeRules(array $rules): array
+    {
+        $merged = [];
+
+        foreach ($this->rules as $attribute => $rule) {
+            $rule = is_string($rule) ? explode('|', $rule) : $rule;
+
+            if (isset($rules[$attribute])) {
+                $more = is_string($rules[$attribute]) ? explode('|', $rules[$attribute]) : $rules[$attribute];
+
+                $rule = array_unique(array_merge($rule, $more));
+            }
+
+            $merged[$attribute] = implode('|', $rule);
+        }
+
+        return $merged;
+    }
 }

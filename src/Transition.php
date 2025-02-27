@@ -119,7 +119,7 @@ class Transition implements Arrayable, Injectable
     public function toArray(): array
     {
         $rules = ($this->validationRules() || $this->target()->validationRules())
-            ? ['rules' => $this->validationRules(true) + $this->target()->validationRules(true)]
+            ? ['rules' => $this->mergeRules($this->target()->validationRules())]
             : [];
 
         $issues = $this->issues() ? ['issues' => $this->issues()] : [];
@@ -270,7 +270,7 @@ class Transition implements Arrayable, Injectable
     {
         if (is_array($context)) {
 
-            $rules = $this->validationRules() + $this->target()->validationRules();
+            $rules = $this->mergeRules($this->target()->validationRules());
 
             if ($rules) {
                 $this->context = new ContextRepository(

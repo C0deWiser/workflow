@@ -7,6 +7,7 @@ use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
+use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachineObserver;
 use Codewiser\Workflow\Transition;
@@ -216,5 +217,21 @@ class BaseTest extends TestCase
 
         $post->state()->transit('cumulative');
         $this->assertTrue($post->state()->is('cumulative'));
+    }
+
+    public function testMergeRules()
+    {
+        $state = new State('one');
+        $state->rules([
+            'comment' => 'required|string',
+        ]);
+
+        $merged = $state->mergeRules([
+            'comment' => 'string|max:5',
+        ]);
+
+        $this->assertEquals([
+            'comment' => 'required|string|max:5',
+        ], $merged);
     }
 }
