@@ -100,6 +100,17 @@ class BaseTest extends TestCase
         $this->assertCount(2, $post->state()->transitions());
     }
 
+    public function testRules()
+    {
+        $post = new Article();
+        $post->setRawAttributes(['state' => 'review'], true);
+
+        $data = $post->state()->transitions()->first()->toArray();
+
+        $this->assertArrayHasKey('rules', $data);
+        $this->assertArrayHasKey('comment', $data['rules']);
+    }
+
     public function testJson()
     {
         $post = new Article();
@@ -228,10 +239,12 @@ class BaseTest extends TestCase
 
         $merged = $state->mergeRules([
             'comment' => 'string|max:5',
+            'source' => 'string|max:5',
         ]);
 
         $this->assertEquals([
             'comment' => 'required|string|max:5',
+            'source' => 'string|max:5',
         ], $merged);
     }
 }

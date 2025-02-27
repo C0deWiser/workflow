@@ -70,11 +70,13 @@ trait HasValidationRules
                 $more = is_string($rules[$attribute]) ? explode('|', $rules[$attribute]) : $rules[$attribute];
 
                 $rule = array_unique(array_merge($rule, $more));
+
+                unset($rules[$attribute]);
             }
 
             $merged[$attribute] = implode('|', $rule);
         }
 
-        return $merged;
+        return $merged + $rules;
     }
 }
