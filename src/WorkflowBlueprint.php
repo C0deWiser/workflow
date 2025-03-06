@@ -8,6 +8,11 @@ namespace Codewiser\Workflow;
  */
 abstract class WorkflowBlueprint
 {
+    public function userResolver(): \Closure
+    {
+        return fn() => auth()->user();
+    }
+
     /**
      * Array of available Model Workflow steps. First one is initial.
      *

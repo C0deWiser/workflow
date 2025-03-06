@@ -17,12 +17,9 @@ class TransitionListener
     {
         $log = new TransitionHistory;
 
-        $log->transitionable()->associate($model);
         $log->blueprint = get_class($engine->blueprint);
-
-        if (($user = auth()->user()) && ($user instanceof Model)) {
-            $log->performer()->associate($user);
-        }
+        $log->performer()->associate($engine->getActor());
+        $log->transitionable()->associate($model);
 
         return $log;
     }

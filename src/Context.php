@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow;
 
 use Illuminate\Config\Repository as ContextRepository;
+use Illuminate\Contracts\Auth\Authenticatable;
 
 class Context
 {
@@ -11,12 +12,16 @@ class Context
      */
     protected $contextual;
 
+    protected ?Authenticatable $actor;
+
     /**
      * @param  Transition|State  $contextual
+     * @param  null|Authenticatable  $actor
      */
-    public function __construct($contextual)
+    public function __construct($contextual, ?Authenticatable $actor = null)
     {
         $this->contextual = $contextual;
+        $this->actor = $actor;
     }
 
     /**
@@ -33,6 +38,14 @@ class Context
     public function target(): State
     {
         return $this->contextual instanceof Transition ? $this->contextual->target() : $this->contextual;
+    }
+
+    /**
+     * Get authenticated user for the context.
+     */
+    public function actor(): ?Authenticatable
+    {
+        return $this->actor;
     }
 
     /**

@@ -4,6 +4,7 @@
 namespace Codewiser\Workflow;
 
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
@@ -45,6 +46,14 @@ class StateMachineEngine implements Arrayable
         $this->attribute = $attribute;
         $this->blueprint = $blueprint;
         $this->model = $model;
+    }
+
+    /**
+     * Get authenticated user for the moment.
+     */
+    public function getActor(): ?Authenticatable
+    {
+        return call_user_func($this->blueprint->userResolver());
     }
 
     /**

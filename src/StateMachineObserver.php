@@ -83,7 +83,7 @@ class StateMachineObserver
                 $state = $this->wasCreated();
 
                 // Context for Events
-                $context = new Context($state);
+                $context = new Context($state, $engine->getActor());
 
                 // Fire event
                 event(new ModelInitialized($engine, $context));
@@ -131,7 +131,7 @@ class StateMachineObserver
                 if ($transition = $this->wasTransited()) {
 
                     // Context for Events
-                    $context = new Context($transition);
+                    $context = new Context($transition, $engine->getActor());
 
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
