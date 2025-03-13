@@ -4,6 +4,7 @@ namespace Codewiser\Workflow\Models;
 
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
+use Codewiser\Workflow\StateMachineEngine;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
 use Codewiser\Workflow\Value;
@@ -35,6 +36,8 @@ class TransitionHistory extends Model
         'context' => 'array'
     ];
 
+    protected ?StateMachineEngine $engine = null;
+
     protected static function booted()
     {
         static::addGlobalScope('latest', function (Builder $builder) {
@@ -59,15 +62,24 @@ class TransitionHistory extends Model
         return class_exists($class) ? new $class : null;
     }
 
+    protected function engine(): StateMachineEngine
+    {
+        if (!$this->engine) {
+            $this->engine = new StateMachineEngine(
+                new $this->blueprint(),
+                $this->transitionable,
+                // Not a real attribute! Just for history!
+                'attr'
+            );
+        }
+
+        return $this->engine;
+    }
+
     protected function state($value): ?State
     {
-        if ($blueprint = $this->blueprint()) {
-            foreach ($blueprint->states() as $state) {
-                // Weak comparison
-                if (Value::scalar($state) == $value) {
-                    return State::make($state);
-                }
-            }
+        if ($engine = $this->engine()) {
+            return $engine->getStateListing()->first(fn(State $state) => Value::scalar($state) === $value);
         }
 
         return null;
@@ -97,7 +109,8 @@ class TransitionHistory extends Model
                 $transition = TransitionCollection::make($blueprint->transitions())
                     ->from($source->value)
                     ->to($target->value)
-                    ->sole();
+                    ->sole()
+                    ->inject($this->engine());
 
                 if ($context = $this->context) {
                     $transition->context($context);
