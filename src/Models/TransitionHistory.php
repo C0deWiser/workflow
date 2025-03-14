@@ -13,6 +13,7 @@ use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
@@ -30,6 +31,8 @@ use Illuminate\Support\Carbon;
  */
 class TransitionHistory extends Model
 {
+    use Prunable;
+
     protected $table = 'transition_history';
 
     protected $casts = [
@@ -124,5 +127,10 @@ class TransitionHistory extends Model
         }
 
         return null;
+    }
+
+    public function prunable(): Builder
+    {
+        return static::query()->doesntHave('transitionable');
     }
 }
