@@ -45,6 +45,22 @@ class State implements Arrayable, Injectable
         $this->context = new ContextRepository;
     }
 
+    public function __serialize(): array
+    {
+        return [
+            'value' => $this->value,
+            'engine' => serialize($this->engine),
+            'context' => serialize($this->context),
+        ];
+    }
+
+    public function __unserialize(array $data): void
+    {
+        $this->value = $data['value'];
+        $this->engine = unserialize($data['engine']);
+        $this->context = unserialize($data['context']);
+    }
+
     /**
      * Get caption of the State.
      */

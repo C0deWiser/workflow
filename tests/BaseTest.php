@@ -2,6 +2,8 @@
 
 namespace Tests;
 
+use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;

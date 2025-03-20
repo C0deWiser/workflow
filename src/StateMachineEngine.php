@@ -48,6 +48,23 @@ class StateMachineEngine implements Arrayable
         $this->model = $model;
     }
 
+    public function __serialize(): array
+    {
+        return [
+            'blueprint' => serialize($this->blueprint),
+            'attribute' => $this->attribute,
+            'model' => get_class($this->model),
+            'id' => $this->model->getKey(),
+        ];
+    }
+
+    public function __unserialize(array $data): void
+    {
+        $this->blueprint = unserialize($data['blueprint']);
+        $this->attribute = $data['attribute'];
+        $this->model = $data['model']::find($data['id']);
+    }
+
     /**
      * Get authenticated user for the moment.
      */

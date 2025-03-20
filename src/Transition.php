@@ -77,6 +77,24 @@ class Transition implements Arrayable, Injectable
         $this->context = new ContextRepository;
     }
 
+    public function __serialize(): array
+    {
+        return [
+            'source' => $this->source,
+            'target' => $this->target,
+            'engine' => serialize($this->engine),
+            'context' => serialize($this->context),
+        ];
+    }
+
+    public function __unserialize(array $data): void
+    {
+        $this->source = $data['source'];
+        $this->target = $data['target'];
+        $this->engine = unserialize($data['engine']);
+        $this->context = unserialize($data['context']);
+    }
+
     /**
      * Authorize transition using policy ability (or closure).
      *
