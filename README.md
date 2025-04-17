@@ -590,7 +590,7 @@ class Article extends Model
 {
     use HasTransitionHistory;
     
-    protected function getLatestTransitionRelations(
+    protected function getLatestTransitionConstraining(
         ?\Closure $performer = null, 
         ?\Closure $transitionable = null
     ) : array

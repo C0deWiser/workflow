@@ -32,15 +32,15 @@ trait HasTransitionHistory
 
     public function loadLatestTransition(?\Closure $performer = null, ?\Closure $transitionable = null): self
     {
-        return $this->load($this->getLatestTransitionRelations($performer, $transitionable));
+        return $this->load($this->getLatestTransitionConstraining($performer, $transitionable));
     }
 
     public function scopeWithLatestTransition(Builder $builder, ?\Closure $performer = null, ?\Closure $transitionable = null): void
     {
-        $builder->with($this->getLatestTransitionRelations($performer, $transitionable));
+        $builder->with($this->getLatestTransitionConstraining($performer, $transitionable));
     }
 
-    protected function getLatestTransitionRelations(?\Closure $performer = null, ?\Closure $transitionable = null): array
+    protected function getLatestTransitionConstraining(?\Closure $performer = null, ?\Closure $transitionable = null): array
     {
         return [
             'latest_transition' => [
