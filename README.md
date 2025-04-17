@@ -541,17 +541,9 @@ class ModelTransitedListener
 
 ## Transition History
 
-The Package may log transitions to database table. 
+The Package may log transitions to a database table. 
 
-Register `\Codewiser\Workflow\WorkflowServiceProvider` in `providers` section of `config/app.php`.
-
-Add `workflow.history` into `config/services.php`:
-
-```php
-    'workflow' => [
-        'history' => true
-    ]
-```
+Register `\Codewiser\Workflow\WorkflowServiceProvider`.
 
 Publish and run migrations:
 
@@ -560,16 +552,61 @@ Publish and run migrations:
 
 It's done.
 
-To get historical records, add `\Codewiser\Workflow\Traits\HasTransitionHistory` to `Model` with workflow. It brings `transitions` relation.
+To get historical records, add `\Codewiser\Workflow\Traits\HasTransitionHistory` 
+to a `Model` with workflow. It brings `transitions` relation.
 
-Historical records presented by `\Codewiser\Workflow\Models\TransitionHistory` model, that holds information about transition performer, source and target states and a context, if it were provided.
+Historical records presented by `\Codewiser\Workflow\Models\TransitionHistory` 
+model, that holds information about transition performer, source and target 
+states and a context, if it were provided.
 
-## Blueprint Validation
+Sometimes you may need to eager load the latest transition:
 
-The Package may validate Workflow Blueprint that you defined.
+```php
+Article::query()->withLatestTransition();
+```
 
-Register `\Codewiser\Workflow\WorkflowServiceProvider` in `providers` section of `config/app.php`.
+Or:
 
-Run console command with blueprint classname:
+```php
+$article->loadLatestTransition();
+```
 
-    php artisan workflow:blueprint --class=App/Workflow/ArticleWorkflow
+You may add a constraining:
+
+```php
+Article::query()->withLatestTransition(
+    performer:      fn(MorphTo $builder) => $builder->withTrashed(),
+    transitionable: fn(MorphTo $builder) => $builder->withTrashed()
+);
+```
+
+Or you may override a default constraining in a model:
+
+```php
+use Codewiser\Workflow\Traits\HasTransitionHistory;
+use Illuminate\Database\Eloquent\Model;
+
+class Article extends Model
+{
+    use HasTransitionHistory;
+    
+    protected function getLatestTransitionRelations(
+        ?\Closure $performer = null, 
+        ?\Closure $transitionable = null
+    ) : array
+    {
+        $performer = $performer ?? 
+            fn(MorphTo $builder) => $builder->withTrashed();
+            
+        $transitionable = $transitionable ?? 
+            fn(MorphTo $builder) => $builder->withTrashed();
+        
+        return [
+            'latest_transition' => [
+                'performer'      => $performer,
+                'transitionable' => $transitionable
+            ]
+        ];
+    }
+}
+```

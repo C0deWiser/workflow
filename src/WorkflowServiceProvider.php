@@ -14,14 +14,12 @@ class WorkflowServiceProvider extends ServiceProvider
 {
     public function boot()
     {
-        if (config('services.workflow.history')) {
-            $this->publishes([
-                __DIR__ . '/../database/migrations' => database_path('migrations')
-            ], 'workflow-migrations');
+        $this->publishes([
+            __DIR__ . '/../database/migrations' => database_path('migrations')
+        ], 'workflow-migrations');
 
-            Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleModelInitialized']);
-            Event::listen(ModelTransited::class, [TransitionListener::class, 'handleModelTransited']);
-        }
+        Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleModelInitialized']);
+        Event::listen(ModelTransited::class, [TransitionListener::class, 'handleModelTransited']);
 
         if ($this->app->runningInConsole()) {
             $this->commands([
