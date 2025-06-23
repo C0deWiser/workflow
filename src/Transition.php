@@ -279,6 +279,7 @@ class Transition implements Arrayable, Injectable
                 return '';
             })
             ->filter()
+            ->values()
             ->toArray();
     }
 
