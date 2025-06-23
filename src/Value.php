@@ -2,10 +2,13 @@
 
 namespace Codewiser\Workflow;
 
+/**
+ * @template TType
+ */
 class Value
 {
     /**
-     * @param State|\BackedEnum|string|integer $value
+     * @param State|TType $value
      * @return string|int
      */
     public static function scalar($value)
@@ -22,7 +25,7 @@ class Value
     }
 
     /**
-     * @param State|\BackedEnum|string|integer $value
+     * @param State|TType $value
      * @return string|int
      */
     public static function name($value)

@@ -16,19 +16,22 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @template TType of \BackedEnum|scalar
+ */
 class State implements Arrayable, Injectable
 {
     use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites, HasFootprint;
 
     /**
-     * @var \BackedEnum|string|int
+     * @var TType
      */
     public $value;
 
     /**
      * State new instance.
      *
-     * @param \BackedEnum|string|int $value
+     * @param TType $value
      * @return static
      */
     public static function make($value): State
@@ -37,7 +40,7 @@ class State implements Arrayable, Injectable
     }
 
     /**
-     * @param \BackedEnum|string|int $value
+     * @param TType $value
      */
     public function __construct($value)
     {
@@ -62,7 +65,7 @@ class State implements Arrayable, Injectable
     }
 
     /**
-     * Get caption of the State.
+     * Get the caption of the State.
      */
     public function caption(): string
     {
@@ -102,7 +105,7 @@ class State implements Arrayable, Injectable
     /**
      * Get available transition to the given state.
      *
-     * @param \BackedEnum|string|int $state
+     * @param TType $state
      */
     public function transitionTo($state): ?Transition
     {
@@ -123,7 +126,7 @@ class State implements Arrayable, Injectable
     /**
      * Check if state equals to current.
      *
-     * @param \BackedEnum|string|int $state
+     * @param TType $state
      * @return bool
      */
     public function is($state): bool
@@ -132,9 +135,9 @@ class State implements Arrayable, Injectable
     }
 
     /**
-     * Check if state doesn't equal to current.
+     * Check if the state doesn't equal to current.
      *
-     * @param \BackedEnum|string|int $state
+     * @param TType $state
      * @return bool
      */
     public function isNot($state): bool

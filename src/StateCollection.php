@@ -8,7 +8,7 @@ use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
 /**
- * @extends Collection<int,State>
+ * @extends Collection<array-key, State>
  */
 class StateCollection extends Collection
 {
@@ -36,9 +36,11 @@ class StateCollection extends Collection
     }
 
     /**
-     * Get the exact one state from collection.
+     * Get the exact one state from a collection.
      *
-     * @param \BackedEnum|string|int $state
+     * @param  mixed  $state
+     *
+     * @return State
      * @throws ItemNotFoundException
      * @throws MultipleItemsFoundException
      */

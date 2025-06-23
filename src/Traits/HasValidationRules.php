@@ -14,10 +14,8 @@ trait HasValidationRules
 
     /**
      * Validation rules for the additional context.
-     *
-     * @var array
      */
-    protected $rules = [];
+    protected array $rules = [];
 
     /**
      * Additional context.

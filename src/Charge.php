@@ -61,7 +61,7 @@ class Charge
     }
 
     /**
-     * Callback should return FALSE if user already charge the transition. It is TRUE if not defined.
+     * Callback should return FALSE if a user already charges the transition. It is TRUE if not defined.
      */
     public function allow(callable $callback): self
     {
@@ -71,7 +71,7 @@ class Charge
     }
 
     /**
-     * Check if user allowed to charge the transition.
+     * Check if user allowed charging the transition.
      */
     public function mayCharge(Transition $transition): bool
     {

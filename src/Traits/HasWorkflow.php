@@ -39,8 +39,9 @@ trait HasWorkflow
     public array $state_machines = [];
 
     /**
-     * @param class-string<WorkflowBlueprint>|WorkflowBlueprint $blueprint
-     * @param string $attribute
+     * @param  class-string<WorkflowBlueprint>|WorkflowBlueprint  $blueprint
+     * @param  string  $attribute
+     *
      * @return StateMachineEngine
      */
     protected function workflow($blueprint, string $attribute): StateMachineEngine

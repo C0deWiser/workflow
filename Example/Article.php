@@ -23,6 +23,9 @@ class Article extends Model
         'state' => null
     ];
 
+    /**
+     * @return StateMachineEngine<Article, string>
+     */
     public function state(): StateMachineEngine
     {
         return $this->workflow(ArticleWorkflow::class, 'state');

@@ -28,6 +28,8 @@ use Illuminate\Support\Carbon;
  *
  * @property-read Authenticatable|null $performer
  * @property-read Model $transitionable
+ *
+ * @template TType
  */
 class TransitionHistory extends Model
 {
@@ -88,6 +90,9 @@ class TransitionHistory extends Model
         return null;
     }
 
+    /**
+     * @return null|State<TType>
+     */
     public function source(): ?State
     {
         if ($source = $this->source) {
@@ -97,11 +102,17 @@ class TransitionHistory extends Model
         return null;
     }
 
+    /**
+     * @return null|State<TType>
+     */
     public function target(): ?State
     {
         return $this->state($this->target);
     }
 
+    /**
+     * @return null|Transition<Model, TType>
+     */
     public function transition(): ?Transition
     {
         $blueprint = $this->blueprint();

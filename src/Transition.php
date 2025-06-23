@@ -20,6 +20,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Transition between states in State Machine.
+ *
+ * @template TModel of \Illuminate\Database\Eloquent\Model
+ * @template TType of \BackedEnum|scalar
  */
 class Transition implements Arrayable, Injectable
 {
@@ -28,14 +31,14 @@ class Transition implements Arrayable, Injectable
     /**
      * Source state.
      *
-     * @var \BackedEnum|string|int
+     * @var TType
      */
     public $source;
 
     /**
      * Target state.
      *
-     * @var \BackedEnum|string|int
+     * @var TType
      */
     public $target;
 
@@ -56,8 +59,8 @@ class Transition implements Arrayable, Injectable
     /**
      * Instantiate new transition.
      *
-     * @param  \BackedEnum|string|int  $source
-     * @param  \BackedEnum|string|int  $target
+     * @param  TType  $source
+     * @param  TType  $target
      *
      * @return static
      */
@@ -67,8 +70,8 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * @param  \BackedEnum|string|int  $source
-     * @param  \BackedEnum|string|int  $target
+     * @param  TType  $source
+     * @param  TType  $target
      */
     public function __construct($source, $target)
     {
@@ -197,10 +200,10 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Check transition route.
+     * Check the transition route.
      *
-     * @param  \BackedEnum|string|int  $source
-     * @param  \BackedEnum|string|int  $target
+     * @param  TType  $source
+     * @param  TType  $target
      *
      * @return bool
      */
@@ -256,7 +259,7 @@ class Transition implements Arrayable, Injectable
     }
 
     /**
-     * Get list of problems with the transition.
+     * Get a list of problems with the transition.
      *
      * @return array<string>
      */
@@ -305,9 +308,9 @@ class Transition implements Arrayable, Injectable
      *
      * @param  array  $context
      *
-     * @return Model
+     * @return TModel
      */
-    public function transit(array $context = []): Model
+    public function transit(array $context = [])
     {
         return $this->engine()->transit($this->target, $context);
     }

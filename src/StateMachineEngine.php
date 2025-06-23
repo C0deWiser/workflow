@@ -13,33 +13,22 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @template TModel of \Illuminate\Database\Eloquent\Model
+ * @template TType of \BackedEnum|scalar
  */
 class StateMachineEngine implements Arrayable
 {
-    /**
-     * @var TransitionCollection|null
-     */
-    protected $transitions = null;
+    protected ?StateCollection $states = null;
+
+    protected ?TransitionCollection $transitions = null;
+
+    public WorkflowBlueprint $blueprint;
 
     /**
-     * @var StateCollection|null
-     */
-    protected $states = null;
-
-    /**
-     * @var WorkflowBlueprint
-     */
-    public $blueprint;
-
-    /**
-     * @var Model
+     * @var TModel
      */
     public $model;
 
-    /**
-     * @var string
-     */
-    public $attribute;
+    public string $attribute;
 
     public function __construct(WorkflowBlueprint $blueprint, Model $model, string $attribute)
     {
@@ -66,7 +55,7 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Get authenticated user for the moment.
+     * Get an authenticated user for the moment.
      */
     public function getActor(): ?Authenticatable
     {
@@ -75,8 +64,6 @@ class StateMachineEngine implements Arrayable
 
     /**
      * Get all states of the workflow.
-     *
-     * @return StateCollection<State>
      */
     public function getStateListing(): StateCollection
     {
@@ -89,8 +76,6 @@ class StateMachineEngine implements Arrayable
 
     /**
      * Get all transitions in the workflow.
-     *
-     * @return TransitionCollection<int,Transition>
      */
     public function getTransitionListing(): TransitionCollection
     {
@@ -103,8 +88,6 @@ class StateMachineEngine implements Arrayable
 
     /**
      * Get possible transitions from the current state.
-     *
-     * @return TransitionCollection<int,Transition>
      */
     public function transitions(): TransitionCollection
     {
@@ -115,7 +98,7 @@ class StateMachineEngine implements Arrayable
      * Init model's workflow with default (or any) state and optional context. Returns Model for you to save it.
      *
      * @param  array  $context
-     * @param  \BackedEnum|string|int|null  $state  Override initial state.
+     * @param  null|TType  $state  Override initial state.
      *
      * @return TModel
      */
@@ -138,14 +121,14 @@ class StateMachineEngine implements Arrayable
     /**
      * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
-     * @param  \BackedEnum|string|int  $state
+     * @param  TType  $state
      * @param  array  $context
      *
      * @return TModel
      * @throws ValidationException
      * @throws ItemNotFoundException
      */
-    public function transit($state, array $context = []): Model
+    public function transit($state, array $context = [])
     {
         // Charging transition?
         if ($transition = $this->transitionTo($state)) {
@@ -186,7 +169,7 @@ class StateMachineEngine implements Arrayable
     /**
      * Authorize transition to the new state.
      *
-     * @param  \BackedEnum|string|int  $target
+     * @param  TType  $target
      *
      * @throws AuthorizationException
      */
@@ -210,7 +193,9 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Get current state.
+     * Get the current state.
+     *
+     * @return null|State<TType>
      */
     public function state(): ?State
     {
@@ -220,9 +205,9 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Check if state has given value.
+     * Check if the state has given value.
      *
-     * @param  \BackedEnum|string|int  $state
+     * @param  TType  $state
      */
     public function is($state): bool
     {
@@ -230,9 +215,9 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Check if state doesn't have given value.
+     * Check if the state doesn't have given value.
      *
-     * @param  \BackedEnum|string|int  $state
+     * @param  TType  $state
      */
     public function isNot($state): bool
     {
@@ -256,9 +241,11 @@ class StateMachineEngine implements Arrayable
     }
 
     /**
-     * Get the transition from the current state, if it exists.
+     * Get the transition from the current state if it exists.
      *
-     * @param  \BackedEnum|string|int  $target
+     * @param  TType  $target
+     *
+     * @return null|Transition<TModel, TType>
      */
     public function transitionTo($target): ?Transition
     {

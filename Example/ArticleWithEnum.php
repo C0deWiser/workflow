@@ -21,8 +21,11 @@ class ArticleWithEnum extends Model
         'state' => Enum::class
     ];
 
+    /**
+     * @return StateMachineEngine<static, Enum>
+     */
     public function state(): StateMachineEngine
     {
-        return $this->workflow(ArticleWorkflow::class, 'state');
+        return $this->workflow(ArticleEnumWorkflow::class, 'state');
     }
 }

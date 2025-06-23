@@ -6,10 +6,7 @@ use Codewiser\Workflow\StateMachineEngine;
 
 trait HasStateMachineEngine
 {
-    /**
-     * @var StateMachineEngine|null
-     */
-    protected $engine = null;
+    protected ?StateMachineEngine $engine = null;
 
     public function inject(StateMachineEngine $engine)
     {
@@ -19,7 +16,7 @@ trait HasStateMachineEngine
     }
 
     /**
-     * Method will fail if object was not injected before — it is ok.
+     * The method will fail if an object was not injected before — it is ok.
      */
     public function engine(): StateMachineEngine
     {

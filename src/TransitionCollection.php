@@ -9,12 +9,17 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * @extends Collection<int,Transition>
+ * @extends Collection<array-key, Transition>
  */
 class TransitionCollection extends Collection
 {
     use Injection;
 
+    /**
+     * @param  array  $items
+     *
+     * @return TransitionCollection
+     */
     public static function make($items = []): TransitionCollection
     {
         $collection = [];
@@ -28,7 +33,7 @@ class TransitionCollection extends Collection
             if ($item instanceof Transition) {
                 // Filter unique transitions
                 $key = Value::scalar($item->source)
-                    . Value::scalar($item->target);
+                    .Value::scalar($item->target);
 
                 if (!isset($collection[$key])) {
                     $collection[$key] = $item;
@@ -42,7 +47,7 @@ class TransitionCollection extends Collection
     /**
      * Get transitions from given state.
      *
-     * @param \BackedEnum|string|int $state
+     * @param  mixed  $state
      */
     public function from($state): self
     {
@@ -54,7 +59,7 @@ class TransitionCollection extends Collection
     /**
      * Get transitions to given state.
      *
-     * @param \BackedEnum|string|int $state
+     * @param  mixed  $state
      */
     public function to($state): self
     {

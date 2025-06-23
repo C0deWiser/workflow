@@ -6,7 +6,11 @@ use Codewiser\Workflow\Charge;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Transition;
+use Codewiser\Workflow\WorkflowBlueprint;
 
+/**
+ * @extends WorkflowBlueprint<Enum>
+ */
 class ArticleEnumWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     public function states(): array
