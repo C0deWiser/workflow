@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  * Transition between states in State Machine.
  *
  * @template TModel of \Illuminate\Database\Eloquent\Model
- * @template TType of \BackedEnum|scalar
+ * @template TType
  */
 class Transition implements Arrayable, Injectable
 {
@@ -83,9 +83,9 @@ class Transition implements Arrayable, Injectable
     public function __serialize(): array
     {
         return [
-            'source' => $this->source,
-            'target' => $this->target,
-            'engine' => serialize($this->engine),
+            'source'  => $this->source,
+            'target'  => $this->target,
+            'engine'  => serialize($this->engine),
             'context' => serialize($this->context),
         ];
     }

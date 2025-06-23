@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @template TModel of \Illuminate\Database\Eloquent\Model
- * @template TType of \BackedEnum|scalar
+ * @template TType
  */
 class StateMachineEngine implements Arrayable
 {
@@ -42,8 +42,8 @@ class StateMachineEngine implements Arrayable
         return [
             'blueprint' => serialize($this->blueprint),
             'attribute' => $this->attribute,
-            'model' => get_class($this->model),
-            'id' => $this->model->getKey(),
+            'model'     => get_class($this->model),
+            'id'        => $this->model->getKey(),
         ];
     }
 

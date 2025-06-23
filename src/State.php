@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @template TType of \BackedEnum|scalar
+ * @template TType
  */
 class State implements Arrayable, Injectable
 {
@@ -31,7 +31,8 @@ class State implements Arrayable, Injectable
     /**
      * State new instance.
      *
-     * @param TType $value
+     * @param  TType  $value
+     *
      * @return static
      */
     public static function make($value): State
@@ -40,7 +41,7 @@ class State implements Arrayable, Injectable
     }
 
     /**
-     * @param TType $value
+     * @param  TType  $value
      */
     public function __construct($value)
     {
@@ -51,8 +52,8 @@ class State implements Arrayable, Injectable
     public function __serialize(): array
     {
         return [
-            'value' => $this->value,
-            'engine' => serialize($this->engine),
+            'value'   => $this->value,
+            'engine'  => serialize($this->engine),
             'context' => serialize($this->context),
         ];
     }
@@ -105,7 +106,7 @@ class State implements Arrayable, Injectable
     /**
      * Get available transition to the given state.
      *
-     * @param TType $state
+     * @param  TType  $state
      */
     public function transitionTo($state): ?Transition
     {
@@ -118,7 +119,7 @@ class State implements Arrayable, Injectable
     public function toArray(): array
     {
         return [
-                'name' => $this->caption(),
+                'name'  => $this->caption(),
                 'value' => Value::scalar($this),
             ] + $this->additional();
     }
@@ -126,7 +127,8 @@ class State implements Arrayable, Injectable
     /**
      * Check if state equals to current.
      *
-     * @param TType $state
+     * @param  TType  $state
+     *
      * @return bool
      */
     public function is($state): bool
@@ -137,7 +139,8 @@ class State implements Arrayable, Injectable
     /**
      * Check if the state doesn't equal to current.
      *
-     * @param TType $state
+     * @param  TType  $state
+     *
      * @return bool
      */
     public function isNot($state): bool
