@@ -248,7 +248,7 @@ class Transition implements Arrayable, Injectable
     {
         return $this->prerequisites()
             ->merge($this->target()->prerequisites())
-            ->filter(function (callable $condition) {
+            ->map(function (callable $condition) {
                 try {
                     call_user_func($condition, $this->engine->model);
                     // No problems
@@ -261,6 +261,7 @@ class Transition implements Arrayable, Injectable
                     return $exception->getMessage();
                 }
             })
+            ->filter()
             ->values()
             ->toArray();
     }
