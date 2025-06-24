@@ -12,23 +12,12 @@ use Codewiser\Workflow\StateMachineObserver;
  */
 trait HasWorkflow
 {
-    protected static function bootHasWorkflow()
+    protected static function bootHasWorkflow(): void
     {
-        static::creating(function (Model $model) {
-            return (new StateMachineObserver)->creating($model);
-        });
-
-        static::created(function (Model $model) {
-            (new StateMachineObserver)->created($model);
-        });
-
-        static::updating(function (Model $model) {
-            return (new StateMachineObserver)->updating($model);
-        });
-
-        static::updated(function (Model $model) {
-            (new StateMachineObserver)->updated($model);
-        });
+        static::creating(fn(Model $model) => (new StateMachineObserver)->creating($model));
+        static::updating(fn(Model $model) => (new StateMachineObserver)->updating($model));
+        static::created(fn(Model $model) => (new StateMachineObserver)->created($model));
+        static::updated(fn(Model $model) => (new StateMachineObserver)->updated($model));
     }
 
     /**
@@ -36,7 +25,7 @@ trait HasWorkflow
      */
     public array $transition_context = [];
 
-    public array $state_machines = [];
+    protected array $state_machines = [];
 
     /**
      * @param  class-string<WorkflowBlueprint>|WorkflowBlueprint  $blueprint
@@ -44,7 +33,7 @@ trait HasWorkflow
      *
      * @return StateMachineEngine
      */
-    protected function workflow($blueprint, string $attribute): StateMachineEngine
+    protected function workflow(string|WorkflowBlueprint $blueprint, string $attribute): StateMachineEngine
     {
         if (!isset($this->state_machines[$attribute])) {
 

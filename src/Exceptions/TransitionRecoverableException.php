@@ -10,10 +10,7 @@ use Throwable;
  */
 class TransitionRecoverableException extends TransitionException
 {
-    /**
-     * @var int
-     */
-    public $status = 422;
+    public int $status = 422;
 
     public function __construct($message = 'Transition is disabled', $code = 0, Throwable $previous = null)
     {

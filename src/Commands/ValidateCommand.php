@@ -27,17 +27,15 @@ class ValidateCommand extends Command
 
     /**
      * Execute the console command.
-     *
-     * @return int
      */
-    public function handle(): int
+    public function handle(): void
     {
         $class = $this->option('class');
         $className = $this->classDiscover($this->option('class'));
 
         if (!$className) {
             $this->error("$class Not Found");
-            return self::INVALID;
+            return;
         }
 
         $this->info($className);
@@ -45,7 +43,7 @@ class ValidateCommand extends Command
 
         if (!($blueprint instanceof WorkflowBlueprint)) {
             $this->warn("$class Not a WorkflowBlueprint instance");
-            return self::INVALID;
+            return;
         }
 
         $validator = new BlueprintValidator($blueprint);
@@ -56,10 +54,8 @@ class ValidateCommand extends Command
 
         if ($validator->valid) {
             $this->info("Blueprint $className is valid");
-            return self::SUCCESS;
         } else {
             $this->error("Blueprint $className is invalid");
-            return self::FAILURE;
         }
     }
 

@@ -2,12 +2,6 @@
 
 namespace Codewiser\Workflow\Traits;
 
-use Codewiser\Workflow\Context;
-use Codewiser\Workflow\State;
-use Codewiser\Workflow\Transition;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
-
 trait HasCallbacks
 {
     /**
@@ -16,20 +10,19 @@ trait HasCallbacks
     protected array $callbacks = [];
 
     /**
-     * Get registered transition callbacks.
-     *
-     * @return Collection<callable>
+     * Get registered callbacks.
      */
-    public function callbacks(): Collection
+    public function callbacks(): \Illuminate\Support\Collection
     {
         return collect($this->callbacks);
     }
 
     /**
-     * Callback(s) will run after transition is done or state is reached.
-     * Callback receives Model and optional Transition arguments.
+     * Register callbacks that will be run after transition is done and the state is reached.
+     *
+     * @param callable(\Illuminate\Database\Eloquent\Model, \Codewiser\Workflow\Context): void $callback
      */
-    public function after(callable $callback): self
+    public function after(callable $callback): static
     {
         $this->callbacks[] = $callback;
 
@@ -37,15 +30,12 @@ trait HasCallbacks
     }
 
     /**
-     * Run callbacks.
-     *
-     * @return void
+     * Run registered callbacks.
      */
-    public function invoke(Model $model, Context $context)
+    public function invoke(\Illuminate\Database\Eloquent\Model $model, \Codewiser\Workflow\Context $context): void
     {
-        $this->callbacks()
-            ->each(function (callable $callback) use ($model, $context) {
-                call_user_func($callback, $model, $context);
-            });
+        $this->callbacks()->each(
+            fn(callable $callback) => call_user_func($callback, $model, $context)
+        );
     }
 }

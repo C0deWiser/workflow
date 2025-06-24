@@ -3,15 +3,13 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Traits\Injection;
-use Illuminate\Support\Collection;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
-use Illuminate\Support\Facades\Gate;
 
 /**
- * @extends Collection<array-key, Transition>
+ * @extends \Illuminate\Support\Collection<array-key, Transition>
  */
-class TransitionCollection extends Collection
+class TransitionCollection extends \Illuminate\Support\Collection
 {
     use Injection;
 
@@ -24,6 +22,8 @@ class TransitionCollection extends Collection
     {
         $collection = [];
 
+        $scalar = fn(\UnitEnum $enum) => $enum instanceof \BackedEnum ? $enum->value : $enum->name;
+
         foreach ($items as $item) {
 
             if (is_array($item)) {
@@ -32,8 +32,7 @@ class TransitionCollection extends Collection
 
             if ($item instanceof Transition) {
                 // Filter unique transitions
-                $key = Value::scalar($item->source)
-                    .Value::scalar($item->target);
+                $key = $scalar($item->source).$scalar($item->target);
 
                 if (!isset($collection[$key])) {
                     $collection[$key] = $item;
@@ -46,55 +45,46 @@ class TransitionCollection extends Collection
 
     /**
      * Get transitions from given state.
-     *
-     * @param  mixed  $state
      */
-    public function from($state): self
+    public function from(\UnitEnum $state): static
     {
-        return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->source === $state;
-        });
+        return $this->filter(fn(Transition $transition) => $transition->source === $state);
     }
 
     /**
      * Get transitions to given state.
-     *
-     * @param  mixed  $state
      */
-    public function to($state): self
+    public function to(\UnitEnum $state): static
     {
-        return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->target === $state;
-        });
+        return $this->filter(fn(Transition $transition) => $transition->target === $state);
     }
 
     /**
      * Get transitions without fatal conditions.
      */
-    public function withoutForbidden(): self
+    public function withoutForbidden(): static
     {
-        return $this
-            ->reject(function (Transition $transition) {
-                try {
-                    $transition->validate();
-                } catch (TransitionFatalException $exception) {
-                    return true;
-                } catch (TransitionRecoverableException $exception) {
-
-                }
+        return $this->reject(function (Transition $transition) {
+            try {
+                $transition->validate();
                 return false;
-            });
+            } catch (TransitionFatalException $e) {
+                //dump($e->getMessage(), $transition->caption());
+                return true;
+            } catch (TransitionRecoverableException $e) {
+                //dump($e->getMessage(), $transition->caption());
+                return false;
+            }
+        });
     }
 
     /**
      * Get authorized transitions.
      */
-    public function onlyAuthorized(): self
+    public function onlyAuthorized(): static
     {
         return $this
-            ->filter(function (Transition $transition) {
-                return $transition->authorized();
-            })
+            ->filter(fn(Transition $transition) => $transition->authorized())
             ->values();
     }
 }

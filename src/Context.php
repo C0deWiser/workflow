@@ -7,21 +7,9 @@ use Illuminate\Contracts\Auth\Authenticatable;
 
 class Context
 {
-    /**
-     * @var Transition|State
-     */
-    protected $contextual;
-
-    protected ?Authenticatable $actor;
-
-    /**
-     * @param  Transition|State  $contextual
-     * @param  null|Authenticatable  $actor
-     */
-    public function __construct($contextual, ?Authenticatable $actor = null)
+    public function __construct(protected Transition|State $contextual, protected ?Authenticatable $actor = null)
     {
-        $this->contextual = $contextual;
-        $this->actor = $actor;
+        //
     }
 
     /**

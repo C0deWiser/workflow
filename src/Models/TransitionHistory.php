@@ -3,11 +3,9 @@
 namespace Codewiser\Workflow\Models;
 
 use Codewiser\Workflow\State;
-use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachineEngine;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
-use Codewiser\Workflow\Value;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -43,7 +41,7 @@ class TransitionHistory extends Model
 
     protected ?StateMachineEngine $engine = null;
 
-    protected static function booted()
+    protected static function booted(): void
     {
         static::addGlobalScope('latest', function (Builder $builder) {
             $builder->latest();
@@ -84,7 +82,7 @@ class TransitionHistory extends Model
     protected function state($value): ?State
     {
         if ($engine = $this->engine()) {
-            return $engine->getStateListing()->first(fn(State $state) => Value::scalar($state) === $value);
+            return $engine->getStateListing()->first(fn(State $state) => $state->scalar() == $value);
         }
 
         return null;
@@ -120,19 +118,14 @@ class TransitionHistory extends Model
         if ($blueprint && ($source = $this->source()) && ($target = $this->target())) {
             try {
 
-                $transition = TransitionCollection::make($blueprint->transitions())
+                return TransitionCollection::make($blueprint->transitions())
                     ->from($source->value)
                     ->to($target->value)
                     ->sole()
-                    ->inject($this->engine());
+                    ->inject($this->engine())
+                    ->withContext($this->context ?? []);
 
-                if ($context = $this->context) {
-                    $transition->context($context);
-                }
-
-                return $transition;
-
-            } catch (Exception $exception) {
+            } catch (Exception) {
                 //
             }
         }

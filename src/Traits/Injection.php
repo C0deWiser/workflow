@@ -11,10 +11,8 @@ use Illuminate\Support\Collection;
  */
 trait Injection
 {
-    public function injectWith(StateMachineEngine $engine): self
+    public function injectWith(StateMachineEngine $engine): static
     {
-        return $this->each(function (Injectable $item) use ($engine) {
-            $item->inject($engine);
-        });
+        return $this->each(fn(Injectable $item) => $item->inject($engine));
     }
 }

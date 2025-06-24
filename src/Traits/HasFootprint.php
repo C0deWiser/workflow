@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 trait HasFootprint
 {
-    protected $footprint = null;
+    protected mixed $footprint = null;
 
-    public function footprint(\Closure $callback): self
+    /**
+     * @param  callable(Model, Model):string  $callback
+     */
+    public function footprint(callable $callback): static
     {
         $this->footprint = $callback;
 

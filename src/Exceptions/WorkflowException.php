@@ -6,10 +6,7 @@ use Exception;
 
 class WorkflowException extends Exception
 {
-    /**
-     * @var int
-     */
-    public $status = 500;
+    public int $status = 500;
 
     public function jsonSerialize(): array
     {
@@ -18,7 +15,7 @@ class WorkflowException extends Exception
         ];
     }
 
-    public function toJson($options = 0)
+    public function toJson($options = 0): bool|string
     {
         return json_encode($this->jsonSerialize(), $options);
     }
@@ -26,8 +23,7 @@ class WorkflowException extends Exception
     public function render($request)
     {
         if ($request->expectsJson()) {
-            return response()
-                ->json($this->jsonSerialize(), $this->status);
+            return response()->json($this->jsonSerialize(), $this->status);
         } else {
             return response($this->getMessage(), $this->status);
         }

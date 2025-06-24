@@ -6,9 +6,9 @@ use Codewiser\Workflow\StateMachineEngine;
 
 trait HasStateMachineEngine
 {
-    protected ?StateMachineEngine $engine = null;
+    protected StateMachineEngine $engine;
 
-    public function inject(StateMachineEngine $engine)
+    public function inject(StateMachineEngine $engine): static
     {
         $this->engine = $engine;
 

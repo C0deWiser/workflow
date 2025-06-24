@@ -2,6 +2,8 @@
 
 namespace Codewiser\Workflow;
 
+use Illuminate\Database\Eloquent\Model;
+
 class Charge
 {
     /**
@@ -36,8 +38,8 @@ class Charge
     }
 
     /**
-     * @param callable $progress Return float (0÷1) with charge progress.
-     * @param callable $callback Increase transition charge.
+     * @param callable(Model, Transition): float $progress Return float (0÷1) with charge progress.
+     * @param callable(Model, Transition): void $callback Increase transition charge.
      */
     public function __construct(callable $progress, callable $callback)
     {
@@ -47,8 +49,10 @@ class Charge
 
     /**
      * Add history callback. Callback should return an array.
+     *
+     * @param callable(Model, Transition): array $callback
      */
-    public function withHistory(callable $callback): self
+    public function withHistory(callable $callback): static
     {
         $this->history = $callback;
 
@@ -62,8 +66,10 @@ class Charge
 
     /**
      * Callback should return FALSE if a user already charges the transition. It is TRUE if not defined.
+     *
+     * @param callable(Model, Transition): boolean $callback
      */
-    public function allow(callable $callback): self
+    public function allow(callable $callback): static
     {
         $this->allow = $callback;
 

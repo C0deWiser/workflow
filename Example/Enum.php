@@ -2,12 +2,12 @@
 
 namespace Codewiser\Workflow\Example;
 
-enum Enum: string
+enum Enum
 {
-    case new = 'first';
-    case review = 'second';
-    case published = 'recoverable';
-    case correction = 'fatal';
-    case empty = 'empty';
-    case cumulative = 'cumulative';
+    case new;
+    case review;
+    case published;
+    case correction;
+    case empty;
+    case cumulative;
 }

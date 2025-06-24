@@ -8,10 +8,8 @@ interface Injectable
 {
     /**
      * Vivify object with StateMachineEngine.
-     *
-     * @return $this
      */
-    public function inject(StateMachineEngine $engine);
+    public function inject(StateMachineEngine $engine): static;
 
     /**
      * Get State Machine Engine.

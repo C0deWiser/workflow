@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @template TModel of \Illuminate\Database\Eloquent\Model
- * @template TType
+ * @template TType of \UnitEnum
  */
 class StateMachineEngine implements Arrayable
 {
@@ -21,20 +21,14 @@ class StateMachineEngine implements Arrayable
 
     protected ?TransitionCollection $transitions = null;
 
-    public WorkflowBlueprint $blueprint;
-
     /**
-     * @var TModel
+     * @param  WorkflowBlueprint  $blueprint
+     * @param  TModel&Model  $model
+     * @param  string  $attribute
      */
-    public $model;
-
-    public string $attribute;
-
-    public function __construct(WorkflowBlueprint $blueprint, Model $model, string $attribute)
+    public function __construct(public WorkflowBlueprint $blueprint, public Model $model, public string $attribute)
     {
-        $this->attribute = $attribute;
-        $this->blueprint = $blueprint;
-        $this->model = $model;
+        //
     }
 
     public function __serialize(): array
@@ -98,11 +92,11 @@ class StateMachineEngine implements Arrayable
      * Init model's workflow with default (or any) state and optional context. Returns Model for you to save it.
      *
      * @param  array  $context
-     * @param  null|TType  $state  Override initial state.
+     * @param  null|(TType&\UnitEnum)  $state  Override initial state.
      *
-     * @return TModel
+     * @return TModel&Model
      */
-    public function init(array $context = [], $state = null): Model
+    public function init(array $context = [], \UnitEnum $state = null): Model
     {
         // Set initial state
         if ($state) {
@@ -121,20 +115,20 @@ class StateMachineEngine implements Arrayable
     /**
      * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
-     * @param  TType  $state
+     * @param  TType&\UnitEnum  $state
      * @param  array  $context
      *
-     * @return TModel
+     * @return TModel&Model
      * @throws ValidationException
      * @throws ItemNotFoundException
      */
-    public function transit($state, array $context = [])
+    public function transit(\UnitEnum $state, array $context = []): Model
     {
         // Charging transition?
         if ($transition = $this->transitionTo($state)) {
             if ($charge = $transition->charge()) {
                 if ($charge->mayCharge($transition)) {
-                    $transition->context($context);
+                    $transition->withContext($context);
                     $charge->charge($transition);
                 }
                 if (!$charge->charged($transition)) {
@@ -157,23 +151,26 @@ class StateMachineEngine implements Arrayable
         return $this->model;
     }
 
-    public function setContext(array $context = [])
+    public function setContext(array $context = []): static
     {
         if (property_exists($this->model, 'transition_context')) {
             $this->model->transition_context = [
                 $this->attribute => $context
             ];
         }
+
+        return $this;
     }
 
     /**
      * Authorize transition to the new state.
      *
-     * @param  TType  $target
+     * @param  TType&\UnitEnum  $target
      *
+     * @return StateMachineEngine
      * @throws AuthorizationException
      */
-    public function authorize($target): self
+    public function authorize(\UnitEnum $target): static
     {
         $transition = $this->transitions()
             ->to($target)
@@ -207,9 +204,11 @@ class StateMachineEngine implements Arrayable
     /**
      * Check if the state has given value.
      *
-     * @param  TType  $state
+     * @param  TType&\UnitEnum  $state
+     *
+     * @return bool
      */
-    public function is($state): bool
+    public function is(\UnitEnum $state): bool
     {
         return $this->state() && $this->state()->is($state);
     }
@@ -217,9 +216,11 @@ class StateMachineEngine implements Arrayable
     /**
      * Check if the state doesn't have given value.
      *
-     * @param  TType  $state
+     * @param  TType&\UnitEnum  $state
+     *
+     * @return bool
      */
-    public function isNot($state): bool
+    public function isNot(\UnitEnum $state): bool
     {
         return $this->state() && $this->state()->isNot($state);
     }
@@ -243,11 +244,11 @@ class StateMachineEngine implements Arrayable
     /**
      * Get the transition from the current state if it exists.
      *
-     * @param  TType  $target
+     * @param  TType&\UnitEnum  $target
      *
      * @return null|Transition<TModel, TType>
      */
-    public function transitionTo($target): ?Transition
+    public function transitionTo(\UnitEnum $target): ?Transition
     {
         return $this->state()->transitionTo($target);
     }
