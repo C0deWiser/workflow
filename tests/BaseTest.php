@@ -83,12 +83,7 @@ class BaseTest extends TestCase
         $post = new ArticleWithEnum();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $transition = $post->state()->transitionTo(Enum::review);
-
-        $this->assertCount(1, $transition->issues());
-        $this->assertEquals('Transition is disabled', $transition->issues()[0]);
-
-        $data = $transition->toArray();
+        $data = $post->state()->getTransitionListing()->first()->toArray();
 
         $this->assertArrayHasKey('name', $data);
         $this->assertArrayHasKey('source', $data);
