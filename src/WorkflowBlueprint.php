@@ -4,7 +4,7 @@ namespace Codewiser\Workflow;
 /**
  * Workflow blueprint.
  *
- * @template TType of \BackedEnum
+ * @template TType of \UnitEnum
  */
 abstract class WorkflowBlueprint
 {
