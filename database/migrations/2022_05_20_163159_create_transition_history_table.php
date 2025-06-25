@@ -11,7 +11,7 @@ class CreateTransitionHistoryTable extends Migration
      *
      * @return void
      */
-    public function up(): void
+    public function up()
     {
         Schema::create('transition_history', function (Blueprint $table) {
             $table->id();
@@ -30,7 +30,7 @@ class CreateTransitionHistoryTable extends Migration
      *
      * @return void
      */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('transition_history');
     }

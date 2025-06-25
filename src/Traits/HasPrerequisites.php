@@ -2,6 +2,8 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Illuminate\Support\Collection;
+
 trait HasPrerequisites
 {
     /**
@@ -11,18 +13,18 @@ trait HasPrerequisites
 
     /**
      * Get registered preconditions.
+     *
+     * @return Collection<callable>
      */
-    public function prerequisites(): \Illuminate\Support\Collection
+    public function prerequisites(): Collection
     {
-        return new \Illuminate\Support\Collection($this->prerequisites);
+        return collect($this->prerequisites);
     }
 
     /**
      * Add prerequisite. Callback receives Model argument.
-     *
-     * @param callable(\Illuminate\Database\Eloquent\Model): void $prerequisite
      */
-    public function before(callable $prerequisite): static
+    public function before(callable $prerequisite): self
     {
         $this->prerequisites[] = $prerequisite;
 

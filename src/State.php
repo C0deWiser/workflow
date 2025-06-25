@@ -17,29 +17,35 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @template TType of \UnitEnum
+ * @template TType
  */
 class State implements Arrayable, Injectable
 {
     use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites, HasFootprint;
 
     /**
+     * @var TType
+     */
+    public $value;
+
+    /**
      * State new instance.
      *
-     * @param  TType&\UnitEnum  $value
+     * @param  TType  $value
      *
      * @return static
      */
-    public static function make(\UnitEnum $value): State
+    public static function make($value): State
     {
         return new static($value);
     }
 
     /**
-     * @param  TType&\UnitEnum  $value
+     * @param  TType  $value
      */
-    public function __construct(public \UnitEnum $value)
+    public function __construct($value)
     {
+        $this->value = $value;
         $this->context = new ContextRepository;
     }
 
@@ -60,25 +66,14 @@ class State implements Arrayable, Injectable
     }
 
     /**
-     * Get the State scalar value.
-     */
-    public function scalar(): int|string
-    {
-        return $this->value instanceof \BackedEnum
-            ? $this->value->value
-            : $this->value->name;
-    }
-
-    /**
      * Get the caption of the State.
      */
     public function caption(): string
     {
         return $this->resolveCaption($this->engine()->model) ??
             ($this->value instanceof StateEnum
-                ? $this->value->caption()
-                : $this->value->name
-            );
+                ? $this->value->caption($this->engine()->model)
+                : Value::name($this));
     }
 
     public function chronicle(?Model $performer): ?string
@@ -111,9 +106,9 @@ class State implements Arrayable, Injectable
     /**
      * Get available transition to the given state.
      *
-     * @param  TType&\UnitEnum  $state
+     * @param  TType  $state
      */
-    public function transitionTo(\UnitEnum $state): ?Transition
+    public function transitionTo($state): ?Transition
     {
         return $this
             ->transitions()
@@ -125,18 +120,18 @@ class State implements Arrayable, Injectable
     {
         return [
                 'name'  => $this->caption(),
-                'value' => $this->scalar(),
+                'value' => Value::scalar($this),
             ] + $this->additional();
     }
 
     /**
      * Check if state equals to current.
      *
-     * @param  TType&\UnitEnum  $state
+     * @param  TType  $state
      *
      * @return bool
      */
-    public function is(\UnitEnum $state): bool
+    public function is($state): bool
     {
         return $this->value === $state;
     }
@@ -144,11 +139,11 @@ class State implements Arrayable, Injectable
     /**
      * Check if the state doesn't equal to current.
      *
-     * @param  TType&\UnitEnum  $state
+     * @param  TType  $state
      *
      * @return bool
      */
-    public function isNot(\UnitEnum $state): bool
+    public function isNot($state): bool
     {
         return $this->value !== $state;
     }
@@ -158,16 +153,19 @@ class State implements Arrayable, Injectable
      *
      * @throws ValidationException
      */
-    public function withContext(array $context): static
+    public function context(array $context = null): ContextRepository
     {
-        $rules = $this->validationRules();
+        if (is_array($context)) {
 
-        if ($rules) {
-            $this->context = new ContextRepository(
-                validator($context, $rules)->validate()
-            );
+            $rules = $this->validationRules();
+
+            if ($rules) {
+                $this->context = new ContextRepository(
+                    validator($context, $rules)->validate()
+                );
+            }
         }
 
-        return $this;
+        return $this->context;
     }
 }

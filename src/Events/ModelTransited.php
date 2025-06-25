@@ -4,6 +4,7 @@ namespace Codewiser\Workflow\Events;
 
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\Transition;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -16,10 +17,25 @@ class ModelTransited
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public Model $model;
+    /**
+     * @var StateMachineEngine
+     */
+    public $engine;
 
-    public function __construct(public StateMachineEngine $engine, public Context $context)
+    /**
+     * @var Model
+     */
+    public $model;
+
+    /**
+     * @var Context
+     */
+    public $context;
+
+    public function __construct(StateMachineEngine $engine, Context $context)
     {
-        $this->model = $this->engine->model;
+        $this->engine = $engine;
+        $this->model = $engine->model;
+        $this->context = $context;
     }
 }

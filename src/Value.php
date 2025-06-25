@@ -4,8 +4,6 @@ namespace Codewiser\Workflow;
 
 /**
  * @template TType
- *
- * @deprecated
  */
 class Value
 {

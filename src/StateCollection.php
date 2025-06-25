@@ -8,13 +8,13 @@ use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
 /**
- * @extends \Illuminate\Support\Collection<array-key, State>
+ * @extends Collection<array-key, State>
  */
-class StateCollection extends \Illuminate\Support\Collection
+class StateCollection extends Collection
 {
     use Injection;
 
-    public static function make($items = []): static
+    public static function make($items = []): self
     {
         $collection = new static();
 
@@ -38,14 +38,16 @@ class StateCollection extends \Illuminate\Support\Collection
     /**
      * Get the exact one state from a collection.
      *
-     * @param  \UnitEnum  $state
+     * @param  mixed  $state
      *
      * @return State
      * @throws ItemNotFoundException
      * @throws MultipleItemsFoundException
      */
-    public function one(\UnitEnum $state): State
+    public function one($state): State
     {
-        return $this->sole(fn(State $st) => $st->is($state));
+        return $this->sole(function (State $st) use ($state) {
+            return $st->is($state);
+        });
     }
 }

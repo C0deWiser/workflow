@@ -17,7 +17,7 @@
 
 Package provides workflow functionality to Eloquent Models.
 
-Workflow is a sequence of states, a document evolved through.
+Workflow is a sequence of states, document evolve through.
 Transitions between states inflicts the evolution road.
 
 ## Setup
@@ -25,10 +25,34 @@ Transitions between states inflicts the evolution road.
 First, describe the workflow blueprint with available states and transitions:
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
-use \Codewiser\Workflow\WorkflowBlueprint;
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
+{
+    public function states(): array
+    {
+        return [
+            'new',
+            'review',
+            'published',
+            'correction',
+        ];
+    }
+    
+    public function transitions(): array
+    {
+        return [
+            ['new', 'review'],
+            ['review', 'published'],
+            ['review', 'correction'],
+            ['correction', 'review']
+        ];
+    }
+}
+```
 
-class ArticleWorkflow extends WorkflowBlueprint
+> You may use `Enum` instead of scalar values.
+
+```php
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     public function states(): array
     {
@@ -53,22 +77,10 @@ Next, include trait and create method to bind a blueprint to model's attribute.
 use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Example\ArticleWorkflow;
 use \Codewiser\Workflow\StateMachineEngine;
-use \Codewiser\Workflow\Traits\HasWorkflow;
-use \Illuminate\Database\Eloquent\Model;
 
-/**
- * @property Enum $state
- */
 class Article extends Model
 {
-    use HasWorkflow;
-    
-    protected function casts(): array
-    {
-        return [
-            'state' => Enum::class
-        ]
-    }
+    use \Codewiser\Workflow\Traits\HasWorkflow;
     
     public function state(): StateMachineEngine
     {
@@ -87,49 +99,44 @@ Workflow observes Model and keeps state machine consistency healthy.
 use \Codewiser\Workflow\Example\Enum;
 
 // creating: will set proper initial state
-$article = new Article();
+$article = new \Codewiser\Workflow\Example\Article();
 $article->save();
 assert($article->state == Enum::new);
 
 // updating: will examine state machine consistency
 $article->state = Enum::review;
 $article->save();
-// No exceptions thrown as transition from `new` to `review` exists
+// No exceptions thrown
 assert($article->state == Enum::review);
 ```
 
 ## State and Transition objects
 
-In an example above, we describe blueprint with enum values, but actually they 
-will be transformed to the objects. Those objects bring some additional 
-functionality to the states and transitions, such as caption translations, 
-transit authorization, routing rules, pre- and post-transition callbacks, etc...
+In an example above we describe blueprint with scalar values, but actually they will be transformed to the objects. Those objects bring some additional functionality to the states and transitions, such as caption translations, transit authorization, routing rules, pre- and post-transition callbacks etc...
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
-use \Codewiser\Workflow\WorkflowBlueprint;
 
-class ArticleWorkflow extends WorkflowBlueprint
+class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     public function states(): array
     {
         return [
-            State::make(Enum::new),
-            State::make(Enum::review),
-            State::make(Enum::published),
-            State::make(Enum::correction),
+            State::make('new'),
+            State::make('review'),
+            State::make('published'),
+            State::make('correction'),
         ];
     }
     
     public function transitions(): array
     {
         return [
-            Transition::make(Enum::new, Enum::review),
-            Transition::make(Enum::review, Enum::published),
-            Transition::make(Enum::review, Enum::correction),
-            Transition::make(Enum::correction, Enum::review),
+            Transition::make('new', 'review'),
+            Transition::make('review', 'published'),
+            Transition::make('review', 'correction'),
+            Transition::make('correction', 'review'),
         ];
     }
 }
@@ -137,20 +144,17 @@ class ArticleWorkflow extends WorkflowBlueprint
 
 ## Authorization
 
-As model's actions are not allowed to any user, as changing state is not 
-allowed to any user. You may define transition authorization rules either 
-using `Policy` or using `callable`.
+As model's actions are not allowed to any user, as changing state is not allowed to any user. You may define transition authorization rules either using `Policy` or using `callable`.
 
 ### Using Policy
 
-Provide ability name. The package will examine given ability against 
-an associated model.
+Provide ability name. Package will examine given ability against associated model.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
 
-Transition::make(Enum::new, Enum::review)->authorizedBy('transit');
+Transition::make('new', 'review')
+    ->authorizedBy('transit');
 
 class ArticlePolicy
 {
@@ -163,29 +167,25 @@ class ArticlePolicy
 
 ### Using Closure
 
-Authorization Closure should return `true` or `false`. 
+Authorization Closure may return `true` or `false`, or throw `AuthorizationException`. 
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
 use \Illuminate\Support\Facades\Gate;
 
-Transition::make(Enum::new, Enum::review)
-    ->authorizedBy(function(Article $article, Transition $transition): bool {
-        return Gate::allows('transit', [$article, $transition]);
-    });
+Transition::make('new', 'review')
+    ->authorizedBy(fn(Article $article, Transition $transition) => Gate::authorize('transit', [$article, $transition]));
 ```
 
 ### Authorized Transitions
 
-To get only transitions, authorized to the current user, use `authorized` 
-method of `TransitionCollection`:
+To get only transitions, authorized to the current user, use `authorized` method of `TransitionCollection`:
 
 ```php
-$article = new Article();
+$article = new \Codewiser\Workflow\Example\Article();
 
 $transitions = $article->state()
-    // Get transitions from a model's current state.
+    // Get transitions from model's current state.
     ->transitions()
     // Filter only authorized transitions. 
     ->onlyAuthorized();
@@ -193,17 +193,14 @@ $transitions = $article->state()
 
 ### Authorizing Transition
 
-When accepting a user request, remember to authorize workflow state changing.
+When accepting user request, do not forget to authorize workflow state changing.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
-use \Illuminate\Http\Request;
-
 public function update(Request $request, Article $article)
 {
     $this->authorize('update', $article);
     
-    if ($state = $request->enum('state', Enum::class)) {
+    if ($state = $request->input('state')) {
         // Check if user allowed to make this transition
         $article->state()->authorize($state);
     }
@@ -216,16 +213,13 @@ public function update(Request $request, Article $article)
 
 ## Chargeable Transitions
 
-Chargeable transition will fire only then accumulate some charge. For 
-example, we may want to publish an article only then at least three editors 
-will accept it.
+Chargeable transition will fire only then accumulates some charge. For example, we may want to publish an article only then at least three editors will accept it.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Charge;
 use \Codewiser\Workflow\Transition;
 
-Transition::make(Enum::review, Enum::publish)
+Transition::make('review', 'publish')
     ->chargeable(Charge::make(
         progress: function(Article $article) {
             return $article->accepts / 3;
@@ -237,30 +231,25 @@ Transition::make(Enum::review, Enum::publish)
     ));
 ```
 
-`Charge` class has more options, that allows to provide vote statistics or 
-prevent to vote twice. 
+`Charge` class has more options, that allows to provide vote statistics or prevent to vote twice. 
 
 ## Business Logic
 
 ### Disabling transitions
 
-Transition may have some prerequisites to a model. If the model fits these 
-conditions, then the transition is possible.
+Transition may have some prerequisites to a model. If model fits this conditions then the transition is possible.
 
 Prerequisite is a `callable` with `Model` argument. It may throw an exception.
 
-To temporarily disable transition, prerequisite should throw a 
-`TransitionRecoverableException`. Leave helping instructions in an exception 
-message.
+To temporarily disable transition, prerequisite should throw a `TransitionRecoverableException`. Leave helping instructions in exception message.
 
 Here is an example of issues user may resolve.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 
-Transition::make(Enum::new, Enum::review)
+Transition::make('new', 'review')
     ->before(function(Article $model) {
         if (strlen($model->body) < 1000) {
             throw new TransitionRecoverableException(
@@ -277,30 +266,27 @@ Transition::make(Enum::new, Enum::review)
     });
 ```
 
-Users will see the problematic transitions in a list of available transitions.
+User will see the problematic transitions in a list of available transitions.
 User follows instructions to resolve the issue and then may try to perform the transition again.
 
 ### Removing transitions
 
-In some cases, workflow routes may be divided into branches. Way to go 
-forced by business logic, not user. Users even shouldn't know about other ways.
+In some cases workflow routes may divide into branches. Way to go forced by business logic, not user. User even shouldn't know about other ways.
 
-To completely remove transition from a list, prerequisite should throw a 
-`TransitionFatalException`.
+To completely remove transition from a list, prerequisite should throw a `TransitionFatalException`.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\Exceptions\TransitionFatalException;
 
-Transition::make(Enum::new, Enum::toLocalManager)
+Transition::make('new', 'to-local-manager')
     ->before(function(Order $model) {
         if ($model->amount >= 1000000) {
             throw new TransitionFatalException("Order amount is too big for this transition.");
         }
     }); 
 
-Transition::make(Enum::new, Enum::toRegionManager)
+Transition::make('new', 'to-region-manager')
     ->before(function(Order $model) {
         if ($model->amount < 1000000) {
             throw new TransitionFatalException("Order amount is too small for this transition.");
@@ -312,16 +298,14 @@ User will see only one possible transition depending on order amount value.
 
 ### Additional Context
 
-Sometimes application requires an additional context to perform a transition.
-For example, it may be a reason the article was rejected by the reviewer.
+Sometimes application requires an additional context to perform a transition. For example, it may be a reason the article was rejected by the reviewer.
 
 First, declare validation rules in transition or state definition:
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
 
-Transition::make(Enum::review, Enum::reject)
+Transition::make('review', 'reject')
     ->rules([
         'reason' => 'required|string|min:100'
     ]);
@@ -336,11 +320,15 @@ use Illuminate\Http\Request;
 
 public function store(Request $request)
 {
-    $article = Article::query()->make($request->validated());
+    $this->authorize('create', \Codewiser\Workflow\Example\Article::class);
+    
+    $article = \Codewiser\Workflow\Example\Article::query()->make(
+        $request->all()
+    );
     
     $article->state()
         // Init workflow, passing additional context
-        ->init($request->only('reason'))
+        ->init($request->all())
         // Now save model
         ->save();
 }
@@ -349,17 +337,18 @@ public function store(Request $request)
 When transiting model:
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use Illuminate\Http\Request;
 
-public function update(Request $request, Article $article)
+public function update(Request $request, \Codewiser\Workflow\Example\Article $article)
 {
-    if ($state = $request->enum('state', Enum::class)) {
+    $this->authorize('update', $article);
+    
+    if ($state = $request->input('state')) {
         $article->state()
             // Authorize transition
             ->authorize($state)
             // Transit to the new state, passing additional context
-            ->transit($state, $request->only('reason'))
+            ->transit($state, $request->all())
             // Now save model
             ->save();        
     }
@@ -368,17 +357,16 @@ public function update(Request $request, Article $article)
 
 The context will be validated while saving, and you may catch a `ValidationException`.
 
-After all, you may handle this context in [events](#events).
+After all you may handle this context in [events](#events).
 
 ## Translations
 
 You may define `State` and `Transition` objects with translatable caption. 
-Or you may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
+Then using Enums you may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
 
 `Transition` without caption will inherit caption from its target `State`.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\WorkflowBlueprint;
@@ -388,14 +376,14 @@ class ArticleWorkflow extends WorkflowBlueprint
     protected function states(): array
     {
         return [
-            State::make(Enum::new)->as('Draft'),
-            State::make(Enum::published)->as('Published')
+            State::make('new')->as(__('Draft')),
+            State::make('published')->as(fn(Article $model) => __('Published'))
         ];
     }
     protected function transitions(): array
     {
         return [
-            Transition::make(Enum::new, Enum::published)->as('Publish')
+            Transition::make('new', 'published')->as(__('Publish'))
         ];
     }
 }
@@ -403,15 +391,11 @@ class ArticleWorkflow extends WorkflowBlueprint
 
 ## Additional Attributes
 
-Sometimes we need to add some additional attributes to the workflow states 
-and transitions. For example, we may group states by levels and use this 
-information to color states and transitions in the user interface. Also, you 
-may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
+Sometimes we need to add some additional attributes to the workflow states and transitions. For example, we may group states by levels and use this information to color states and transitions in user interface. Then using Enums you may implement `\Codewiser\Workflow\Contracts\StateEnum` to `enum`.
 
 `Transition` inherits attributes from its target `State`.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 use \Codewiser\Workflow\WorkflowBlueprint;
@@ -421,19 +405,19 @@ class ArticleWorkflow extends WorkflowBlueprint
     protected function states(): array
     {
         return [
-            State::make(Enum::new),
-            State::make(Enum::review)->set('level', 'warning'),
-            State::make(Enum::published)->set('level', 'success'),
-            State::make(Enum::correction)->set('level', 'danger')
+            State::make('new'),
+            State::make('review')     ->set('level', 'warning'),
+            State::make('published')  ->set('level', 'success'),
+            State::make('correction') ->set('level', 'danger')
         ];
     }
     protected function transitions(): array
     {
         return [
-            Transition::make(Enum::new, Enum::review)->set('level', 'warning'),
-            Transition::make(Enum::review, Enum::published)->set('level', 'success'),
-            Transition::make(Enum::review, Enum::correction)->set('level', 'danger'),
-            Transition::make(Enum::correction, Enum::review)->set('level', 'warning')
+            Transition::make('new', 'review')         ->set('level', 'warning'),
+            Transition::make('review', 'published')   ->set('level', 'success'),
+            Transition::make('review', 'correction')  ->set('level', 'danger'),
+            Transition::make('correction', 'review')  ->set('level', 'warning')
         ];
     }
 }
@@ -441,13 +425,12 @@ class ArticleWorkflow extends WorkflowBlueprint
 
 ## Json Serialization
 
-For user to interact with model's workflow, we should pass the data to the 
-frontend of the application:
+For user to interact with model's workflow we should pass the data to a frontend of the application:
 
 ```php
 use Illuminate\Http\Request;
 
-public function state(Article $article)
+public function state(\Codewiser\Workflow\Example\Article $article)
 {    
     return $article->state()->toArray();
 }
@@ -488,15 +471,14 @@ The payload will be like that:
 
 You may define state callback(s), that will be called then state is reached.
 
-Callback is a `callable` with `Model` and `Context` arguments.
+Callback is a `callable` with `Model` and optional `Transition` arguments.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Context;
 use \Codewiser\Workflow\State;
 use \Codewiser\Workflow\Transition;
 
-State::make(Enum::correcting)
+State::make('correcting')
     ->rules(['reason' => 'required|string|min:100'])
     ->after(function(Article $article, Context $context) {
         $article->author->notify(
@@ -509,17 +491,15 @@ State::make(Enum::correcting)
 
 ### Transition Callback
 
-You may define transition callback(s), that will be called after transition 
-was successfully performed.
+You may define transition callback(s), that will be called after transition were successfully performed.
 
 It is absolutely the same as State Callback.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Context;
 use \Codewiser\Workflow\Transition;
 
-Transition::make(Enum::review, Enum::correcting)
+Transition::make('review', 'correcting')
     ->rules(['reason' => 'required|string|min:100'])
     ->after(function(Article $article, Context $context) {
         $article->author->notify(
@@ -530,12 +510,11 @@ Transition::make(Enum::review, Enum::correcting)
     }); 
 ```
 
-You may define a few callbacks to a single transition.
+You may define few callbacks to a single transition.
 
 ### EventListener
 
-Transition generates `ModelTransited` event. You may define `EventListener` 
-to listen to it.
+Transition generates `ModelTransited` event. You may define `EventListener` to listen to it.
 
 ```php
 use \Codewiser\Workflow\Events\ModelTransited;
@@ -548,7 +527,7 @@ class ModelTransitedListener
             $article = $event->model;
 
             if ($event->context->target()->is('correction')) {
-                // The article was sent to correction, the reason described in context
+                // Article was send to correction, the reason described in context
                 $article->author->notify(
                     new ArticleHasProblemNotification(
                         $article, $event->context->data()->get('reason')
@@ -580,7 +559,7 @@ Historical records presented by `\Codewiser\Workflow\Models\TransitionHistory`
 model, that holds information about transition performer, source and target 
 states and a context, if it were provided.
 
-Sometimes you may need to eagerly load the latest transition:
+Sometimes you may need to eager load the latest transition:
 
 ```php
 Article::query()->withLatestTransition();

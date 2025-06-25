@@ -7,14 +7,30 @@ use Illuminate\Support\MultipleItemsFoundException;
 
 class BlueprintValidator
 {
-    public StateCollection $states;
+    /**
+     * @var StateCollection
+     */
+    public $states;
 
-    public TransitionCollection $transitions;
+    /**
+     * @var TransitionCollection
+     */
+    public $transitions;
 
-    public bool $valid = true;
+    /**
+     * @var bool
+     */
+    public $valid = true;
 
-    public function __construct(public WorkflowBlueprint $blueprint)
+    /**
+     * @var WorkflowBlueprint
+     */
+    public $blueprint;
+
+    public function __construct(WorkflowBlueprint $blueprint)
     {
+        $this->blueprint = $blueprint;
+
         $this->states = StateCollection::make($blueprint->states());
 
         $this->transitions = TransitionCollection::make($blueprint->transitions());
@@ -25,8 +41,8 @@ class BlueprintValidator
         return $this->transitions
             ->map(function (Transition $transition) {
                 $row = [
-                    'source' => $transition->source->name,
-                    'target' => $transition->target->name,
+                    'source' => Value::scalar($transition->source),
+                    'target' => Value::scalar($transition->target),
                     'caption' => $transition->caption ?? $this->states->one($transition->target)->caption(),
                     'prerequisites' => $transition->prerequisites()->isEmpty() ? 'No' : 'Yes',
                     'authorization' => is_null($transition->authorization()) ? 'No' : 'Yes',
@@ -60,7 +76,7 @@ class BlueprintValidator
         return $this->states
             ->map(function (State $state) {
                 $row = [
-                    'value' => $state->value->name,
+                    'value' => Value::scalar($state),
                     'caption' => $state->caption(),
                     'additional' => json_encode($state->additional()),
                     'error' => null

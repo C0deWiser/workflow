@@ -32,15 +32,17 @@ class ShowCommand extends Command
 
     /**
      * Execute the console command.
+     *
+     * @return int
      */
-    public function handle(): void
+    public function handle(): int
     {
         $class = $this->option('class');
         $className = $this->classDiscover($this->option('class'));
 
         if (!$className) {
             $this->error("$class Not Found");
-            return;
+            return self::INVALID;
         }
 
         $this->info($className);
@@ -48,7 +50,7 @@ class ShowCommand extends Command
 
         if (!($blueprint instanceof WorkflowBlueprint)) {
             $this->warn("$class Not a WorkflowBlueprint instance");
-            return;
+            return self::INVALID;
         }
 
         $transitions = TransitionCollection::make($blueprint->transitions());
@@ -64,5 +66,8 @@ class ShowCommand extends Command
                         $this->warn("\t{$transition->caption}->{$target}");
                     });
             });
+
+        return self::SUCCESS;
     }
+
 }

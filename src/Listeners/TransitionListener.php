@@ -5,8 +5,11 @@ namespace Codewiser\Workflow\Listeners;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Models\TransitionHistory;
+use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\Value;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class TransitionListener
 {
@@ -25,7 +28,9 @@ class TransitionListener
     {
         $log = $this->newRecordFor($event->model, $event->engine);
 
-        $log->target = $event->context->target()->scalar();
+        $log->target = Value::scalar(
+            $event->context->target()
+        );
 
         $log->context = $event->context->data()->all() ?: null;
 
@@ -36,9 +41,13 @@ class TransitionListener
     {
         $log = $this->newRecordFor($event->model, $event->engine);
 
-        $log->source = $event->context->source()->scalar();
+        $log->source = Value::scalar(
+            $event->context->source()
+        );
 
-        $log->target = $event->context->target()->scalar();
+        $log->target = Value::scalar(
+            $event->context->target()
+        );
 
         $log->context = $event->context->data()->all() ?: null;
 

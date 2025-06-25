@@ -158,7 +158,9 @@ class StateMachineObserver
             $state = $engine->state() ?? $engine->getStateListing()->initial();
 
             // Pass context to state for validation. May throw an Exception
-            return $state->withContext($this->context($model, $attribute));
+            $state->context($this->context($model, $attribute));
+
+            return $state;
         }
 
         return null;
@@ -178,7 +180,9 @@ class StateMachineObserver
             }
 
             // Pass context to state, so it will be accessible in events.
-            return $state->withContext($this->context($model, $attribute));
+            $state->context($this->context($model, $attribute));
+
+            return $state;
         }
 
         return null;
@@ -205,7 +209,9 @@ class StateMachineObserver
                     ->sole();
 
                 // Pass context to transition for validation. May throw an Exception
-                return $transition->withContext($this->context($model, $attribute));
+                $transition->context($this->context($model, $attribute));
+
+                return $transition;
             }
         }
 
@@ -233,7 +239,9 @@ class StateMachineObserver
                     ->sole();
 
                 // Pass context to transition, so it will be accessible in events.
-                return $transition->withContext($this->context($model, $attribute));
+                $transition->context($this->context($model, $attribute));
+
+                return $transition;
             }
         }
 
