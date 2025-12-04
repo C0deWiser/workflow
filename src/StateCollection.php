@@ -8,7 +8,7 @@ use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 
 /**
- * @extends Collection<array-key, State>
+ * @extends Collection<int, State>
  */
 class StateCollection extends Collection
 {
@@ -46,8 +46,6 @@ class StateCollection extends Collection
      */
     public function one($state): State
     {
-        return $this->sole(function (State $st) use ($state) {
-            return $st->is($state);
-        });
+        return $this->sole(fn(State $st) => $st->is($state));
     }
 }

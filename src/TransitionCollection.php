@@ -9,7 +9,7 @@ use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * @extends Collection<array-key, Transition>
+ * @extends Collection<string, Transition>
  */
 class TransitionCollection extends Collection
 {
@@ -32,8 +32,7 @@ class TransitionCollection extends Collection
 
             if ($item instanceof Transition) {
                 // Filter unique transitions
-                $key = Value::scalar($item->source)
-                    .Value::scalar($item->target);
+                $key = Value::scalar($item->source).Value::scalar($item->target);
 
                 if (!isset($collection[$key])) {
                     $collection[$key] = $item;
@@ -51,9 +50,7 @@ class TransitionCollection extends Collection
      */
     public function from($state): self
     {
-        return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->source === $state;
-        });
+        return $this->filter(fn(Transition $transition) => $transition->source === $state);
     }
 
     /**
@@ -63,9 +60,7 @@ class TransitionCollection extends Collection
      */
     public function to($state): self
     {
-        return $this->filter(function (Transition $transition) use ($state) {
-            return $transition->target === $state;
-        });
+        return $this->filter(fn(Transition $transition) => $transition->target === $state);
     }
 
     /**
@@ -91,10 +86,10 @@ class TransitionCollection extends Collection
      */
     public function onlyAuthorized(): self
     {
-        return $this
-            ->filter(function (Transition $transition) {
-                return $transition->authorized();
-            })
-            ->values();
+        return self::make(
+            $this
+                ->filter(fn(Transition $transition) => $transition->authorized())
+                ->values()
+        );
     }
 }

@@ -49,6 +49,8 @@ trait HasValidationRules
 
     /**
      * Add requirement(s) to init/transition payload.
+     *
+     * @return $this
      */
     public function rules(array $rules): self
     {

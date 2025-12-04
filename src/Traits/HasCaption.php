@@ -12,7 +12,9 @@ trait HasCaption
     /**
      * Set State caption.
      *
-     * @param string|Closure $caption
+     * @param  string|callable(Model): string  $caption
+     *
+     * @return $this
      */
     public function as($caption): self
     {

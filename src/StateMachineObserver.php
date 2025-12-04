@@ -59,8 +59,8 @@ class StateMachineObserver
 
     public function creating(Model $model): bool
     {
-        $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) use ($model) {
+        return $this->getWorkflowListing($model)
+            ->reject(function (StateMachineEngine $engine) use ($model) {
 
                 $this->withEngine($engine);
 
@@ -68,9 +68,19 @@ class StateMachineObserver
 
                 // Set initial state
                 $model->setAttribute($engine->attribute, $state->value);
-            });
 
-        return true;
+                // Context for Events
+                $context = new Context($state, $engine->getActor());
+
+                // Run state callbacks
+                if ($engine->state()->invoke($model, $context) === false) {
+                    return false;
+                }
+
+                return true;
+            })
+            // Empty means there are no failures
+            ->isEmpty();
     }
 
     public function created(Model $model): void
@@ -107,11 +117,23 @@ class StateMachineObserver
                     // May throw an Exception
                     $transition->validate();
 
+                    // Context for Events
+                    $context = new Context($transition, $engine->getActor());
+
                     // For Transition Observer
                     if (method_exists($model, 'fireTransitionEvent')) {
-                        if ($model->fireTransitionEvent('transiting', true, $engine, $transition) === false) {
+                        if ($model->fireTransitionEvent('transiting', true, $engine, $context) === false) {
                             return false;
                         }
+                    }
+
+                    // Transition callbacks
+                    if ($transition->invoke($model, $context) === false) {
+                        return false;
+                    }
+                    // State callbacks
+                    if ($transition->target()->invoke($model, $context) === false) {
+                        return false;
                     }
                 }
 

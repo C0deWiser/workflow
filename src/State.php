@@ -72,7 +72,7 @@ class State implements Arrayable, Injectable
     {
         return $this->resolveCaption($this->engine()->model) ??
             ($this->value instanceof StateEnum
-                ? $this->value->caption($this->engine()->model)
+                ? $this->value->caption()
                 : Value::name($this));
     }
 
@@ -93,7 +93,7 @@ class State implements Arrayable, Injectable
     /**
      * Get proper ways out from the current state.
      *
-     * @return TransitionCollection<Transition>
+     * @return TransitionCollection<int, Transition>
      */
     public function transitions(): TransitionCollection
     {

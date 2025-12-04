@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 trait HasPrerequisites
@@ -14,7 +15,7 @@ trait HasPrerequisites
     /**
      * Get registered preconditions.
      *
-     * @return Collection<callable>
+     * @return Collection<int, callable(Model): void>
      */
     public function prerequisites(): Collection
     {
@@ -22,7 +23,12 @@ trait HasPrerequisites
     }
 
     /**
-     * Add prerequisite. Callback receives Model argument.
+     * Callback will run before transition starts.
+     * You may define few callbacks.
+     *
+     * @param  callable(Model): void  $prerequisite
+     *
+     * @return $this
      */
     public function before(callable $prerequisite): self
     {

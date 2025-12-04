@@ -101,8 +101,10 @@ class Transition implements Arrayable, Injectable
     /**
      * Authorize transition using policy ability (or closure).
      *
-     * @param  callable|string|null  $ability
-     * @param  callable|null  $callback
+     * @param  null|string|callable(Model, Transition): bool  $ability Ability name or callable.
+     * @param  null|callable(Model, Transition): bool  $callback
+     *
+     * @return $this
      */
     public function authorizedBy($ability = null, callable $callback = null): self
     {
@@ -130,9 +132,9 @@ class Transition implements Arrayable, Injectable
     {
         $this->prerequisites()
             ->merge($this->target()->prerequisites())
-            ->each(function ($condition) {
-                call_user_func($condition, $this->engine->model);
-            });
+            ->each(
+                fn(callable $condition) => call_user_func($condition, $this->engine->model)
+            );
 
         return $this;
     }
@@ -214,6 +216,8 @@ class Transition implements Arrayable, Injectable
 
     /**
      * Transition required to be charged to fire.
+     *
+     * @return $this
      */
     public function chargeable(Charge $charge): self
     {
@@ -233,7 +237,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Ability to authorize.
      *
-     * @return string|callable|null
+     * @return null|string|callable(Model, Transition): bool
      */
     public function authorization()
     {
@@ -242,6 +246,8 @@ class Transition implements Arrayable, Injectable
 
     /**
      * Check if transition authorized.
+     *
+     * @return null|$this
      */
     public function authorized(): ?self
     {
@@ -261,13 +267,13 @@ class Transition implements Arrayable, Injectable
     /**
      * Get a list of problems with the transition.
      *
-     * @return array<string>
+     * @return array<int, string>
      */
     public function issues(): array
     {
         return $this->prerequisites()
             ->merge($this->target()->prerequisites())
-            ->map(function ($condition) {
+            ->map(function (callable $condition) {
                 try {
                     call_user_func($condition, $this->engine->model);
                 } catch (TransitionFatalException $exception) {
@@ -311,7 +317,7 @@ class Transition implements Arrayable, Injectable
      *
      * @return TModel
      */
-    public function transit(array $context = [])
+    public function transit(array $context = []): Model
     {
         return $this->engine()->transit($this->target, $context);
     }
