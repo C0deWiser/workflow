@@ -38,6 +38,8 @@ trait HasCaption
 
     /**
      * Get the caption of the State.
+     *
+     * @internal
      */
     abstract public function caption(): string;
 }

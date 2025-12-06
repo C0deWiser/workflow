@@ -16,6 +16,7 @@ trait HasPrerequisites
      * Get registered preconditions.
      *
      * @return Collection<int, callable(Model): void>
+     * @internal
      */
     public function prerequisites(): Collection
     {

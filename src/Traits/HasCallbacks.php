@@ -43,7 +43,7 @@ trait HasCallbacks
      *
      * @return $this
      */
-    public function after(callable $callback): self
+    public function reached(callable $callback): self
     {
         $this->onSavedCallbacks[] = $callback;
 
@@ -51,19 +51,33 @@ trait HasCallbacks
     }
 
     /**
+     * Callback will run after transition is done and state is reached.
+     * You may define few callbacks.
+     *
+     * @param  callable(Model, Context): void  $callback
+     *
+     * @return $this
+     */
+    public function after(callable $callback): self
+    {
+        return $this->reached($callback);
+    }
+
+    /**
      * Run callbacks.
      *
      * @return void|bool
+     * @internal
      */
-    public function invoke(Model $model, Context $context)
+    public function invoke(Model $model, Context $context, string $event)
     {
-        if ($model->isDirty() || !$model->exists) {
+        if ($event === 'saving') {
             foreach ($this->onSavingCallbacks as $callback) {
                 if (call_user_func($callback, $model, $context) === false) {
                     return false;
                 }
             }
-        } else {
+        } elseif ($event === 'saved') {
             foreach ($this->onSavedCallbacks as $callback) {
                 call_user_func($callback, $model, $context);
             }

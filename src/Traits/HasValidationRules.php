@@ -31,6 +31,8 @@ trait HasValidationRules
 
     /**
      * Get attributes, that must be provided into transit() or init() method.
+     *
+     * @internal
      */
     public function validationRules($explode = false): array
     {
@@ -59,6 +61,9 @@ trait HasValidationRules
         return $this;
     }
 
+    /**
+     * @internal
+     */
     public function mergeRules(array $rules): array
     {
         $merged = [];

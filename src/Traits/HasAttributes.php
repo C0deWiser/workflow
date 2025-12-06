@@ -9,8 +9,8 @@ trait HasAttributes
     /**
      * Set any additional attribute: color, order, etc.
      *
-     * @param string $attribute
-     * @param mixed $value
+     * @param  string  $attribute
+     * @param  mixed  $value
      *
      * @return $this
      */
@@ -23,6 +23,8 @@ trait HasAttributes
 
     /**
      * Get additional attributes.
+     *
+     * @internal
      */
     public function additional(): array
     {

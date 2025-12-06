@@ -73,7 +73,7 @@ class StateMachineObserver
                 $context = new Context($state, $engine->getActor());
 
                 // Run state callbacks
-                if ($engine->state()->invoke($model, $context) === false) {
+                if ($engine->state()->invoke($model, $context, 'saving') === false) {
                     return false;
                 }
 
@@ -99,7 +99,7 @@ class StateMachineObserver
                 event(new ModelInitialized($engine, $context));
 
                 // Run state callbacks
-                $engine->state()->invoke($model, $context);
+                $engine->state()->invoke($model, $context, 'saved');
             });
     }
 
@@ -128,11 +128,11 @@ class StateMachineObserver
                     }
 
                     // Transition callbacks
-                    if ($transition->invoke($model, $context) === false) {
+                    if ($transition->invoke($model, $context, 'saving') === false) {
                         return false;
                     }
                     // State callbacks
-                    if ($transition->target()->invoke($model, $context) === false) {
+                    if ($transition->target()->invoke($model, $context, 'saving') === false) {
                         return false;
                     }
                 }
@@ -164,9 +164,9 @@ class StateMachineObserver
                     event(new ModelTransited($engine, $context));
 
                     // Transition callbacks
-                    $transition->invoke($model, $context);
+                    $transition->invoke($model, $context, 'saved');
                     // State callbacks
-                    $transition->target()->invoke($model, $context);
+                    $transition->target()->invoke($model, $context, 'saved');
                 }
             });
     }
