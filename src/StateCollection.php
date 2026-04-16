@@ -16,7 +16,7 @@ class StateCollection extends Collection
 
     public static function make($items = [], ...$args): self
     {
-        $collection = new static($items, ...$args);
+        $collection = [];
 
         foreach ($items as $item) {
 
@@ -24,10 +24,14 @@ class StateCollection extends Collection
                 $item = State::make($item);
             }
 
-            $collection->add($item);
+            $key = Value::scalar($item->value);
+
+            if (!isset($collection[$key])) {
+                $collection[$key] = $item;
+            }
         }
 
-        return $collection;
+        return new static(array_values($collection), ...$args);
     }
 
     public function initial(): State
