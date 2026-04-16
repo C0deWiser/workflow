@@ -14,9 +14,9 @@ class StateCollection extends Collection
 {
     use Injection;
 
-    public static function make($items = []): self
+    public static function make($items = [], ...$args): self
     {
-        $collection = new static();
+        $collection = new static($items, ...$args);
 
         foreach ($items as $item) {
 

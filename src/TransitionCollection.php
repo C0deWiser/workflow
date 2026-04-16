@@ -20,7 +20,7 @@ class TransitionCollection extends Collection
      *
      * @return TransitionCollection
      */
-    public static function make($items = []): TransitionCollection
+    public static function make($items = [], ...$args): TransitionCollection
     {
         $collection = [];
 
@@ -40,7 +40,7 @@ class TransitionCollection extends Collection
             }
         }
 
-        return new static(array_values($collection));
+        return new static(array_values($collection), ...$args);
     }
 
     /**
