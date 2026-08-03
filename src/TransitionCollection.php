@@ -16,7 +16,7 @@ class TransitionCollection extends Collection
     use Injection;
 
     /**
-     * @param  array<int, array<int, scalar>|Transition>  $items
+     * @param  array  $items
      *
      * @return TransitionCollection
      */
@@ -26,12 +26,17 @@ class TransitionCollection extends Collection
 
         foreach ($items as $item) {
 
-            if (is_array($item) && count($item) === 2) {
+            if (is_array($item)) {
                 $item = Transition::make($item[0], $item[1]);
             }
 
             if ($item instanceof Transition) {
-                $collection[] = $item;
+                // Filter unique transitions
+                $key = Value::scalar($item->source).Value::scalar($item->target);
+
+                if (!isset($collection[$key])) {
+                    $collection[$key] = $item;
+                }
             }
         }
 
