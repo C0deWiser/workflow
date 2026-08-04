@@ -87,7 +87,7 @@ class State implements Arrayable, Injectable
 
     public function additional(): array
     {
-        return $this->additional + ($this->value instanceof StateEnum ? $this->value->attributes() : []);
+        return $this->resolveAttributes($this->engine()->model) + ($this->value instanceof StateEnum ? $this->value->attributes() : []);
     }
 
     /**

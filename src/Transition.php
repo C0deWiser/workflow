@@ -176,6 +176,11 @@ class Transition implements Arrayable, Injectable
         return $this->resolveCaption($this->engine()->model) ?? $this->target()->caption();
     }
 
+    public function additional(): array
+    {
+        return $this->resolveAttributes($this->engine()->model);
+    }
+
     public function chronicle(?Model $performer): ?string
     {
         if (is_callable($this->footprint)) {
