@@ -48,7 +48,7 @@ trait HasWorkflow
     {
         if (!isset($this->state_machines[$attribute])) {
 
-            $blueprint = $blueprint instanceof WorkflowBlueprint ?: new $blueprint;
+            $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
 
             $this->state_machines[$attribute] = new StateMachineEngine($blueprint, $this, $attribute);
         }
