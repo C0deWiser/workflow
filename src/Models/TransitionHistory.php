@@ -63,6 +63,17 @@ class TransitionHistory extends Model
 
     public function blueprint(): ?WorkflowBlueprint
     {
+        if ($this->transitionable instanceof Blueprinted) {
+            // Good style
+            foreach ($this->transitionable->blueprints() as $blueprint) {
+                $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
+                if (get_class($blueprint) === $this->blueprint) {
+                    return $blueprint;
+                }
+            }
+        }
+
+        // Bad style
         $class = $this->blueprint;
 
         return class_exists($class) ? new $class : null;
