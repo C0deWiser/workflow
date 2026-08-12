@@ -3,6 +3,7 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Contracts\Workflow;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Support\Arrayable;
@@ -12,29 +13,28 @@ use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @template TModel of \Illuminate\Database\Eloquent\Model
- * @template TType
+ * @template TModel of (Model&Workflow)
+ * @template TType of \BackedEnum
  */
-class StateMachineEngine implements Arrayable
+class StateMachine implements Arrayable
 {
     protected ?StateCollection $states = null;
 
     protected ?TransitionCollection $transitions = null;
 
-    public WorkflowBlueprint $blueprint;
+    /**
+     * @var array<string, array>
+     */
+    public static array $context = [];
 
     /**
-     * @var TModel
+     * @param  WorkflowBlueprint  $blueprint
+     * @param  TModel  $model
+     * @param  string  $attribute
      */
-    public $model;
-
-    public string $attribute;
-
-    public function __construct(WorkflowBlueprint $blueprint, Model $model, string $attribute)
+    public function __construct(public WorkflowBlueprint $blueprint, public Model&Workflow $model, public string $attribute)
     {
-        $this->attribute = $attribute;
-        $this->blueprint = $blueprint;
-        $this->model = $model;
+        //
     }
 
     public function __serialize(): array
@@ -67,7 +67,7 @@ class StateMachineEngine implements Arrayable
      */
     public function getStateListing(): StateCollection
     {
-        if (!$this->states) {
+        if (! $this->states) {
             $this->states = StateCollection::make($this->blueprint->states())->injectWith($this);
         }
 
@@ -79,7 +79,7 @@ class StateMachineEngine implements Arrayable
      */
     public function getTransitionListing(): TransitionCollection
     {
-        if (!$this->transitions) {
+        if (! $this->transitions) {
             $this->transitions = TransitionCollection::make($this->blueprint->transitions())->injectWith($this);
         }
 
@@ -91,24 +91,24 @@ class StateMachineEngine implements Arrayable
      */
     public function transitions(): TransitionCollection
     {
-        return $this->state() ? $this->state()->transitions() : TransitionCollection::make();
+        return $this->state() ? $this->state()->transitions() : new TransitionCollection();
     }
 
     /**
      * Init model's workflow with default (or any) state and optional context. Returns Model for you to save it.
      *
      * @param  array  $context
-     * @param  null|TType  $state  Override initial state.
+     * @param  null|TType  $enum  Override initial state.
      *
      * @return TModel
      */
-    public function init(array $context = [], $state = null): Model
+    public function init(array $context = [], \BackedEnum $enum = null): Model&Workflow
     {
         // Set initial state
-        if ($state) {
+        if ($enum) {
             $this->model->setAttribute(
                 $this->attribute,
-                $state
+                $enum
             );
         }
 
@@ -121,23 +121,23 @@ class StateMachineEngine implements Arrayable
     /**
      * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
-     * @param  TType  $state
+     * @param  TType  $enum
      * @param  array  $context
      *
      * @return TModel
      * @throws ValidationException
      * @throws ItemNotFoundException
      */
-    public function transit($state, array $context = [])
+    public function transit(\BackedEnum $enum, array $context = []): Model&Workflow
     {
         // Charging transition?
-        if ($transition = $this->transitionTo($state)) {
+        if ($transition = $this->transitionTo($enum)) {
             if ($charge = $transition->charge()) {
                 if ($charge->mayCharge($transition)) {
                     $transition->context($context);
                     $charge->charge($transition);
                 }
-                if (!$charge->charged($transition)) {
+                if (! $charge->charged($transition)) {
                     return $this->model;
                 }
             }
@@ -148,7 +148,7 @@ class StateMachineEngine implements Arrayable
         // Fire transition
         $this->model->setAttribute(
             $this->attribute,
-            $state
+            $enum
         );
 
         // Put context for later use in observer
@@ -157,33 +157,29 @@ class StateMachineEngine implements Arrayable
         return $this->model;
     }
 
-    public function setContext(array $context = [])
+    public function setContext(array $context = []): void
     {
-        if (property_exists($this->model, 'transition_context')) {
-            $this->model->transition_context = [
-                $this->attribute => $context
-            ];
-        }
+        self::$context[$this->attribute] = $context;
     }
 
     /**
      * Authorize transition to the new state.
      *
-     * @param  TType  $target
+     * @param  TType  $enum
      *
      * @throws AuthorizationException
      */
-    public function authorize($target): self
+    public function authorize(\BackedEnum $enum): static
     {
         $transition = $this->transitions()
-            ->to($target)
+            ->to($enum)
             ->sole();
 
-        if ($ability = $transition->authorization()) {
-            if (is_string($ability)) {
-                Gate::authorize($ability, [$this->model, $transition]);
-            } elseif (is_callable($ability)) {
-                if (!call_user_func($ability, $this->model, $transition)) {
+        if ($authorization = $transition->authorization()) {
+            if (is_string($authorization)) {
+                Gate::authorize($authorization, [$this->model, $transition]);
+            } elseif (is_callable($authorization)) {
+                if (call_user_func($authorization, $this->model, $transition) === false) {
                     throw new AuthorizationException();
                 }
             }
@@ -207,48 +203,40 @@ class StateMachineEngine implements Arrayable
     /**
      * Check if the state has given value.
      *
-     * @param  TType  $state
+     * @param  TType  $enum
      */
-    public function is($state): bool
+    public function is(\BackedEnum $enum): bool
     {
-        return $this->state() && $this->state()->is($state);
+        return $this->state()?->is($enum);
     }
 
     /**
      * Check if the state doesn't have given value.
      *
-     * @param  TType  $state
+     * @param  TType  $enum
      */
-    public function isNot($state): bool
+    public function isNot(\BackedEnum $enum): bool
     {
-        return $this->state() && $this->state()->isNot($state);
+        return ! $this->state() || $this->state()->isNot($enum);
     }
 
     public function toArray(): array
     {
-        $state = $this->state() ? $this->state()->toArray() : [];
+        $state = $this->state()?->toArray() ?? [];
         $transitions = $this->transitions()->onlyAuthorized()->toArray();
 
         return $state + ['transitions' => $transitions];
     }
 
     /**
-     * Observer watches for transitions...
-     */
-    public function observer(): StateMachineObserver
-    {
-        return new StateMachineObserver($this);
-    }
-
-    /**
      * Get the transition from the current state if it exists.
      *
-     * @param  TType  $target
+     * @param  TType  $enum
      *
      * @return null|Transition<TModel, TType>
      */
-    public function transitionTo($target): ?Transition
+    public function transitionTo(\BackedEnum $enum): ?Transition
     {
-        return $this->state()->transitionTo($target);
+        return $this->state()->transitionTo($enum);
     }
 }

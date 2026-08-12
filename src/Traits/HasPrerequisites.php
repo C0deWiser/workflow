@@ -9,6 +9,8 @@ trait HasPrerequisites
 {
     /**
      * Callable collection, that would be invoked before transit.
+     *
+     * @var array<int, callable(Model): void>
      */
     protected array $prerequisites = [];
 
@@ -28,10 +30,8 @@ trait HasPrerequisites
      * You may define few callbacks.
      *
      * @param  callable(Model): void  $prerequisite
-     *
-     * @return $this
      */
-    public function before(callable $prerequisite): self
+    public function before(callable $prerequisite): static
     {
         $this->prerequisites[] = $prerequisite;
 

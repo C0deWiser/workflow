@@ -2,13 +2,12 @@
 
 namespace Codewiser\Workflow\Models;
 
-use Codewiser\Workflow\Contracts\Blueprinted;
+use Codewiser\Workflow\Contracts\Workflow;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
-use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
-use Codewiser\Workflow\Value;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -19,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
 /**
+ * @template TModel of (Model&Workflow)
+ * @template TType of \BackedEnum
+ *
  * @property integer $id
  * @property string $blueprint
  * @property string|null $source
@@ -27,10 +29,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  *
- * @property-read Authenticatable|null $performer
- * @property-read Model $transitionable
- *
- * @template TType
+ * @property Authenticatable|null $performer
+ * @property Model&Workflow $transitionable
  */
 class TransitionHistory extends Model
 {
@@ -42,13 +42,11 @@ class TransitionHistory extends Model
         'context' => 'array'
     ];
 
-    protected ?StateMachineEngine $engine = null;
+    protected ?StateMachine $engine = null;
 
-    protected static function booted()
+    protected static function booted(): void
     {
-        static::addGlobalScope('latest', function (Builder $builder) {
-            $builder->latest();
-        });
+        static::addGlobalScope('latest', fn(Builder $builder) => $builder->latest());
     }
 
     public function performer(): MorphTo
@@ -63,59 +61,35 @@ class TransitionHistory extends Model
 
     public function blueprint(): ?WorkflowBlueprint
     {
-        if ($this->transitionable instanceof Blueprinted) {
-            // Good style
-            foreach ($this->transitionable->blueprints() as $blueprint) {
-                $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
-                if (get_class($blueprint) === $this->blueprint) {
-                    return $blueprint;
-                }
-            }
-        }
-
-        // Bad style
-        $class = $this->blueprint;
-
-        return class_exists($class) ? new $class : null;
+        return $this->engine()?->blueprint;
     }
 
-    protected function engine(): StateMachineEngine
+    protected function engine(): ?StateMachine
     {
-        if (! $this->engine && $this->transitionable instanceof Blueprinted) {
-            // Good style
+        if (! $this->engine) {
             foreach ($this->transitionable->blueprints() as $attribute => $blueprint) {
-
                 $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
-
                 if (get_class($blueprint) === $this->blueprint) {
-                    $this->engine = new StateMachineEngine($blueprint, $this->transitionable, $attribute);
+                    $this->engine = new StateMachine($blueprint, $this->transitionable, $attribute);
                 }
             }
-        }
-
-        if (! $this->engine) {
-            // Bad style
-            $this->engine = new StateMachineEngine(
-                new $this->blueprint(),
-                $this->transitionable,
-                // Not a real attribute! Just for history!
-                'attr'
-            );
         }
 
         return $this->engine;
     }
 
-    protected function state($value): ?State
+    protected function state(string|int|\BackedEnum $value): ?State
     {
-        if ($engine = $this->engine()) {
-            return $engine->getStateListing()->first(fn(State $state) => Value::scalar($state) === $value);
+        if ($value instanceof \BackedEnum) {
+            $value = $value->value;
         }
 
-        return null;
+        return $this->engine()?->getStateListing()->first(fn(State $state) => $state->enum->value === $value);
     }
 
     /**
+     * Restore object for the source state.
+     *
      * @return null|State<TType>
      */
     public function source(): ?State
@@ -128,6 +102,8 @@ class TransitionHistory extends Model
     }
 
     /**
+     * Restore object for the target state.
+     *
      * @return null|State<TType>
      */
     public function target(): ?State
@@ -136,20 +112,22 @@ class TransitionHistory extends Model
     }
 
     /**
-     * @return null|Transition<Model, TType>
+     * Restore object for the transition.
+     *
+     * @return null|Transition<TModel, TType>
      */
     public function transition(): ?Transition
     {
-        $blueprint = $this->blueprint();
+        $engine = $this->engine();
+        $source = $this->source();
+        $target = $this->target();
 
-        if ($blueprint && ($source = $this->source()) && ($target = $this->target())) {
+        if ($engine && $source && $target) {
             try {
-
-                $transition = TransitionCollection::make($blueprint->transitions())
-                    ->from($source->value)
-                    ->to($target->value)
-                    ->sole()
-                    ->inject($this->engine());
+                $transition = $engine->getTransitionListing()
+                    ->from($source->enum)
+                    ->to($target->enum)
+                    ->sole();
 
                 if ($context = $this->context) {
                     $transition->context($context);
@@ -157,7 +135,7 @@ class TransitionHistory extends Model
 
                 return $transition;
 
-            } catch (Exception $exception) {
+            } catch (Exception) {
                 //
             }
         }

@@ -3,7 +3,7 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Contracts\Injectable;
-use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\StateMachine;
 use Illuminate\Support\Collection;
 
 /**
@@ -11,10 +11,10 @@ use Illuminate\Support\Collection;
  */
 trait Injection
 {
-    public function injectWith(StateMachineEngine $engine): self
+    public function injectWith(StateMachine $engine): static
     {
-        return $this->each(function (Injectable $item) use ($engine) {
-            $item->inject($engine);
-        });
+        return $this->each(
+            fn(Injectable $item) => $item->inject($engine)
+        );
     }
 }

@@ -15,12 +15,7 @@ class TransitionCollection extends Collection
 {
     use Injection;
 
-    /**
-     * @param  array  $items
-     *
-     * @return TransitionCollection
-     */
-    public static function make($items = [], ...$args): TransitionCollection
+    public static function make($items = [], ...$args): static
     {
         $collection = [];
 
@@ -32,7 +27,7 @@ class TransitionCollection extends Collection
 
             if ($item instanceof Transition) {
                 // Filter unique transitions
-                $key = Value::scalar($item->source).Value::scalar($item->target);
+                $key = $item->source->value.$item->target->value;
 
                 if (!isset($collection[$key])) {
                     $collection[$key] = $item;
@@ -44,38 +39,38 @@ class TransitionCollection extends Collection
     }
 
     /**
-     * Get transitions from given state.
-     *
-     * @param  mixed  $state
+     * Get transitions from a given state.
      */
-    public function from($state): self
+    public function from(\BackedEnum $enum): static
     {
-        return $this->filter(fn(Transition $transition) => $transition->source === $state);
+        return $this->filter(
+            fn(Transition $transition) => $transition->source === $enum
+        );
     }
 
     /**
-     * Get transitions to given state.
-     *
-     * @param  mixed  $state
+     * Get transitions to a given state.
      */
-    public function to($state): self
+    public function to(\BackedEnum $enum): static
     {
-        return $this->filter(fn(Transition $transition) => $transition->target === $state);
+        return $this->filter(
+            fn(Transition $transition) => $transition->target === $enum
+        );
     }
 
     /**
      * Get transitions without fatal conditions.
      */
-    public function withoutForbidden(): self
+    public function withoutForbidden(): static
     {
         return $this
             ->reject(function (Transition $transition) {
                 try {
                     $transition->validate();
-                } catch (TransitionFatalException $exception) {
+                } catch (TransitionFatalException) {
                     return true;
-                } catch (TransitionRecoverableException $exception) {
-
+                } catch (TransitionRecoverableException) {
+                    return false;
                 }
                 return false;
             });
@@ -84,12 +79,12 @@ class TransitionCollection extends Collection
     /**
      * Get authorized transitions.
      */
-    public function onlyAuthorized(): self
+    public function onlyAuthorized(): static
     {
-        return self::make(
-            $this
-                ->filter(fn(Transition $transition) => $transition->authorized())
-                ->values()
-        );
+        $filtered = $this
+            ->filter(fn(Transition $transition) => $transition->authorized())
+            ->values();
+
+        return new static($filtered);
     }
 }

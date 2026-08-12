@@ -4,7 +4,10 @@ namespace Codewiser\Workflow\Contracts;
 
 use Codewiser\Workflow\WorkflowBlueprint;
 
-interface Blueprinted
+/**
+ * Model with workflow.
+ */
+interface Workflow
 {
     /**
      * Should return a blueprint for every attribute.

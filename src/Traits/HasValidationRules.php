@@ -51,10 +51,8 @@ trait HasValidationRules
 
     /**
      * Add requirement(s) to init/transition payload.
-     *
-     * @return $this
      */
-    public function rules(array $rules): self
+    public function rules(array $rules): static
     {
         $this->rules = $rules;
 

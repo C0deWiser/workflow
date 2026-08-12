@@ -3,31 +3,20 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Contracts\Blueprinted;
+use Codewiser\Workflow\Contracts\Workflow;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use ReflectionClass;
-use ReflectionException;
-use ReflectionNamedType;
 
 /**
  * Initiates State Machine, watches for changes, fires Event.
  */
-class StateMachineObserver
+class WorkflowObserver
 {
-    /**
-     * @var StateMachineEngine|null
-     */
-    protected $engine = null;
+    protected ?StateMachine $engine = null;
 
-    public function __construct(?StateMachineEngine $engine = null)
-    {
-        $this->engine = $engine;
-    }
-
-    protected function withEngine(StateMachineEngine $engine): self
+    protected function withEngine(StateMachine $engine): static
     {
         $this->engine = $engine;
 
@@ -35,49 +24,31 @@ class StateMachineObserver
     }
 
     /**
-     * @param Model $model
-     * @return Collection<StateMachineEngine>
+     * @return Collection<int, StateMachine>
      */
-    private function getWorkflowListing(Model $model): Collection
+    private function getWorkflowListing(Model&Workflow $model): Collection
     {
-        $blueprints = [];
+        $engines = [];
 
-        if ($model instanceof Blueprinted) {
-            // Good style
-            foreach ($model->blueprints() as $attribute => $blueprint) {
-                $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
-                $blueprints[] = new StateMachineEngine($blueprint, $model, $attribute);
-            }
-        } else {
-            // Bad style
-            $reflect = new ReflectionClass($model);
-            foreach ($reflect->getMethods() as $method) {
-
-                if ($method->isPublic()) {
-                    $return_type = $method->getReturnType();
-
-                    if ($return_type instanceof ReflectionNamedType &&
-                        $return_type->getName() == StateMachineEngine::class) {
-                        $blueprints[] = $method->invoke($model);
-                    }
-                }
-            }
+        foreach ($model->blueprints() as $attribute => $blueprint) {
+            $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
+            $engines[] = new StateMachine($blueprint, $model, $attribute);
         }
 
-        return collect($blueprints);
+        return new Collection($engines);
     }
 
-    public function creating(Model $model): bool
+    public function creating(Model&Workflow $model): bool
     {
         return $this->getWorkflowListing($model)
-            ->reject(function (StateMachineEngine $engine) use ($model) {
+            ->reject(function (StateMachine $engine) use ($model) {
 
                 $this->withEngine($engine);
 
                 $state = $this->nowCreating();
 
                 // Set initial state
-                $model->setAttribute($engine->attribute, $state->value);
+                $model->setAttribute($engine->attribute, $state->enum);
 
                 // Context for Events
                 $context = new Context($state, $engine->getActor());
@@ -93,10 +64,10 @@ class StateMachineObserver
             ->isEmpty();
     }
 
-    public function created(Model $model): void
+    public function created(Model&Workflow $model): void
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) use ($model) {
+            ->each(function (StateMachine $engine) use ($model) {
 
                 $this->withEngine($engine);
 
@@ -113,12 +84,12 @@ class StateMachineObserver
             });
     }
 
-    public function updating(Model $model): bool
+    public function updating(Model&Workflow $model): bool
     {
         // If one transition is invalid, all update is invalid
         return $this->getWorkflowListing($model)
             // Rejecting successful validations
-            ->reject(function (StateMachineEngine $engine) use ($model) {
+            ->reject(function (StateMachine $engine) use ($model) {
 
                 $this->withEngine($engine);
 
@@ -153,10 +124,10 @@ class StateMachineObserver
             ->isEmpty();
     }
 
-    public function updated(Model $model): void
+    public function updated(Model&Workflow $model): void
     {
         $this->getWorkflowListing($model)
-            ->each(function (StateMachineEngine $engine) use ($model) {
+            ->each(function (StateMachine $engine) use ($model) {
 
                 $this->withEngine($engine);
 
@@ -184,13 +155,12 @@ class StateMachineObserver
     public function nowCreating(): ?State
     {
         if ($engine = $this->engine) {
-            $model = $engine->model;
             $attribute = $engine->attribute;
 
             $state = $engine->state() ?? $engine->getStateListing()->initial();
 
             // Pass context to state for validation. May throw an Exception
-            $state->context($this->context($model, $attribute));
+            $state->context($this->context($engine, $attribute));
 
             return $state;
         }
@@ -201,18 +171,17 @@ class StateMachineObserver
     public function wasCreated(): ?State
     {
         if ($engine = $this->engine) {
-            $model = $engine->model;
             $attribute = $engine->attribute;
 
             $state = $engine->state();
 
             // State must exist
-            if (!$state) {
+            if (! $state) {
                 throw new \Illuminate\Support\ItemNotFoundException('Initial state not found');
             }
 
             // Pass context to state, so it will be accessible in events.
-            $state->context($this->context($model, $attribute));
+            $state->context($this->context($engine, $attribute));
 
             return $state;
         }
@@ -241,7 +210,7 @@ class StateMachineObserver
                     ->sole();
 
                 // Pass context to transition for validation. May throw an Exception
-                $transition->context($this->context($model, $attribute));
+                $transition->context($this->context($engine, $attribute));
 
                 return $transition;
             }
@@ -271,7 +240,7 @@ class StateMachineObserver
                     ->sole();
 
                 // Pass context to transition, so it will be accessible in events.
-                $transition->context($this->context($model, $attribute));
+                $transition->context($this->context($engine, $attribute));
 
                 return $transition;
             }
@@ -280,14 +249,8 @@ class StateMachineObserver
         return null;
     }
 
-    public function context(Model $model, string $attribute): array
+    public function context(StateMachine $engine, string $attribute): array
     {
-        if (property_exists($model, 'transition_context')) {
-            if (isset($model->transition_context[$attribute])) {
-                return $model->transition_context[$attribute];
-            }
-        }
-
-        return [];
+        return $engine::$context[$attribute] ?? [];
     }
 }

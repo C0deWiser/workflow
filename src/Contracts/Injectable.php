@@ -2,7 +2,7 @@
 
 namespace Codewiser\Workflow\Contracts;
 
-use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\StateMachine;
 
 interface Injectable
 {
@@ -11,10 +11,10 @@ interface Injectable
      *
      * @return $this
      */
-    public function inject(StateMachineEngine $engine);
+    public function inject(StateMachine $engine);
 
     /**
      * Get State Machine Engine.
      */
-    public function engine(): StateMachineEngine;
+    public function engine(): StateMachine;
 }

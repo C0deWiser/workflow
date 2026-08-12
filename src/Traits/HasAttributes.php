@@ -11,12 +11,9 @@ trait HasAttributes
     /**
      * Set any additional attribute: color, order, etc.
      *
-     * @param  string  $attribute
-     * @param  scalar|callable(Model):scalar  $value
-     *
-     * @return $this
+     * @param  callable(Model):scalar|scalar  $value
      */
-    public function set(string $attribute, $value): self
+    public function set(string $attribute, callable|float|bool|int|string $value): static
     {
         $this->additional[$attribute] = $value;
 
@@ -32,7 +29,7 @@ trait HasAttributes
                 $additional[$attribute] = call_user_func($value, $model);
             }
 
-            if (is_string($value)) {
+            if (is_scalar($value)) {
                 $additional[$attribute] = $value;
             }
         }

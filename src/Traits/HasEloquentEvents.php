@@ -8,7 +8,7 @@ use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
-trait HasCallbacks
+trait HasEloquentEvents
 {
     /**
      * Callable collection, that would be invoked during event.
@@ -24,11 +24,9 @@ trait HasCallbacks
      * Callback will run inside a transition before model is saved.
      * You may define few callbacks.
      *
-     * @param  callable(Model, Context): void|bool  $callback
-     *
-     * @return $this
+     * @param  callable(Model, Context): (void|bool)  $callback
      */
-    public function saving(callable $callback): self
+    public function saving(callable $callback): static
     {
         $this->onSavingCallbacks[] = $callback;
 
@@ -40,27 +38,12 @@ trait HasCallbacks
      * You may define few callbacks.
      *
      * @param  callable(Model, Context): void  $callback
-     *
-     * @return $this
      */
-    public function reached(callable $callback): self
+    public function saved(callable $callback): static
     {
         $this->onSavedCallbacks[] = $callback;
 
         return $this;
-    }
-
-    /**
-     * Callback will run after transition is done and state is reached.
-     * You may define few callbacks.
-     *
-     * @param  callable(Model, Context): void  $callback
-     *
-     * @return $this
-     */
-    public function after(callable $callback): self
-    {
-        return $this->reached($callback);
     }
 
     /**

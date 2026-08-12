@@ -11,10 +11,8 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * @mixin Model
- *
- * @property-read Collection|TransitionHistory[] $transitions
- * @property-read null|TransitionHistory $latest_transition
+ * @property-read Collection<int, TransitionHistory> $transitions Transitions history.
+ * @property-read null|TransitionHistory $latest_transition The lataset transition.
  */
 trait HasTransitionHistory
 {
@@ -30,21 +28,26 @@ trait HasTransitionHistory
             ->latestOfMany();
     }
 
-    public function loadLatestTransition(?\Closure $performer = null, ?\Closure $transitionable = null): self
+    public function loadLatestTransition(?\Closure $performer = null, ?\Closure $transitionable = null): static
     {
         return $this->load($this->getLatestTransitionConstraining($performer, $transitionable));
     }
 
-    public function scopeWithLatestTransition(Builder $builder, ?\Closure $performer = null, ?\Closure $transitionable = null): void
-    {
+    public function scopeWithLatestTransition(
+        Builder $builder,
+        ?\Closure $performer = null,
+        ?\Closure $transitionable = null
+    ): void {
         $builder->with($this->getLatestTransitionConstraining($performer, $transitionable));
     }
 
-    protected function getLatestTransitionConstraining(?\Closure $performer = null, ?\Closure $transitionable = null): array
-    {
+    protected function getLatestTransitionConstraining(
+        ?\Closure $performer = null,
+        ?\Closure $transitionable = null
+    ): array {
         return [
             'latest_transition' => [
-                'performer'      => $performer ?? fn(MorphTo $builder) => $builder,
+                'performer' => $performer ?? fn(MorphTo $builder) => $builder,
                 'transitionable' => $transitionable ?? fn(MorphTo $builder) => $builder
             ]
         ];

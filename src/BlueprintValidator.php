@@ -7,30 +7,14 @@ use Illuminate\Support\MultipleItemsFoundException;
 
 class BlueprintValidator
 {
-    /**
-     * @var StateCollection
-     */
-    public $states;
+    public StateCollection $states;
 
-    /**
-     * @var TransitionCollection
-     */
-    public $transitions;
+    public TransitionCollection $transitions;
 
-    /**
-     * @var bool
-     */
-    public $valid = true;
+    public bool $valid = true;
 
-    /**
-     * @var WorkflowBlueprint
-     */
-    public $blueprint;
-
-    public function __construct(WorkflowBlueprint $blueprint)
+    public function __construct(public WorkflowBlueprint $blueprint)
     {
-        $this->blueprint = $blueprint;
-
         $this->states = StateCollection::make($blueprint->states());
 
         $this->transitions = TransitionCollection::make($blueprint->transitions());
@@ -40,15 +24,18 @@ class BlueprintValidator
     {
         return $this->transitions
             ->map(function (Transition $transition) {
+
+                $target = $this->states->one($transition->target);
+
                 $row = [
-                    'source' => Value::scalar($transition->source),
-                    'target' => Value::scalar($transition->target),
-                    'caption' => $transition->caption ?? $this->states->one($transition->target)->caption(),
-                    'prerequisites' => $transition->prerequisites()->isEmpty() ? 'No' : 'Yes',
+                    'source'        => $transition->source->value,
+                    'target'        => $transition->target->value,
+                    'caption'       => $transition->caption ?? $target->caption(),
+                    'prerequisites' => $transition->prerequisites()->count(),
                     'authorization' => is_null($transition->authorization()) ? 'No' : 'Yes',
-                    'rules' => json_encode($transition->validationRules(true)),
-                    'additional' => json_encode($transition->additional() + $this->states->one($transition->target)->additional()),
-                    'errors' => []
+                    'rules'         => json_encode($transition->validationRules(true)),
+                    'additional'    => json_encode($transition->additional() + $target->additional()),
+                    'errors'        => []
                 ];
 
                 try {
@@ -76,14 +63,14 @@ class BlueprintValidator
         return $this->states
             ->map(function (State $state) {
                 $row = [
-                    'value' => Value::scalar($state),
-                    'caption' => $state->caption(),
+                    'value'      => $state->enum,
+                    'caption'    => $state->caption(),
                     'additional' => json_encode($state->additional()),
-                    'error' => null
+                    'error'      => null
                 ];
 
                 try {
-                    $this->states->one($state->value);
+                    $this->states->one($state->enum);
                 } catch (MultipleItemsFoundException $exception) {
                     $row['error'] = "State {$row['value']} defined few times.";
                     $this->valid = false;

@@ -40,7 +40,7 @@ class ShowCommand extends Command
         $class = $this->option('class');
         $className = $this->classDiscover($this->option('class'));
 
-        if (!$className) {
+        if (! $className) {
             $this->error("$class Not Found");
             return self::INVALID;
         }
@@ -48,7 +48,7 @@ class ShowCommand extends Command
         $this->info($className);
         $blueprint = new $className();
 
-        if (!($blueprint instanceof WorkflowBlueprint)) {
+        if (! ($blueprint instanceof WorkflowBlueprint)) {
             $this->warn("$class Not a WorkflowBlueprint instance");
             return self::INVALID;
         }
@@ -60,7 +60,7 @@ class ShowCommand extends Command
             ->each(function (State $state) use ($states, $transitions) {
                 $this->info($state->caption());
 
-                $transitions->from($state->value)
+                $transitions->from($state->enum)
                     ->each(function (Transition $transition) use ($states) {
                         $target = $states->one($transition->target)->caption();
                         $this->warn("\t{$transition->caption}->{$target}");

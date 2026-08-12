@@ -4,7 +4,7 @@ namespace Codewiser\Workflow\Events;
 
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\State;
-use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\StateMachine;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -17,25 +17,8 @@ class ModelInitialized
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    /**
-     * @var StateMachineEngine
-     */
-    public $engine;
-
-    /**
-     * @var Model
-     */
-    public $model;
-
-    /**
-     * @var Context
-     */
-    public $context;
-
-    public function __construct(StateMachineEngine $engine, Context $context)
+    public function __construct(public StateMachine $engine, public Context $context)
     {
-        $this->engine = $engine;
-        $this->model = $engine->model;
-        $this->context = $context;
+        //
     }
 }

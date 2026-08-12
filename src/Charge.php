@@ -2,6 +2,8 @@
 
 namespace Codewiser\Workflow;
 
+use Illuminate\Database\Eloquent\Model;
+
 class Charge
 {
     /**
@@ -46,9 +48,11 @@ class Charge
     }
 
     /**
-     * Add history callback. Callback should return an array.
+     * Add history callback. Callback should return an array, containing the history of charging.
+     *
+     * @param callable(Model, Transition): array $callback
      */
-    public function withHistory(callable $callback): self
+    public function withHistory(callable $callback): static
     {
         $this->history = $callback;
 
@@ -57,13 +61,17 @@ class Charge
 
     public function history(Transition $transition): array
     {
-        return $this->history ? (array)call_user_func($this->history, $transition->engine()->model, $transition) : [];
+        return is_callable($this->history)
+            ? (array)call_user_func($this->history, $transition->engine()->model, $transition)
+            : [];
     }
 
     /**
      * Callback should return FALSE if a user already charges the transition. It is TRUE if not defined.
+     *
+     * @param callable(Model, Transition): bool $callback
      */
-    public function allow(callable $callback): self
+    public function allow(callable $callback): static
     {
         $this->allow = $callback;
 

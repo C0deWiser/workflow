@@ -3,56 +3,45 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Injectable;
-use Codewiser\Workflow\Contracts\StateEnum;
 use Codewiser\Workflow\Traits\HasAttributes;
-use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
-use Codewiser\Workflow\Traits\HasFootprint;
+use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
 use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @template TType
+ * @template TType of \BackedEnum
  */
 class State implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites, HasFootprint;
-
-    /**
-     * @var TType
-     */
-    public $value;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasEloquentEvents, HasValidationRules, HasPrerequisites;
 
     /**
      * State new instance.
      *
-     * @param  TType  $value
-     *
-     * @return static
+     * @param  TType  $enum
      */
-    public static function make($value): State
+    public static function make(\BackedEnum $enum): static
     {
-        return new static($value);
+        return new static($enum);
     }
 
     /**
-     * @param  TType  $value
+     * @param  TType  $enum
      */
-    public function __construct($value)
+    public function __construct(public \BackedEnum $enum)
     {
-        $this->value = $value;
         $this->context = new ContextRepository;
     }
 
     public function __serialize(): array
     {
         return [
-            'value'   => $this->value,
+            'enum'    => $this->enum,
             'engine'  => serialize($this->engine),
             'context' => serialize($this->context),
         ];
@@ -60,7 +49,7 @@ class State implements Arrayable, Injectable
 
     public function __unserialize(array $data): void
     {
-        $this->value = $data['value'];
+        $this->enum = $data['enum'];
         $this->engine = unserialize($data['engine']);
         $this->context = unserialize($data['context']);
     }
@@ -70,24 +59,12 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->resolveCaption($this->engine()->model) ??
-            ($this->value instanceof StateEnum
-                ? $this->value->caption()
-                : Value::name($this));
-    }
-
-    public function chronicle(?Model $performer): ?string
-    {
-        if (is_callable($this->footprint)) {
-            return call_user_func($this->footprint, $this->engine()->model, $performer);
-        }
-
-        return null;
+        return $this->resolveCaption($this->engine()->model) ?? $this->enum->name;
     }
 
     public function additional(): array
     {
-        return $this->resolveAttributes($this->engine()->model) + ($this->value instanceof StateEnum ? $this->value->attributes() : []);
+        return $this->resolveAttributes($this->engine()->model);
     }
 
     /**
@@ -99,20 +76,20 @@ class State implements Arrayable, Injectable
     {
         return $this->engine()
             ->getTransitionListing()
-            ->from($this->value)
+            ->from($this->enum)
             ->withoutForbidden();
     }
 
     /**
      * Get available transition to the given state.
      *
-     * @param  TType  $state
+     * @param  TType  $enum
      */
-    public function transitionTo($state): ?Transition
+    public function transitionTo(\BackedEnum $enum): ?Transition
     {
         return $this
             ->transitions()
-            ->to($state)
+            ->to($enum)
             ->first();
     }
 
@@ -120,32 +97,28 @@ class State implements Arrayable, Injectable
     {
         return [
                 'name'  => $this->caption(),
-                'value' => Value::scalar($this),
+                'value' => $this->enum->value,
             ] + $this->additional();
     }
 
     /**
      * Check if state equals to current.
      *
-     * @param  TType  $state
-     *
-     * @return bool
+     * @param  TType  $enum
      */
-    public function is($state): bool
+    public function is(\BackedEnum $enum): bool
     {
-        return $this->value === $state;
+        return $this->enum === $enum;
     }
 
     /**
      * Check if the state doesn't equal to current.
      *
-     * @param  TType  $state
-     *
-     * @return bool
+     * @param  TType  $enum
      */
-    public function isNot($state): bool
+    public function isNot(\BackedEnum $enum): bool
     {
-        return $this->value !== $state;
+        return $this->enum !== $enum;
     }
 
     /**

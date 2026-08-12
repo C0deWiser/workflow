@@ -4,6 +4,9 @@ namespace Codewiser\Workflow\Contracts;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @deprecated
+ */
 interface StateEnum
 {
     /**

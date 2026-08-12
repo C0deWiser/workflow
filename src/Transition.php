@@ -6,12 +6,12 @@ use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Traits\HasAttributes;
-use Codewiser\Workflow\Traits\HasCallbacks;
 use Codewiser\Workflow\Traits\HasCaption;
-use Codewiser\Workflow\Traits\HasFootprint;
+use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasPrerequisites;
 use Codewiser\Workflow\Traits\HasStateMachineEngine;
 use Codewiser\Workflow\Traits\HasValidationRules;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
@@ -22,25 +22,11 @@ use Illuminate\Validation\ValidationException;
  * Transition between states in State Machine.
  *
  * @template TModel of \Illuminate\Database\Eloquent\Model
- * @template TType
+ * @template TType of \BackedEnum
  */
 class Transition implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasCallbacks, HasValidationRules, HasPrerequisites, HasFootprint;
-
-    /**
-     * Source state.
-     *
-     * @var TType
-     */
-    public $source;
-
-    /**
-     * Target state.
-     *
-     * @var TType
-     */
-    public $target;
+    use HasAttributes, HasStateMachineEngine, HasCaption, HasEloquentEvents, HasValidationRules, HasPrerequisites;
 
     /**
      * Instructions to authorize transit.
@@ -56,27 +42,17 @@ class Transition implements Arrayable, Injectable
 
     protected ?Charge $charge = null;
 
-    /**
-     * Instantiate new transition.
-     *
-     * @param  TType  $source
-     * @param  TType  $target
-     *
-     * @return static
-     */
-    public static function make($source, $target): Transition
+    public static function make(\BackedEnum $source, \BackedEnum $target): static
     {
         return new static($source, $target);
     }
 
     /**
-     * @param  TType  $source
-     * @param  TType  $target
+     * @param  TType  $source  Source state.
+     * @param  TType  $target  Target state.
      */
-    public function __construct($source, $target)
+    public function __construct(public \BackedEnum $source, public \BackedEnum $target)
     {
-        $this->source = $source;
-        $this->target = $target;
         $this->context = new ContextRepository;
     }
 
@@ -101,14 +77,11 @@ class Transition implements Arrayable, Injectable
     /**
      * Authorize transition using policy ability (or closure).
      *
-     * @param  null|string|callable(Model, Transition): bool  $ability Ability name or callable.
-     * @param  null|callable(Model, Transition): bool  $callback
-     *
-     * @return $this
+     * @param  callable(Model, Transition): bool|string  $authorization  Ability name or callable.
      */
-    public function authorizedBy($ability = null, callable $callback = null): self
+    public function authorizedBy(callable|string $authorization): static
     {
-        $this->authorization = $ability ?? $callback;
+        $this->authorization = $authorization;
 
         return $this;
     }
@@ -116,7 +89,7 @@ class Transition implements Arrayable, Injectable
     /**
      * Hide transition from humans, so only robots can move it.
      */
-    public function hidden(): self
+    public function hidden(): static
     {
         $this->authorization = fn() => false;
 
@@ -128,7 +101,7 @@ class Transition implements Arrayable, Injectable
      *
      * @throws TransitionFatalException|TransitionRecoverableException
      */
-    public function validate(): Transition
+    public function validate(): static
     {
         $this->prerequisites()
             ->merge($this->target()->prerequisites())
@@ -157,8 +130,8 @@ class Transition implements Arrayable, Injectable
 
         return [
                 'name'   => $this->caption(),
-                'source' => Value::scalar($this->source),
-                'target' => Value::scalar($this->target),
+                'source' => $this->source->value,
+                'target' => $this->target->value,
             ]
             + $rules
             + $issues
@@ -173,21 +146,12 @@ class Transition implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->resolveCaption($this->engine()->model) ?? $this->target()->caption();
+        return $this->resolveCaption($this->engine->model) ?? $this->target()->caption();
     }
 
     public function additional(): array
     {
-        return $this->resolveAttributes($this->engine()->model);
-    }
-
-    public function chronicle(?Model $performer): ?string
-    {
-        if (is_callable($this->footprint)) {
-            $chronicle = call_user_func($this->footprint, $this->engine()->model, $performer);
-        }
-
-        return $chronicle ?? $this->target()->chronicle($performer);
+        return $this->resolveAttributes($this->engine->model);
     }
 
     /**
@@ -211,20 +175,16 @@ class Transition implements Arrayable, Injectable
      *
      * @param  TType  $source
      * @param  TType  $target
-     *
-     * @return bool
      */
-    public function route($source, $target): bool
+    public function route(\BackedEnum $source, \BackedEnum $target): bool
     {
         return $this->source()->is($source) && $this->target()->is($target);
     }
 
     /**
      * Transition required to be charged to fire.
-     *
-     * @return $this
      */
-    public function chargeable(Charge $charge): self
+    public function chargeable(Charge $charge): static
     {
         $this->charge = $charge;
 
@@ -244,25 +204,27 @@ class Transition implements Arrayable, Injectable
      *
      * @return null|string|callable(Model, Transition): bool
      */
-    public function authorization()
+    public function authorization(): callable|string|null
     {
         return $this->authorization;
     }
 
     /**
      * Check if transition authorized.
-     *
-     * @return null|$this
      */
-    public function authorized(): ?self
+    public function authorized(): ?static
     {
         $allowed = null;
 
-        if ($ability = $this->authorization()) {
-            if (is_string($ability)) {
-                $allowed = Gate::allows($ability, [$this->engine()->model, $this]);
-            } elseif (is_callable($ability)) {
-                $allowed = call_user_func($ability, $this->engine()->model, $this);
+        if ($authorization = $this->authorization()) {
+            if (is_string($authorization)) {
+                $allowed = Gate::allows($authorization, [$this->engine()->model, $this]);
+            } elseif (is_callable($authorization)) {
+                try {
+                    $allowed = call_user_func($authorization, $this->engine()->model, $this);
+                } catch (AuthorizationException) {
+                    $allowed = false;
+                }
             }
         }
 
@@ -281,7 +243,7 @@ class Transition implements Arrayable, Injectable
             ->map(function (callable $condition) {
                 try {
                     call_user_func($condition, $this->engine->model);
-                } catch (TransitionFatalException $exception) {
+                } catch (TransitionFatalException) {
                     // Skip
                 } catch (TransitionRecoverableException $exception) {
                     // Collect only recoverable messages

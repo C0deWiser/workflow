@@ -20,13 +20,13 @@ class StateCollection extends Collection
 
         foreach ($items as $item) {
 
-            if (!($item instanceof State)) {
+            if ($item instanceof \BackedEnum) {
                 $item = State::make($item);
             }
 
-            $key = Value::scalar($item->value);
+            $key = $item->enum->value;
 
-            if (!isset($collection[$key])) {
+            if (! isset($collection[$key])) {
                 $collection[$key] = $item;
             }
         }
@@ -42,14 +42,14 @@ class StateCollection extends Collection
     /**
      * Get the exact one state from a collection.
      *
-     * @param  mixed  $state
+     * @param  \BackedEnum  $enum
      *
      * @return State
      * @throws ItemNotFoundException
      * @throws MultipleItemsFoundException
      */
-    public function one($state): State
+    public function one(\BackedEnum $enum): State
     {
-        return $this->sole(fn(State $st) => $st->is($state));
+        return $this->sole(fn(State $st) => $st->is($enum));
     }
 }

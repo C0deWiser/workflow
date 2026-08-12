@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow\Example;
 
 use Codewiser\Workflow\Charge;
+use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\Transition;
@@ -15,47 +16,50 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
     protected static int $charge = 0;
 
+    public function userResolver(): \Closure
+    {
+        return fn() => null;
+    }
+
     public function states(): array
     {
         return [
-            'new',
-            'review',
-            'published',
-            'correction',
-            'empty',
-            'cumulative',
+            Enum::new,
+            Enum::review,
+            Enum::published,
+            Enum::correction,
+            Enum::empty,
+            Enum::cumulative,
         ];
     }
 
     public function transitions(): array
     {
         return [
-            Transition::make('new', 'review')
+            Transition::make(Enum::new, Enum::review)
                 ->before(function (Article $model) {
                     throw new TransitionRecoverableException();
                 })
                 ->set('color', 'red'),
 
-            Transition::make('review', 'published')->as('Fatal transition')
+            Transition::make(Enum::review, Enum::published)->as('Fatal transition')
                 ->before(function (Article $model) {
                     throw new TransitionFatalException();
                 }),
 
-            Transition::make('review', 'correction')
+            Transition::make(Enum::review, Enum::correction)
                 ->rules([
                     'comment' => 'required'
                 ])
                 ->authorizedBy([$this, 'authorize'])
-                ->after(function (Article $model, array $context) {
-                    $model->body = $context['comment'];
+                ->saving(function (Article $model, Context $context) {
+                    $model->body = $context->data()['comment'];
                 }),
 
-            Transition::make('correction', 'review')
-                ->authorizedBy(function () {
-                    return false;
-                }),
+            Transition::make(Enum::correction, Enum::review)
+                ->authorizedBy(fn() => false),
 
-            Transition::make('new', 'cumulative')
+            Transition::make(Enum::new, Enum::cumulative)
                 ->chargeable(Charge::make(
                     function (Article $model) {
                         return self::$charge / 3;

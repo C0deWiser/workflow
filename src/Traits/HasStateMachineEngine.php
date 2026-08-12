@@ -2,13 +2,13 @@
 
 namespace Codewiser\Workflow\Traits;
 
-use Codewiser\Workflow\StateMachineEngine;
+use Codewiser\Workflow\StateMachine;
 
 trait HasStateMachineEngine
 {
-    protected ?StateMachineEngine $engine = null;
+    protected ?StateMachine $engine = null;
 
-    public function inject(StateMachineEngine $engine)
+    public function inject(StateMachine $engine): static
     {
         $this->engine = $engine;
 
@@ -18,7 +18,7 @@ trait HasStateMachineEngine
     /**
      * The method will fail if an object was not injected before — it is ok.
      */
-    public function engine(): StateMachineEngine
+    public function engine(): StateMachine
     {
         return $this->engine;
     }
