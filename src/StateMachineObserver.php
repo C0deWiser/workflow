@@ -3,6 +3,7 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Contracts\Blueprinted;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Illuminate\Database\Eloquent\Model;
@@ -41,15 +42,24 @@ class StateMachineObserver
     {
         $blueprints = [];
 
-        $reflect = new ReflectionClass($model);
-        foreach ($reflect->getMethods() as $method) {
+        if ($model instanceof Blueprinted) {
+            // Good style
+            foreach ($model->blueprints() as $attribute => $blueprint) {
+                $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
+                $blueprints[] = new StateMachineEngine($blueprint, $model, $attribute);
+            }
+        } else {
+            // Bad style
+            $reflect = new ReflectionClass($model);
+            foreach ($reflect->getMethods() as $method) {
 
-            if ($method->isPublic()) {
-                $return_type = $method->getReturnType();
+                if ($method->isPublic()) {
+                    $return_type = $method->getReturnType();
 
-                if ($return_type instanceof ReflectionNamedType &&
-                    $return_type->getName() == StateMachineEngine::class) {
-                    $blueprints[] = $method->invoke($model);
+                    if ($return_type instanceof ReflectionNamedType &&
+                        $return_type->getName() == StateMachineEngine::class) {
+                        $blueprints[] = $method->invoke($model);
+                    }
                 }
             }
         }

@@ -5,11 +5,9 @@ namespace Codewiser\Workflow\Listeners;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Models\TransitionHistory;
-use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachineEngine;
 use Codewiser\Workflow\Value;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\ValidationException;
 
 class TransitionListener
 {

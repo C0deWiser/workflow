@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Models;
 
+use Codewiser\Workflow\Contracts\Blueprinted;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachineEngine;
@@ -69,7 +70,20 @@ class TransitionHistory extends Model
 
     protected function engine(): StateMachineEngine
     {
-        if (!$this->engine) {
+        if (! $this->engine && $this->transitionable instanceof Blueprinted) {
+            // Good style
+            foreach ($this->transitionable->blueprints() as $attribute => $blueprint) {
+
+                $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
+
+                if (get_class($blueprint) === $this->blueprint) {
+                    $this->engine = new StateMachineEngine($blueprint, $this->transitionable, $attribute);
+                }
+            }
+        }
+
+        if (! $this->engine) {
+            // Bad style
             $this->engine = new StateMachineEngine(
                 new $this->blueprint(),
                 $this->transitionable,
