@@ -4,10 +4,10 @@ namespace Codewiser\Workflow\Example;
 
 enum Enum: string
 {
-    case new = 'first';
-    case review = 'second';
-    case published = 'recoverable';
-    case correction = 'fatal';
-    case empty = 'empty';
-    case cumulative = 'cumulative';
+    case new = 'new';
+    case review = 'review';
+    case published = 'published';
+    case correction = 'correction';
+    case unreacheable = 'empty';
+    case chargeable = 'cumulative';
 }

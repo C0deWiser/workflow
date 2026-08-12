@@ -7,13 +7,18 @@ use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\WorkflowObserver;
 use Codewiser\Workflow\Traits\HasTransitionHistory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Casts\AsCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 /**
  * @property string $body
  * @property Enum $state
  *
- * @property array $voices
+ * @property Collection $votes
+ *
+ * @property bool $condition
+ * @property string $auth_token
  */
 #[ObservedBy(WorkflowObserver::class)]
 class Article extends Model implements Workflow
@@ -27,8 +32,10 @@ class Article extends Model implements Workflow
 
     protected function casts(): array
     {
-        return[
-            'state' => Enum::class
+        return [
+            'state'     => Enum::class,
+            'condition' => 'boolean',
+            'votes'     => AsCollection::class,
         ];
     }
 

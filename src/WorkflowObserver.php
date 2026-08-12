@@ -6,6 +6,7 @@ namespace Codewiser\Workflow;
 use Codewiser\Workflow\Contracts\Workflow;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
+use Codewiser\Workflow\Exceptions\TransitionException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -95,8 +96,13 @@ class WorkflowObserver
 
                 if ($transition = $this->nowTransiting()) {
 
-                    // May throw an Exception
-                    $transition->validate();
+                    if ($transition->isForbidden()) {
+                        throw new TransitionException('Transition is forbidden.');
+                    }
+
+                    if ($transition->issues()) {
+                        throw new TransitionException('Transition doesnt meet conditions to run.');
+                    }
 
                     // Context for Events
                     $context = new Context($transition, $engine->getActor());

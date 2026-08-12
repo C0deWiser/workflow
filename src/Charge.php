@@ -2,10 +2,15 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Contracts\Injectable;
+use Codewiser\Workflow\Traits\HasEngine;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 
-class Charge
+class Charge implements Injectable
 {
+    use HasEngine;
+
     /**
      * @var null|callable
      */
@@ -29,8 +34,8 @@ class Charge
     /**
      * Every callback receives Model and Transition arguments.
      *
-     * @param callable $progress Should return float (0÷1) with charge progress.
-     * @param callable $callback Increase transition charge.
+     * @param  callable(Model, Context): float  $progress  Should return float (0÷1) with charge progress.
+     * @param  callable(Model, Context): void  $callback  Increase transition charge.
      */
     public static function make(callable $progress, callable $callback): Charge
     {
@@ -38,8 +43,8 @@ class Charge
     }
 
     /**
-     * @param callable $progress Return float (0÷1) with charge progress.
-     * @param callable $callback Increase transition charge.
+     * @param  callable(Model, Context): float  $progress  Return float (0÷1) with charge progress.
+     * @param  callable(Model, Context): void  $callback  Increase transition charge.
      */
     public function __construct(callable $progress, callable $callback)
     {
@@ -48,9 +53,9 @@ class Charge
     }
 
     /**
-     * Add history callback. Callback should return an array, containing the history of charging.
+     * Add history callback. Callback should return an Arrayable, containing the history of charging.
      *
-     * @param callable(Model, Transition): array $callback
+     * @param  callable(Model, Context): Arrayable  $callback
      */
     public function withHistory(callable $callback): static
     {
@@ -59,17 +64,10 @@ class Charge
         return $this;
     }
 
-    public function history(Transition $transition): array
-    {
-        return is_callable($this->history)
-            ? (array)call_user_func($this->history, $transition->engine()->model, $transition)
-            : [];
-    }
-
     /**
      * Callback should return FALSE if a user already charges the transition. It is TRUE if not defined.
      *
-     * @param callable(Model, Transition): bool $callback
+     * @param  callable(Model, Context): bool  $callback
      */
     public function allow(callable $callback): static
     {
@@ -78,12 +76,29 @@ class Charge
         return $this;
     }
 
+    protected function context(Transition $transition): Context
+    {
+        return new Context($transition, $this->engine->getActor());
+    }
+
+    protected function func_args(Transition $transition): array
+    {
+        return [$this->engine->model, $this->context($transition)];
+    }
+
+    public function history(Transition $transition): array
+    {
+        return is_callable($this->history)
+            ? (array) call_user_func_array($this->history, $this->func_args($transition))
+            : [];
+    }
+
     /**
      * Check if user allowed charging the transition.
      */
     public function mayCharge(Transition $transition): bool
     {
-        return is_null($this->allow) || call_user_func($this->allow, $transition->engine()->model, $transition);
+        return is_null($this->allow) || call_user_func_array($this->allow, $this->func_args($transition));
     }
 
     /**
@@ -91,7 +106,7 @@ class Charge
      */
     public function charge(Transition $transition): void
     {
-        call_user_func($this->callback, $transition->engine()->model, $transition);
+        call_user_func_array($this->callback, $this->func_args($transition));
     }
 
     /**
@@ -107,6 +122,6 @@ class Charge
      */
     public function charging(Transition $transition): float
     {
-        return call_user_func($this->progress, $transition->engine()->model, $transition);
+        return call_user_func_array($this->progress, $this->func_args($transition));
     }
 }

@@ -2,14 +2,10 @@
 
 namespace Codewiser\Workflow\Traits;
 
-use Codewiser\Workflow\Exceptions\TransitionFatalException;
-use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
-use Codewiser\Workflow\Transition;
 use Illuminate\Config\Repository as ContextRepository;
-use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
-trait HasValidationRules
+trait HasContext
 {
 
     /**
@@ -27,7 +23,36 @@ trait HasValidationRules
      *
      * @throws ValidationException
      */
-    abstract public function context(array $context = null): ContextRepository;
+    /**
+     * Get or set (and validate) transition additional context.
+     *
+     * @throws ValidationException
+     */
+    public function context(array $context = null): ContextRepository
+    {
+        if (is_array($context)) {
+
+            $rules = $this->validationRules();
+
+            if ($rules) {
+                $this->context = new ContextRepository(
+                    validator($context, $rules)->validate()
+                );
+            }
+        }
+
+        return $this->context;
+    }
+
+    /**
+     * Add requirement(s) to init/transition payload.
+     */
+    public function withContext(array $rules): static
+    {
+        $this->rules = $rules;
+
+        return $this;
+    }
 
     /**
      * Get attributes, that must be provided into transit() or init() method.
@@ -47,16 +72,6 @@ trait HasValidationRules
         }
 
         return $rules;
-    }
-
-    /**
-     * Add requirement(s) to init/transition payload.
-     */
-    public function rules(array $rules): static
-    {
-        $this->rules = $rules;
-
-        return $this;
     }
 
     /**

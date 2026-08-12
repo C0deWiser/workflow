@@ -5,6 +5,7 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Workflow;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
@@ -32,8 +33,11 @@ class StateMachine implements Arrayable
      * @param  TModel  $model
      * @param  string  $attribute
      */
-    public function __construct(public WorkflowBlueprint $blueprint, public Model&Workflow $model, public string $attribute)
-    {
+    public function __construct(
+        public WorkflowBlueprint $blueprint,
+        public Model&Workflow $model,
+        public string $attribute
+    ) {
         //
     }
 
@@ -59,7 +63,7 @@ class StateMachine implements Arrayable
      */
     public function getActor(): ?Authenticatable
     {
-        return call_user_func($this->blueprint->userResolver());
+        return call_user_func($this->blueprint->actor());
     }
 
     /**
@@ -130,13 +134,17 @@ class StateMachine implements Arrayable
      */
     public function transit(\BackedEnum $enum, array $context = []): Model&Workflow
     {
-        // Charging transition?
         if ($transition = $this->transitionTo($enum)) {
-            if ($charge = $transition->charge()) {
+
+            // Chargeable transition?
+            if ($charge = $transition->charge($this)) {
+
+                $transition->context($context);
+
                 if ($charge->mayCharge($transition)) {
-                    $transition->context($context);
                     $charge->charge($transition);
                 }
+
                 if (! $charge->charged($transition)) {
                     return $this->model;
                 }
@@ -171,19 +179,10 @@ class StateMachine implements Arrayable
      */
     public function authorize(\BackedEnum $enum): static
     {
-        $transition = $this->transitions()
+        $this->transitions()
             ->to($enum)
-            ->sole();
-
-        if ($authorization = $transition->authorization()) {
-            if (is_string($authorization)) {
-                Gate::authorize($authorization, [$this->model, $transition]);
-            } elseif (is_callable($authorization)) {
-                if (call_user_func($authorization, $this->model, $transition) === false) {
-                    throw new AuthorizationException();
-                }
-            }
-        }
+            ->sole()
+            ->authorize();
 
         return $this;
     }
@@ -223,7 +222,7 @@ class StateMachine implements Arrayable
     public function toArray(): array
     {
         $state = $this->state()?->toArray() ?? [];
-        $transitions = $this->transitions()->onlyAuthorized()->toArray();
+        $transitions = $this->transitions()->authorized()->toArray();
 
         return $state + ['transitions' => $transitions];
     }

@@ -4,6 +4,7 @@ namespace Tests;
 
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\Enum;
+use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\State;
@@ -25,7 +26,7 @@ class BaseTest extends TestCase
 
         // Implicit init (using observer)
         $this->assertTrue((new WorkflowObserver)->creating($post));
-        $this->assertEquals($post->state()->getStateListing()->first()->enum, $post->state,
+        $this->assertEquals(Enum::new, $post->state,
             'State value was initialized on creating event'
         );
     }
@@ -63,7 +64,36 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $this->assertCount(2, $post->state()->transitions());
+        $this->assertNotNull($post->state()->transitionTo(Enum::review));
+        $this->assertNotNull($post->state()->transitionTo(Enum::chargeable));
+        $this->assertNull($post->state()->transitionTo(Enum::published));
+    }
+
+    public function testCaption()
+    {
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $transition = $post->state()->transitionTo(Enum::review);
+
+        $post->condition = true;
+        $this->assertEquals('Bad condition', $transition->caption());
+
+        $post->condition = false;
+        $this->assertEquals('Good condition', $transition->caption());
+    }
+
+    public function testAttributes()
+    {
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $transition = $post->state()->transitionTo(Enum::review);
+
+        $this->assertEquals([
+            'color'  => 'red',
+            'height' => 100 // Inherited from state
+        ], $transition->additional());
     }
 
     public function testRules()
@@ -71,16 +101,18 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::review], true);
 
-        $data = $post->state()->transitions()->first()->toArray();
+        $data = $post->state()->transitionTo(Enum::correction)->toArray();
 
         $this->assertArrayHasKey('rules', $data);
         $this->assertArrayHasKey('comment', $data['rules']);
+        $this->assertArrayHasKey('urgency', $data['rules']); // Inherited from state
     }
 
     public function testJson()
     {
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
+        $post->condition = true;
 
         $data = $post->state()->getTransitionListing()->first()->toArray();
 
@@ -88,10 +120,10 @@ class BaseTest extends TestCase
         $this->assertArrayHasKey('source', $data);
         $this->assertArrayHasKey('target', $data);
         $this->assertArrayHasKey('issues', $data);
-        //$this->assertArrayHasKey('rules', $data);
+        $this->assertEquals('Incomplete', $data['issues'][0]);
     }
 
-    public function testUniqueTransitions()
+    public function testForbiddenTransitions()
     {
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
@@ -117,22 +149,23 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
+        $post->condition = true;
         $post->state = Enum::review;
 
-        // Observer prevents changing state as the transition has unresolved Recoverable condition
-        $this->expectException(TransitionRecoverableException::class);
+        // Observer prevents changing state as the transition has unresolved condition
+        $this->expectException(TransitionException::class);
         (new WorkflowObserver)->updating($post);
     }
 
     public function testTransitFatal()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => Enum::review], true);
+        $post->setRawAttributes(['state' => Enum::new], true);
 
         $post->state = Enum::published;
 
-        // Observer prevents changing state as the transition has unresolved Fatal condition
-        $this->expectException(TransitionFatalException::class);
+        // Observer prevents changing state as the transition is forbidden
+        $this->expectException(TransitionException::class);
         (new WorkflowObserver)->updating($post);
     }
 
@@ -143,7 +176,7 @@ class BaseTest extends TestCase
 
         // Transition is not authorized
         $this->expectException(AuthorizationException::class);
-        $post->state()->authorize(Enum::review);
+        $post->state()->authorize(Enum::review, fn() => throw new AuthorizationException);
     }
 
     public function testTransitUnknown()
@@ -151,7 +184,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $post->state = Enum::empty;
+        $post->state = Enum::unreacheable;
 
         // Observer prevents changing state to unknown value
         $this->expectException(ItemNotFoundException::class);
@@ -162,6 +195,7 @@ class BaseTest extends TestCase
     {
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
+        $post->condition = true;
 
         $data = $post->state()->toArray();
 
@@ -184,33 +218,33 @@ class BaseTest extends TestCase
         $this->assertArrayHasKey('charge', $data['transitions'][1]);
         $this->assertEquals(0, $data['transitions'][1]['charge']['progress']);
 
-        $post->state()->transit(Enum::cumulative);
+        $post->state()->transit(Enum::chargeable);
         $data = $post->state()->toArray();
-        $this->assertEquals(1/3, $data['transitions'][1]['charge']['progress']);
+        $this->assertEquals(1 / 3, $data['transitions'][1]['charge']['progress']);
 
-        $post->state()->transit(Enum::cumulative);
+        $post->state()->transit(Enum::chargeable);
         $data = $post->state()->toArray();
-        $this->assertEquals(2/3, $data['transitions'][1]['charge']['progress']);
+        $this->assertEquals(2 / 3, $data['transitions'][1]['charge']['progress']);
 
-        $post->state()->transit(Enum::cumulative);
-        $this->assertTrue($post->state()->is(Enum::cumulative));
+        $post->state()->transit(Enum::chargeable);
+        $this->assertTrue($post->state()->is(Enum::chargeable));
     }
 
     public function testMergeRules()
     {
         $state = new State(Enum::new);
-        $state->rules([
+        $state->withContext([
             'comment' => 'required|string',
         ]);
 
         $merged = $state->mergeRules([
             'comment' => 'string|max:5',
-            'source' => 'string|max:5',
+            'source'  => 'string|max:5',
         ]);
 
         $this->assertEquals([
             'comment' => 'required|string|max:5',
-            'source' => 'string|max:5',
+            'source'  => 'string|max:5',
         ], $merged);
     }
 }

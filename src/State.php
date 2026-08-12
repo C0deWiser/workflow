@@ -5,10 +5,11 @@ namespace Codewiser\Workflow;
 use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCaption;
+use Codewiser\Workflow\Traits\HasConditions;
+use Codewiser\Workflow\Traits\HasDeadEnd;
 use Codewiser\Workflow\Traits\HasEloquentEvents;
-use Codewiser\Workflow\Traits\HasPrerequisites;
-use Codewiser\Workflow\Traits\HasStateMachineEngine;
-use Codewiser\Workflow\Traits\HasValidationRules;
+use Codewiser\Workflow\Traits\HasEngine;
+use Codewiser\Workflow\Traits\HasContext;
 use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +19,10 @@ use Illuminate\Validation\ValidationException;
  */
 class State implements Arrayable, Injectable
 {
-    use HasAttributes, HasStateMachineEngine, HasCaption, HasEloquentEvents, HasValidationRules, HasPrerequisites;
+    use HasAttributes, HasEngine, HasEloquentEvents, HasContext, HasDeadEnd, HasConditions;
+    use HasCaption {
+        caption as protected selfCaption;
+    }
 
     /**
      * State new instance.
@@ -59,12 +63,7 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->resolveCaption($this->engine()->model) ?? $this->enum->name;
-    }
-
-    public function additional(): array
-    {
-        return $this->resolveAttributes($this->engine()->model);
+        return $this->selfCaption() ?? $this->enum->name;
     }
 
     /**
@@ -96,9 +95,11 @@ class State implements Arrayable, Injectable
     public function toArray(): array
     {
         return [
-                'name'  => $this->caption(),
-                'value' => $this->enum->value,
-            ] + $this->additional();
+            'name'  => $this->caption(),
+            'value' => $this->enum->value,
+
+            ...$this->additional()
+        ];
     }
 
     /**
@@ -119,26 +120,5 @@ class State implements Arrayable, Injectable
     public function isNot(\BackedEnum $enum): bool
     {
         return $this->enum !== $enum;
-    }
-
-    /**
-     * Get or set (and validate) transition additional context.
-     *
-     * @throws ValidationException
-     */
-    public function context(array $context = null): ContextRepository
-    {
-        if (is_array($context)) {
-
-            $rules = $this->validationRules();
-
-            if ($rules) {
-                $this->context = new ContextRepository(
-                    validator($context, $rules)->validate()
-                );
-            }
-        }
-
-        return $this->context;
     }
 }

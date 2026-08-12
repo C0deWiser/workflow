@@ -6,30 +6,37 @@ use Codewiser\Workflow\Charge;
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
+use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\WorkflowBlueprint;
+use Illuminate\Support\Collection;
 
 /**
  * @extends WorkflowBlueprint<string>
  */
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
-    protected static int $charge = 0;
-
-    public function userResolver(): \Closure
+    public function actor(): \Closure
     {
         return fn() => null;
+    }
+
+    public function authorization(): null|string|callable
+    {
+        return null;
     }
 
     public function states(): array
     {
         return [
-            Enum::new,
-            Enum::review,
+            State::make(Enum::new),
+            State::make(Enum::review)->attribute('height', 100),
             Enum::published,
-            Enum::correction,
-            Enum::empty,
-            Enum::cumulative,
+            State::make(Enum::correction)->withContext([
+                'urgency' => 'integer'
+            ]),
+            Enum::unreacheable,
+            Enum::chargeable,
         ];
     }
 
@@ -37,42 +44,40 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
     {
         return [
             Transition::make(Enum::new, Enum::review)
-                ->before(function (Article $model) {
-                    throw new TransitionRecoverableException();
-                })
-                ->set('color', 'red'),
+                ->as(fn(Article $article) => $article->condition
+                    ? 'Bad condition'
+                    : 'Good condition'
+                )
+                ->condition(fn(Article $article) => $article->condition ? 'Incomplete' : null)
+                ->attribute('color', 'red'),
 
-            Transition::make(Enum::review, Enum::published)->as('Fatal transition')
-                ->before(function (Article $model) {
-                    throw new TransitionFatalException();
-                }),
+            Transition::make(Enum::new, Enum::published)
+                ->as('Forbidden transition')
+                ->when(fn() => false),
+
+            Transition::make(Enum::review, Enum::published),
 
             Transition::make(Enum::review, Enum::correction)
-                ->rules([
+                ->withContext([
                     'comment' => 'required'
                 ])
-                ->authorizedBy([$this, 'authorize'])
                 ->saving(function (Article $model, Context $context) {
                     $model->body = $context->data()['comment'];
                 }),
 
-            Transition::make(Enum::correction, Enum::review)
-                ->authorizedBy(fn() => false),
+            Transition::make(Enum::correction, Enum::review),
 
-            Transition::make(Enum::new, Enum::cumulative)
+            Transition::make(Enum::new, Enum::chargeable)
                 ->chargeable(Charge::make(
                     function (Article $model) {
-                        return self::$charge / 3;
+                        if (! $model->votes) {
+                            $model->votes = new Collection();
+                        }
+
+                        return $model->votes?->count() / 3;
                     },
-                    function (Article $model) {
-                        self::$charge++;
-                    }
+                    fn(Article $model) => $model->votes->add('voice')
                 ))
         ];
-    }
-
-    public function authorize($model): bool
-    {
-        return true;
     }
 }

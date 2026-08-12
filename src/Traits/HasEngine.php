@@ -4,7 +4,7 @@ namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\StateMachine;
 
-trait HasStateMachineEngine
+trait HasEngine
 {
     protected ?StateMachine $engine = null;
 

@@ -13,11 +13,19 @@ class Context
     }
 
     /**
+     * Get the transition (if it is).
+     */
+    public function transition(): ?Transition
+    {
+        return $this->contextual instanceof Transition ? $this->contextual : null;
+    }
+
+    /**
      * Source state. NULL means that model was just created.
      */
     public function source(): ?State
     {
-        return $this->contextual instanceof Transition ? $this->contextual->source() : null;
+        return $this->transition()?->source();
     }
 
     /**
@@ -25,7 +33,7 @@ class Context
      */
     public function target(): State
     {
-        return $this->contextual instanceof Transition ? $this->contextual->target() : $this->contextual;
+        return $this->transition()?->target() ?? $this->contextual;
     }
 
     /**

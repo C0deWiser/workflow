@@ -3,9 +3,10 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Traits\Injection;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\Access\Response;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Codewiser\Workflow\Exceptions\TransitionFatalException;
-use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -29,7 +30,7 @@ class TransitionCollection extends Collection
                 // Filter unique transitions
                 $key = $item->source->value.$item->target->value;
 
-                if (!isset($collection[$key])) {
+                if (! isset($collection[$key])) {
                     $collection[$key] = $item;
                 }
             }
@@ -43,9 +44,11 @@ class TransitionCollection extends Collection
      */
     public function from(\BackedEnum $enum): static
     {
-        return $this->filter(
-            fn(Transition $transition) => $transition->source === $enum
-        );
+        $filtered = $this
+            ->filter(fn(Transition $transition) => $transition->source === $enum)
+            ->values();
+
+        return new static($filtered);
     }
 
     /**
@@ -53,36 +56,39 @@ class TransitionCollection extends Collection
      */
     public function to(\BackedEnum $enum): static
     {
-        return $this->filter(
-            fn(Transition $transition) => $transition->target === $enum
-        );
+        $filtered = $this
+            ->filter(fn(Transition $transition) => $transition->target === $enum)
+            ->values();
+
+        return new static($filtered);
     }
 
     /**
-     * Get transitions without fatal conditions.
+     * Get transitions without forbidden.
      */
     public function withoutForbidden(): static
     {
-        return $this
-            ->reject(function (Transition $transition) {
-                try {
-                    $transition->validate();
-                } catch (TransitionFatalException) {
-                    return true;
-                } catch (TransitionRecoverableException) {
-                    return false;
-                }
-                return false;
-            });
+        $filtered = $this
+            ->reject(fn(Transition $transition) => $transition->isForbidden())
+            ->values();
+
+        return new static($filtered);
     }
 
     /**
      * Get authorized transitions.
      */
-    public function onlyAuthorized(): static
+    public function authorized(): static
     {
         $filtered = $this
-            ->filter(fn(Transition $transition) => $transition->authorized())
+            ->filter(function (Transition $transition) {
+                try {
+                    $transition->authorize();
+                    return true;
+                } catch (AuthorizationException) {
+                    return false;
+                }
+            })
             ->values();
 
         return new static($filtered);

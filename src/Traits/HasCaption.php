@@ -5,12 +5,18 @@ namespace Codewiser\Workflow\Traits;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * State or transition has a human-readable name.
+ */
 trait HasCaption
 {
+    /**
+     * @var null|callable|string
+     */
     protected $caption = null;
 
     /**
-     * Set State caption.
+     * Set state/transition caption.
      *
      * @param  callable(Model): string|string  $caption
      */
@@ -21,23 +27,21 @@ trait HasCaption
         return $this;
     }
 
-    protected function resolveCaption(Model $model): ?string
-    {
-        if (is_callable($this->caption)) {
-            return call_user_func($this->caption, $model);
-        }
-
-        if (is_string($this->caption)) {
-            return $this->caption;
-        }
-
-        return null;
-    }
-
     /**
-     * Get the caption of the State.
+     * Get the caption.
      *
      * @internal
      */
-    abstract public function caption(): string;
+     public function caption(): ?string
+     {
+         if (is_callable($this->caption)) {
+             return call_user_func($this->caption, $this->engine()->model);
+         }
+
+         if (is_string($this->caption)) {
+             return $this->caption;
+         }
+
+         return null;
+     }
 }
