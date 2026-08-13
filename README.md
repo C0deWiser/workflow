@@ -82,7 +82,7 @@ class Article extends Model
     #[Workflow]
     public function state(): StateMachine
     {
-        return $this->workflow(ArticleWorkflow::class, 'state');
+        return $this->stateMachine(ArticleWorkflow::class, 'state');
     }
 }
 ```

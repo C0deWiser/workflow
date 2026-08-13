@@ -27,7 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  *
  * @property Authenticatable|null $performer
- * @property Model $transitionable
+ * @property TModel $transitionable
  */
 class TransitionHistory extends Model
 {
