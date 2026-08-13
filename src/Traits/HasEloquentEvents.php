@@ -3,10 +3,7 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Context;
-use Codewiser\Workflow\State;
-use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 
 trait HasEloquentEvents
 {

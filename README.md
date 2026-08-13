@@ -302,7 +302,6 @@ business logic, not by user. User even shouldn't know about other ways.
 ```php
 use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
-use \Codewiser\Workflow\Exceptions\TransitionFatalException;
 
 Transition::make(Enum::new, Enum::to_local_manager)
     ->when(fn(Order $model) => $model->amount <= 1000000); 
@@ -328,7 +327,6 @@ Here is an example of problems user may resolve.
 ```php
 use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
-use \Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 
 Transition::make(Enum::new, Enum::review)
     ->condition(function(Article $model) {

@@ -4,8 +4,6 @@ namespace Codewiser\Workflow\Example;
 
 use Codewiser\Workflow\Charge;
 use Codewiser\Workflow\Context;
-use Codewiser\Workflow\Exceptions\TransitionFatalException;
-use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\WorkflowBlueprint;

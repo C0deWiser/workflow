@@ -7,13 +7,12 @@ use Codewiser\Workflow\Contracts\StateEnum;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasConditions;
+use Codewiser\Workflow\Traits\HasContext;
 use Codewiser\Workflow\Traits\HasDeadEnd;
 use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasEngine;
-use Codewiser\Workflow\Traits\HasContext;
 use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Validation\ValidationException;
 
 /**
  * @template TType of \BackedEnum

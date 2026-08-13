@@ -4,9 +4,7 @@ namespace Codewiser\Workflow\Events;
 
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\StateMachine;
-use Codewiser\Workflow\Transition;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 

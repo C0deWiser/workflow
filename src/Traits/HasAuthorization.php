@@ -3,7 +3,6 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Context;
-use Codewiser\Workflow\Transition;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 

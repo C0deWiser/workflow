@@ -3,9 +3,7 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Charge;
-use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachine;
-use Codewiser\Workflow\Transition;
 
 trait HasCharge
 {

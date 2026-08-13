@@ -2,7 +2,6 @@
 
 namespace Codewiser\Workflow\Traits;
 
-use Closure;
 use Illuminate\Database\Eloquent\Model;
 
 /**

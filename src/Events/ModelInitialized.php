@@ -3,10 +3,8 @@
 namespace Codewiser\Workflow\Events;
 
 use Codewiser\Workflow\Context;
-use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachine;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
