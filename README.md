@@ -77,12 +77,12 @@ class Article extends Model
     }
     
     /**
-     * @return StateMachine<slef, Enum>
+     * @return StateMachine<self, Enum>
      */
     #[Workflow]
     public function state(): StateMachine
     {
-        return $this->stateMachine(ArticleWorkflow::class, 'state');
+        return $this->workflow(ArticleWorkflow::class, 'state');
     }
 }
 ```

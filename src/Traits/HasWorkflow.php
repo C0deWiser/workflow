@@ -22,7 +22,7 @@ trait HasWorkflow
      * @param  class-string<WorkflowBlueprint>|WorkflowBlueprint  $blueprint
      * @param  string  $attribute May be as attribute name, as __METHOD__ (when method is same-named as an attribute).
      */
-    protected function stateMachine(string|WorkflowBlueprint $blueprint, string $attribute): StateMachine
+    protected function workflow(string|WorkflowBlueprint $blueprint, string $attribute): StateMachine
     {
         // If attribute sent as __METHOD__
 
