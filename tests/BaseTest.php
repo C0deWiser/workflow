@@ -5,10 +5,9 @@ namespace Tests;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Exceptions\TransitionException;
-use Codewiser\Workflow\Exceptions\TransitionFatalException;
-use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
+use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\WorkflowObserver;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
@@ -246,5 +245,13 @@ class BaseTest extends TestCase
             'comment' => 'required|string|max:5',
             'source'  => 'string|max:5',
         ], $merged);
+    }
+
+    public function testStateMachineCollector()
+    {
+        $machines = StateMachine::collect(new Article());
+
+        $this->assertCount(1, $machines);
+        $this->assertEquals('state', $machines->first()->attribute);
     }
 }

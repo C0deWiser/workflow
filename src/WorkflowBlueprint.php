@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow;
 
 use Illuminate\Auth\Access\Response;
+use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -12,9 +13,26 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class WorkflowBlueprint
 {
-    public function actor(): \Closure
+    /**
+     * @return callable(): (null|Authorizable)
+     */
+    public function actor(): callable
     {
         return fn() => auth()->user();
+    }
+
+    /**
+     * Authorization for running transitions.
+     *
+     * - null — No transition authorization.
+     * - string — Action name to call policy.
+     * - callable — Custom authorization; may return bool or Response, or throw AuthorizationException.
+     *
+     * @return null|string|callable(Model, Context): (bool|Response)
+     */
+    public function authorization(): null|string|callable
+    {
+        return null;
     }
 
     /**
@@ -30,15 +48,4 @@ abstract class WorkflowBlueprint
      * @return array<int,array<int,TType|State>|Transition>
      */
     abstract public function transitions(): array;
-
-    /**
-     * Authorisation for running transitions.
-     *
-     * - null — No transition authorisation.
-     * - string — Action name to call policy.
-     * - callable — Custom authorisation; may return bool or Response, or throw AuthorizationException.
-     *
-     * @return null|string|callable(Model, Transition): (bool|Response)
-     */
-    abstract public function authorization(): null|string|callable;
 }

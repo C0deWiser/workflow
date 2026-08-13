@@ -3,18 +3,17 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Contracts\Workflow;
+use Codewiser\Workflow\Attributes\Workflow;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Auth\Access\Response;
-use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Collection;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @template TModel of (Model&Workflow)
+ * @template TModel of Model
  * @template TType of \BackedEnum
  */
 class StateMachine implements Arrayable
@@ -24,9 +23,49 @@ class StateMachine implements Arrayable
     protected ?TransitionCollection $transitions = null;
 
     /**
+     * Keep transitions context across app-flow.
+     *
      * @var array<string, array>
      */
     public static array $context = [];
+
+    /**
+     * Get workflow listing for a model.
+     *
+     * @return Collection<int, static>
+     */
+    public static function collect(Model $model): Collection
+    {
+        $engines = [];
+
+        $reflect = new \ReflectionClass($model);
+
+        foreach ($reflect->getMethods() as $method) {
+            $is_workflow = array_filter(
+                $method->getAttributes(),
+                fn(\ReflectionAttribute $attribute) => $attribute->getName() === Workflow::class
+            );
+
+            if ($is_workflow) {
+                $engines[] = $method->invoke($model);
+            }
+        }
+
+        return new Collection($engines);
+    }
+
+    /**
+     * Try to restore engine for a given blueprint.
+     *
+     * @param  TModel  $model
+     * @param  string  $blueprint  Blueprint or attribute.
+     */
+    public static function restore(Model $model, string $blueprint): ?static
+    {
+        return static::collect($model)->first(
+            fn(self $engine) => get_class($engine->blueprint) === $blueprint || $engine->attribute === $blueprint
+        );
+    }
 
     /**
      * @param  WorkflowBlueprint  $blueprint
@@ -35,7 +74,7 @@ class StateMachine implements Arrayable
      */
     public function __construct(
         public WorkflowBlueprint $blueprint,
-        public Model&Workflow $model,
+        public Model $model,
         public string $attribute
     ) {
         //
@@ -61,7 +100,7 @@ class StateMachine implements Arrayable
     /**
      * Get an authenticated user for the moment.
      */
-    public function getActor(): ?Authenticatable
+    public function getActor(): ?Authorizable
     {
         return call_user_func($this->blueprint->actor());
     }
@@ -106,7 +145,7 @@ class StateMachine implements Arrayable
      *
      * @return TModel
      */
-    public function init(array $context = [], \BackedEnum $enum = null): Model&Workflow
+    public function init(array $context = [], \BackedEnum $enum = null): Model
     {
         // Set initial state
         if ($enum) {
@@ -117,7 +156,7 @@ class StateMachine implements Arrayable
         }
 
         // Put context for later use in observer
-        $this->setContext($context);
+        $this->keepContext($context);
 
         return $this->model;
     }
@@ -132,7 +171,7 @@ class StateMachine implements Arrayable
      * @throws ValidationException
      * @throws ItemNotFoundException
      */
-    public function transit(\BackedEnum $enum, array $context = []): Model&Workflow
+    public function transit(\BackedEnum $enum, array $context = []): Model
     {
         if ($transition = $this->transitionTo($enum)) {
 
@@ -160,12 +199,12 @@ class StateMachine implements Arrayable
         );
 
         // Put context for later use in observer
-        $this->setContext($context);
+        $this->keepContext($context);
 
         return $this->model;
     }
 
-    public function setContext(array $context = []): void
+    protected function keepContext(array $context = []): void
     {
         self::$context[$this->attribute] = $context;
     }

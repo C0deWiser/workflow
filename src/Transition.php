@@ -176,23 +176,29 @@ class Transition implements Arrayable, Injectable
      */
     public function authorize(): static
     {
-        $arguments = [$this->engine->model, $this];
+        $authorization = $this->engine->blueprint->authorization();
 
-        $callback = $this->engine->blueprint->authorization();
+        if (is_callable($authorization)) {
 
-        if (is_callable($callback)) {
-
-            $allowed = call_user_func_array($callback, $arguments);
+            // Pass model and context
+            $allowed = call_user_func_array($authorization, [
+                $this->engine->model,
+                new Context($this, $this->engine->getActor())
+            ]);
 
             if ($allowed instanceof Response && $allowed->denied()) {
-                throw new AuthorizationException();
+                throw new AuthorizationException($allowed->message());
             }
 
             if (is_bool($allowed) && $allowed === false) {
                 throw new AuthorizationException();
             }
-        } elseif (is_string($callback)) {
-            Gate::authorize($callback, $arguments);
+        } elseif (is_string($authorization)) {
+            // Pass model and transition
+            Gate::authorize($authorization, [
+                $this->engine->model,
+                $this
+            ]);
         }
 
         return $this;

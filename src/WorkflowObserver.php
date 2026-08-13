@@ -3,48 +3,26 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Contracts\Workflow;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Exceptions\TransitionException;
+use Codewiser\Workflow\Traits\HasEngine;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
+use Illuminate\Support\ItemNotFoundException;
 
 /**
  * Initiates State Machine, watches for changes, fires Event.
  */
 class WorkflowObserver
 {
-    protected ?StateMachine $engine = null;
+    use HasEngine;
 
-    protected function withEngine(StateMachine $engine): static
+    public function creating(Model $model): bool
     {
-        $this->engine = $engine;
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, StateMachine>
-     */
-    private function getWorkflowListing(Model&Workflow $model): Collection
-    {
-        $engines = [];
-
-        foreach ($model->blueprints() as $attribute => $blueprint) {
-            $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
-            $engines[] = new StateMachine($blueprint, $model, $attribute);
-        }
-
-        return new Collection($engines);
-    }
-
-    public function creating(Model&Workflow $model): bool
-    {
-        return $this->getWorkflowListing($model)
+        return StateMachine::collect($model)
             ->reject(function (StateMachine $engine) use ($model) {
 
-                $this->withEngine($engine);
+                $this->inject($engine);
 
                 $state = $this->nowCreating();
 
@@ -65,12 +43,12 @@ class WorkflowObserver
             ->isEmpty();
     }
 
-    public function created(Model&Workflow $model): void
+    public function created(Model $model): void
     {
-        $this->getWorkflowListing($model)
+        StateMachine::collect($model)
             ->each(function (StateMachine $engine) use ($model) {
 
-                $this->withEngine($engine);
+                $this->inject($engine);
 
                 $state = $this->wasCreated();
 
@@ -85,14 +63,14 @@ class WorkflowObserver
             });
     }
 
-    public function updating(Model&Workflow $model): bool
+    public function updating(Model $model): bool
     {
         // If one transition is invalid, all update is invalid
-        return $this->getWorkflowListing($model)
+        return StateMachine::collect($model)
             // Rejecting successful validations
             ->reject(function (StateMachine $engine) use ($model) {
 
-                $this->withEngine($engine);
+                $this->inject($engine);
 
                 if ($transition = $this->nowTransiting()) {
 
@@ -130,12 +108,12 @@ class WorkflowObserver
             ->isEmpty();
     }
 
-    public function updated(Model&Workflow $model): void
+    public function updated(Model $model): void
     {
-        $this->getWorkflowListing($model)
+        StateMachine::collect($model)
             ->each(function (StateMachine $engine) use ($model) {
 
-                $this->withEngine($engine);
+                $this->inject($engine);
 
                 if ($transition = $this->wasTransited()) {
 
@@ -158,15 +136,14 @@ class WorkflowObserver
             });
     }
 
-    public function nowCreating(): ?State
+    protected function nowCreating(): ?State
     {
         if ($engine = $this->engine) {
-            $attribute = $engine->attribute;
 
             $state = $engine->state() ?? $engine->getStateListing()->initial();
 
             // Pass context to state for validation. May throw an Exception
-            $state->context($this->context($engine, $attribute));
+            $state->context($this->restoreContext());
 
             return $state;
         }
@@ -174,20 +151,19 @@ class WorkflowObserver
         return null;
     }
 
-    public function wasCreated(): ?State
+    protected function wasCreated(): ?State
     {
         if ($engine = $this->engine) {
-            $attribute = $engine->attribute;
 
             $state = $engine->state();
 
             // State must exist
             if (! $state) {
-                throw new \Illuminate\Support\ItemNotFoundException('Initial state not found');
+                throw new ItemNotFoundException('Initial state not found');
             }
 
             // Pass context to state, so it will be accessible in events.
-            $state->context($this->context($engine, $attribute));
+            $state->context($this->restoreContext());
 
             return $state;
         }
@@ -198,7 +174,7 @@ class WorkflowObserver
     /**
      * Get a transition, that is now running, but not saved yet.
      */
-    public function nowTransiting(): ?Transition
+    protected function nowTransiting(): ?Transition
     {
         if ($engine = $this->engine) {
             $model = $engine->model;
@@ -216,7 +192,7 @@ class WorkflowObserver
                     ->sole();
 
                 // Pass context to transition for validation. May throw an Exception
-                $transition->context($this->context($engine, $attribute));
+                $transition->context($this->restoreContext());
 
                 return $transition;
             }
@@ -228,7 +204,7 @@ class WorkflowObserver
     /**
      * Get a transition that was just saved.
      */
-    public function wasTransited(): ?Transition
+    protected function wasTransited(): ?Transition
     {
         if ($engine = $this->engine) {
             $model = $engine->model;
@@ -246,7 +222,7 @@ class WorkflowObserver
                     ->sole();
 
                 // Pass context to transition, so it will be accessible in events.
-                $transition->context($this->context($engine, $attribute));
+                $transition->context($this->restoreContext());
 
                 return $transition;
             }
@@ -255,8 +231,12 @@ class WorkflowObserver
         return null;
     }
 
-    public function context(StateMachine $engine, string $attribute): array
+    protected function restoreContext(): array
     {
-        return $engine::$context[$attribute] ?? [];
+        if ($engine = $this->engine) {
+            return StateMachine::$context[$engine->attribute] ?? [];
+        }
+
+        return [];
     }
 }

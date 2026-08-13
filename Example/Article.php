@@ -2,10 +2,11 @@
 
 namespace Codewiser\Workflow\Example;
 
-use Codewiser\Workflow\Contracts\Workflow;
+use Codewiser\Workflow\Attributes\Workflow;
 use Codewiser\Workflow\StateMachine;
-use Codewiser\Workflow\WorkflowObserver;
 use Codewiser\Workflow\Traits\HasTransitionHistory;
+use Codewiser\Workflow\Traits\HasWorkflow;
+use Codewiser\Workflow\WorkflowObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\AsCollection;
 use Illuminate\Database\Eloquent\Model;
@@ -21,13 +22,14 @@ use Illuminate\Support\Collection;
  * @property string $auth_token
  */
 #[ObservedBy(WorkflowObserver::class)]
-class Article extends Model implements Workflow
+class Article extends Model
 {
-    use HasTransitionHistory;
+    use HasWorkflow, HasTransitionHistory;
 
     protected $attributes = [
         // For test purposes
-        'state' => null
+        'state' => null,
+        'votes' => '[]'
     ];
 
     protected function casts(): array
@@ -39,20 +41,24 @@ class Article extends Model implements Workflow
         ];
     }
 
-    public function blueprints(): array
-    {
-        $engine = $this->state();
-
-        return [
-            $engine->attribute => $engine->blueprint
-        ];
-    }
-
     /**
-     * @return StateMachine<Article, Enum>
+     * @return StateMachine<self, Enum>
      */
+    #[Workflow]
     public function state(): StateMachine
     {
-        return new StateMachine(new ArticleWorkflow(), $this, 'state');
+        return $this->workflow(ArticleWorkflow::class, __METHOD__);
+    }
+
+    public function state1(): StateMachine
+    {
+        return $this->workflow(ArticleWorkflow::class, 'state1');
+    }
+
+    public function states(string $attribute): StateMachine
+    {
+        return $attribute === 'state'
+            ? $this->state()
+            : $this->state1();
     }
 }

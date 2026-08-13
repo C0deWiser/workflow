@@ -2,12 +2,9 @@
 
 namespace Codewiser\Workflow\Models;
 
-use Codewiser\Workflow\Contracts\Workflow;
 use Codewiser\Workflow\State;
-use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\Transition;
-use Codewiser\Workflow\TransitionCollection;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -18,11 +15,11 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
 /**
- * @template TModel of (Model&Workflow)
+ * @template TModel of Model
  * @template TType of \BackedEnum
  *
  * @property integer $id
- * @property string $blueprint
+ * @property string $blueprint Attrinbute name (or Blueprint class, legacy).
  * @property string|null $source
  * @property string $target
  * @property array|null $context
@@ -30,7 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  *
  * @property Authenticatable|null $performer
- * @property Model&Workflow $transitionable
+ * @property Model $transitionable
  */
 class TransitionHistory extends Model
 {
@@ -67,12 +64,7 @@ class TransitionHistory extends Model
     protected function engine(): ?StateMachine
     {
         if (! $this->engine) {
-            foreach ($this->transitionable->blueprints() as $attribute => $blueprint) {
-                $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : new $blueprint;
-                if (get_class($blueprint) === $this->blueprint) {
-                    $this->engine = new StateMachine($blueprint, $this->transitionable, $attribute);
-                }
-            }
+            $this->engine = StateMachine::restore($this->transitionable, $this->blueprint);
         }
 
         return $this->engine;

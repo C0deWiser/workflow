@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
  */
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
-    public function actor(): \Closure
+    public function actor(): callable
     {
         return fn() => null;
     }
@@ -74,7 +74,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
                             $model->votes = new Collection();
                         }
 
-                        return $model->votes?->count() / 3;
+                        return $model->votes->count() / 3;
                     },
                     fn(Article $model) => $model->votes->add('voice')
                 ))

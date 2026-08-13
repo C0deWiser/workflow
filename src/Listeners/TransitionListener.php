@@ -14,7 +14,7 @@ class TransitionListener
     {
         $log = new TransitionHistory();
 
-        $log->blueprint = get_class($engine->blueprint);
+        $log->blueprint = $engine->attribute;
 
         $log->performer()->associate($engine->getActor());
         $log->transitionable()->associate($engine->model);
