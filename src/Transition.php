@@ -4,6 +4,7 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Traits\HasAttributes;
+use Codewiser\Workflow\Traits\HasAuthorization;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasCharge;
 use Codewiser\Workflow\Traits\HasConditions;
@@ -17,7 +18,6 @@ use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Transition between states in State Machine.
@@ -42,7 +42,7 @@ class Transition implements Arrayable, Injectable
     use HasContext {
         validationRules as protected selfValidationRules;
     }
-    use HasEngine, HasEloquentEvents, HasCharge;
+    use HasEngine, HasEloquentEvents, HasCharge, HasAuthorization;
 
     public static function make(\BackedEnum $source, \BackedEnum $target): static
     {
@@ -176,7 +176,7 @@ class Transition implements Arrayable, Injectable
      */
     public function authorize(): static
     {
-        $authorization = $this->engine->blueprint->authorization();
+        $authorization = $this->authorization ?? $this->engine->blueprint->authorization();
 
         if (is_callable($authorization)) {
 

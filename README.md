@@ -162,10 +162,9 @@ As model's actions are not allowed to any user, as changing state is not
 allowed to any user.
 
 When describing the workflow blueprint, you may implement `authorization` 
-method. This method is used to authorize running transitions.
+method. This method is used to authorize running transitions by default.
 
-When method returns a `string`, this string will be applied to the 
-model's policy class.
+You may override `authorization` for every `Transition`.
 
 ```php
 use \Codewiser\Workflow\WorkflowBlueprint;
@@ -174,10 +173,23 @@ class ArticleWorkflow extends WorkflowBlueprint
 {   
     public function authorization() : null|string|callable
     {
+        // This is default authorization for all transitions
         return 'transit'; 
+    }
+    
+    public function transitions(): array
+    {
+        return [
+            Transition::make(Enum::new, Enum::review)
+                // This is authorization for exact transition
+                ->authorizedBy('transit');
+        ];
     }
 }
 ```
+
+When method returns a `string`, this string will be invoked as method of 
+model's policy class.
 
 It will call policy method like this:
 
@@ -194,21 +206,36 @@ class ArticlePolicy
 }
 ```
 
-Alternatively, method may return a `callable` with custom authorization. Custom 
-authorization may return `bool`, `Response` or throw an `AuthorizationException`.
+Alternatively, method may provide a `callable` with custom authorization. 
+Custom authorization may return `bool`, `Response` or throw an 
+`AuthorizationException`.
 
 ```php
 use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\WorkflowBlueprint;
 
 class ArticleWorkflow extends WorkflowBlueprint
 {   
     public function authorization() : null|string|callable
     {
-        return function(Article $article, Context $context) {
-            return $context->actor()
-                ->can('transit', [$article, $context->transition()]);
-        }; 
+        // This is default authorization for all transitions
+        return fn(Article $article, Context $context) 
+            => $context->actor()
+                ->can('transit', [$article, $context->transition()])
+        ; 
+    }
+    
+    public function transitions(): array
+    {
+        return [
+            Transition::make(Enum::new, Enum::review)
+                // This is authorization for exact transition
+                ->authorizedBy(
+                    fn(Article $article, Context $context) 
+                        => $article->author->is($context->actor())
+                );
+        ];
     }
 }
 ```

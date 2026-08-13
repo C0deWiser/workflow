@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Injectable;
+use Codewiser\Workflow\Contracts\StateEnum;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasConditions;
@@ -19,7 +20,10 @@ use Illuminate\Validation\ValidationException;
  */
 class State implements Arrayable, Injectable
 {
-    use HasAttributes, HasEngine, HasEloquentEvents, HasContext, HasDeadEnd, HasConditions;
+    use HasEngine, HasEloquentEvents, HasContext, HasDeadEnd, HasConditions;
+    use HasAttributes {
+        additional as protected selfAdditional;
+    }
     use HasCaption {
         caption as protected selfCaption;
     }
@@ -63,7 +67,22 @@ class State implements Arrayable, Injectable
      */
     public function caption(): string
     {
-        return $this->selfCaption() ?? $this->enum->name;
+        return $this->selfCaption()
+            ?? (
+            $this->enum instanceof StateEnum
+                ? $this->enum->caption()
+                : $this->enum->name
+            );
+    }
+
+    public function additional(): array
+    {
+        return $this->selfAdditional()
+            + (
+            $this->enum instanceof StateEnum
+                ? $this->enum->attributes()
+                : []
+            );
     }
 
     /**
