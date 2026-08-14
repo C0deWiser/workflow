@@ -56,10 +56,8 @@ attribute.
 use Codewiser\Workflow\Attributes\Workflow;
 use Codewiser\Workflow\Traits\HasWorkflow;
 use Codewiser\Workflow\StateMachine;
-use Codewiser\Workflow\WorkflowObserver;
 use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;
-use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 
 /**
