@@ -7,9 +7,10 @@ use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Traits\HasEngine;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ItemNotFoundException;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Initiates State Machine, watches for changes, fires Event.
@@ -18,29 +19,17 @@ class WorkflowObserver
 {
     use HasEngine;
 
-    /**
-     * @var callable(object): void
-     */
-    protected $eventDispatcher;
-
-    public function __construct()
+    public function __construct(protected Dispatcher $events, protected Factory $validators)
     {
-        $this->setEventDispatcher(fn(object $event) => event($event));
-    }
-
-    protected function dispatchEvent(object $event): void
-    {
-        call_user_func($this->eventDispatcher, $event);
+        //
     }
 
     /**
-     * For testing purposes.
-     *
-     * @internal
+     * Validate user data with given rules.
      */
-    public function setEventDispatcher(callable $dispatcher): void
+    protected function validate(array $rules): array
     {
-        $this->eventDispatcher = $dispatcher;
+        return $this->validators->make($this->engine->userdata(), $rules)->validated();
     }
 
     public function creating(Model $model): bool
@@ -56,7 +45,7 @@ class WorkflowObserver
                 $model->setAttribute($engine->attribute, $state->enum);
 
                 // Context for Events
-                $context = new Context($state, $this->engine->userdata());
+                $context = new Context($state, $this->validate($state->validationRules()));
 
                 // Run state callbacks
                 if ($engine->state()->invoke($model, $context, 'saving') === false) {
@@ -79,10 +68,10 @@ class WorkflowObserver
                 $state = $this->wasCreated();
 
                 // Context for Events
-                $context = new Context($state, $this->engine->userdata());
+                $context = new Context($state, $this->validate($state->validationRules()));
 
                 // Fire event
-                $this->dispatchEvent(new ModelInitialized($engine, $context));
+                $this->events->dispatch(new ModelInitialized($engine, $context));
 
                 // Run state callbacks
                 $engine->state()->invoke($model, $context, 'saved');
@@ -109,7 +98,7 @@ class WorkflowObserver
                     }
 
                     // Context for Events
-                    $context = new Context($transition, $this->engine->userdata());
+                    $context = new Context($transition, $this->validate($transition->validationRules()));
 
                     // Transition callbacks
                     if ($transition->invoke($model, $context, 'saving') === false) {
@@ -137,10 +126,10 @@ class WorkflowObserver
                 if ($transition = $this->wasTransited()) {
 
                     // Context for Events
-                    $context = new Context($transition, $this->engine->userdata());
+                    $context = new Context($transition, $this->validate($transition->validationRules()));
 
                     // For Event Listener
-                    $this->dispatchEvent(new ModelTransited($engine, $context));
+                    $this->events->dispatch(new ModelTransited($engine, $context));
 
                     // Transition callbacks
                     $transition->invoke($model, $context, 'saved');

@@ -7,26 +7,37 @@ use Codewiser\Workflow\Traits\HasEngine;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 
-class Charge implements Injectable
+/**
+ * Charger for a transition.
+ */
+class Charger implements Injectable
 {
     use HasEngine;
 
     /**
-     * @var null|callable
+     * Callback to get current charge level.
+     *
+     * @var callable(Model, Context): float
      */
-    protected $progress = null;
+    protected $progress;
 
     /**
-     * @var null|callable
+     * Callback to increase charge.
+     *
+     * @var callable(Model, Context): void
      */
-    protected $callback = null;
+    protected $callback;
 
     /**
+     * Callback to check if charging allowed.
+     *
      * @var null|callable
      */
     protected $allow = null;
 
     /**
+     * Callback to get charging history.
+     *
      * @var null|callable
      */
     protected $history = null;
@@ -34,17 +45,17 @@ class Charge implements Injectable
     /**
      * Every callback receives Model and Transition arguments.
      *
-     * @param  callable(Model, Context): float  $progress  Should return float (0÷1) with charge progress.
-     * @param  callable(Model, Context): void  $callback  Increase transition charge.
+     * @param  callable(Model, Context): float  $progress  Callback to get current charge level (0÷1).
+     * @param  callable(Model, Context): void  $callback  Callback to increase charge.
      */
-    public static function make(callable $progress, callable $callback): Charge
+    public static function make(callable $progress, callable $callback): Charger
     {
         return new static($progress, $callback);
     }
 
     /**
-     * @param  callable(Model, Context): float  $progress  Return float (0÷1) with charge progress.
-     * @param  callable(Model, Context): void  $callback  Increase transition charge.
+     * @param  callable(Model, Context): float  $progress  Callback to get current charge level (0÷1).
+     * @param  callable(Model, Context): void  $callback  Callback to increase charge.
      */
     public function __construct(callable $progress, callable $callback)
     {
@@ -53,19 +64,8 @@ class Charge implements Injectable
     }
 
     /**
-     * Add history callback. Callback should return an Arrayable, containing the history of charging.
-     *
-     * @param  callable(Model, Context): Arrayable  $callback
-     */
-    public function withHistory(callable $callback): static
-    {
-        $this->history = $callback;
-
-        return $this;
-    }
-
-    /**
-     * Callback should return FALSE if a user already charges the transition. It is TRUE if not defined.
+     * Callback should return FALSE if a user is not allowed to charge the transition.
+     * It is TRUE if not defined.
      *
      * @param  callable(Model, Context): bool  $callback
      */
@@ -76,9 +76,17 @@ class Charge implements Injectable
         return $this;
     }
 
-    protected function func_args(Transition $transition, array $userdata = []): array
+    /**
+     * Add history callback.
+     * Callback should return an Arrayable, containing the history of charging.
+     *
+     * @param  callable(Model, Context): Arrayable  $callback
+     */
+    public function withHistory(callable $callback): static
     {
-        return [$this->engine->model, new Context($transition, $userdata)];
+        $this->history = $callback;
+
+        return $this;
     }
 
     /**
@@ -108,8 +116,9 @@ class Charge implements Injectable
      *
      * @internal
      */
-    public function charge(Transition $transition, array $userdata = []): void
+    public function charge(Transition $transition, array $userdata): void
     {
+        // Userdata here not validated
         call_user_func_array($this->callback, $this->func_args($transition, $userdata));
     }
 
@@ -125,9 +134,16 @@ class Charge implements Injectable
 
     /**
      * Check transition charging level (0÷1).
+     *
+     * @internal
      */
     public function charging(Transition $transition): float
     {
         return call_user_func_array($this->progress, $this->func_args($transition));
+    }
+
+    protected function func_args(Transition $transition, array $userdata = []): array
+    {
+        return [$this->engine->model, new Context($transition, $userdata)];
     }
 }

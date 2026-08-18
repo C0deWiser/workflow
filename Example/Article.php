@@ -47,18 +47,12 @@ class Article extends Model
     #[Workflow]
     public function state(): StateMachine
     {
-        return $this->workflow(ArticleWorkflow::class, __METHOD__)
-            ->setValidator(
-                fn(array $data, array $rules) => new FakeValidator($data, $rules)
-            );
+        return $this->workflow(ArticleWorkflow::class, __METHOD__);
     }
 
     public function state1(): StateMachine
     {
-        return $this->workflow(ArticleWorkflow::class, 'state1')
-            ->setValidator(
-                fn(array $data, array $rules) => new FakeValidator($data, $rules)
-            );
+        return $this->workflow(ArticleWorkflow::class, 'state1');
     }
 
     public function states(string $attribute): StateMachine

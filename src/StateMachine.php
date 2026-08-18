@@ -6,11 +6,9 @@ namespace Codewiser\Workflow;
 use Codewiser\Workflow\Attributes\Workflow;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ItemNotFoundException;
-use Illuminate\Validation\ValidationException;
 
 /**
  * @template TModel of Model
@@ -22,11 +20,6 @@ class StateMachine implements Arrayable
     protected ?StateCollection $states = null;
 
     protected ?TransitionCollection $transitions = null;
-
-    /**
-     * @var callable(array, array): Validator
-     */
-    protected $validator;
 
     /**
      * Get workflow listing for a model.
@@ -76,7 +69,7 @@ class StateMachine implements Arrayable
         public Model $model,
         public string $attribute
     ) {
-        $this->validator = fn(array $data, array $rules) => validator($data, $rules);
+        //
     }
 
     public function __serialize(): array
@@ -141,10 +134,7 @@ class StateMachine implements Arrayable
         // Get initial state
         $state = $this->getStateListing()->initial($enum);
 
-        // Validate user data
-        $userdata = $this->validate($state->validationRules(), $userdata);
-
-        // Put context for later use in observer
+        // Put context for later validation in observer
         $this->keepUserdata($userdata);
 
         // Set initial state
@@ -163,15 +153,11 @@ class StateMachine implements Arrayable
      * @param  array  $userdata
      *
      * @return TModel
-     * @throws ValidationException
      * @throws ItemNotFoundException
      */
     public function transit(\BackedEnum $enum, array $userdata = []): Model
     {
         if ($transition = $this->transitionTo($enum)) {
-
-            // Validate user data
-            $userdata = $this->validate($transition->validationRules(), $userdata);
 
             // Chargeable transition?
             if ($charge = $transition->charge($this)) {
@@ -190,7 +176,7 @@ class StateMachine implements Arrayable
             throw new ItemNotFoundException();
         }
 
-        // Put context for later use in observer
+        // Put context for later validation in observer
         $this->keepUserdata($userdata);
 
         $this->model->setAttribute(
@@ -292,27 +278,4 @@ class StateMachine implements Arrayable
         return static::$userdata[$this->attribute] ?? [];
     }
 
-    /**
-     * For testing purposes.
-     *
-     * @internal
-     */
-    public function setValidator(callable $validator): static
-    {
-        $this->validator = $validator;
-
-        return $this;
-    }
-
-    /**
-     * Validate userdata.
-     *
-     * @throws ValidationException
-     */
-    public function validate(array $rules, array $data): array
-    {
-        $validator = call_user_func($this->validator, $data, $rules);
-
-        return $validator->validated();
-    }
 }

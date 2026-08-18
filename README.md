@@ -538,12 +538,12 @@ editors has accepted it.
 ```php
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\Enum;
-use Codewiser\Workflow\Charge;
+use Codewiser\Workflow\Charger;
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Transition;
 
 Transition::make(Enum::review, Enum::publish)
-    ->chargeable(Charge::make(
+    ->chargeable(Charger::make(
         progress: function(Article $article) {
             // Return float (0÷1) with charge progress.
             return $article->votes->count() / 3;

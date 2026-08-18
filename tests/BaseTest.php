@@ -7,9 +7,10 @@ use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\Enum;
-use Codewiser\Workflow\Example\FakeValidator;
+use Codewiser\Workflow\Example\FakedDispatcher;
+use Codewiser\Workflow\Example\FakedFactory;
+use Codewiser\Workflow\Example\FakedValidator;
 use Codewiser\Workflow\Exceptions\TransitionException;
-use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachine;
@@ -26,17 +27,17 @@ class BaseTest extends TestCase
 {
     public function testFakeValidator()
     {
-        $v = new FakeValidator(['name' => 'Foo'], ['name' => 'required']);
+        $v = new FakedValidator(['name' => 'Foo'], ['name' => 'required']);
         $this->assertFalse($v->fails());
         $this->assertEquals(['name' => 'Foo'], $v->validate());
         $this->assertEquals(['name' => 'Foo'], $v->validated());
 
-        $v = new FakeValidator([], ['name' => 'nullable']);
+        $v = new FakedValidator([], ['name' => 'nullable']);
         $this->assertFalse($v->fails());
         $this->assertEquals([], $v->validate());
         $this->assertEquals([], $v->validated());
 
-        $v = new FakeValidator(['name' => ''], ['name' => 'required']);
+        $v = new FakedValidator(['name' => ''], ['name' => 'required']);
         $this->assertTrue($v->fails());
         $this->assertEquals(['name' => ''], $v->failed());
     }
@@ -44,11 +45,12 @@ class BaseTest extends TestCase
     public function testBasics()
     {
         $post = new Article();
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
 
         $this->assertNull($post->state, 'State is not initialized');
 
         // Implicit init (using observer)
-        $this->assertTrue((new WorkflowObserver)->creating($post));
+        $this->assertTrue($observer->creating($post));
         $this->assertEquals(Enum::new, $post->state,
             'State value was initialized on creating event'
         );
@@ -122,11 +124,8 @@ class BaseTest extends TestCase
     public function testUserdata()
     {
         $wasCalled = ['creating' => false, 'created' => false, 'updating' => false, 'updated' => false];
-        $dispatchedEvents = [];
-        $observer = new WorkflowObserver();
-        $observer->setEventDispatcher(function ($event) use (&$dispatchedEvents) {
-            $dispatchedEvents[] = $event;
-        });
+        $dispatcher = new FakedDispatcher();
+        $observer = new WorkflowObserver($dispatcher, new FakedFactory());
 
         // Init
         $post = new Article();
@@ -146,7 +145,7 @@ class BaseTest extends TestCase
             $wasCalled['created'] = true;
         });
         $observer->created($post);
-        $this->assertInstanceOf(ModelInitialized::class, $dispatchedEvents[0]);
+        $this->assertInstanceOf(ModelInitialized::class, $dispatcher->dispatched[0]);
 
         // Update
         $post = new Article();
@@ -183,7 +182,7 @@ class BaseTest extends TestCase
             $wasCalled['updated'] = true;
         });
         $observer->updated($post);
-        $this->assertInstanceOf(ModelTransited::class, $dispatchedEvents[1]);
+        $this->assertInstanceOf(ModelTransited::class, $dispatcher->dispatched[1]);
 
         $this->assertEquals(['creating' => true, 'created' => true, 'updating' => true, 'updated' => true], $wasCalled);
     }
@@ -229,12 +228,14 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+
         $post->condition = true;
         $post->state = Enum::review;
 
         // Observer prevents changing state as the transition has unresolved condition
         $this->expectException(TransitionException::class);
-        (new WorkflowObserver)->updating($post);
+        $observer->updating($post);
     }
 
     public function testTransitFatal()
@@ -242,11 +243,13 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+
         $post->state = Enum::published;
 
         // Observer prevents changing state as the transition is forbidden
         $this->expectException(TransitionException::class);
-        (new WorkflowObserver)->updating($post);
+        $observer->updating($post);
     }
 
     public function testTransitUnauthorized()
@@ -264,11 +267,13 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+
         $post->state = Enum::unreacheable;
 
         // Observer prevents changing state to unknown value
         $this->expectException(ItemNotFoundException::class);
-        (new WorkflowObserver)->updating($post);
+        $observer->updating($post);
     }
 
     public function testToArray()

@@ -6,7 +6,7 @@ use Illuminate\Contracts\Support\MessageBag;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\ValidationException;
 
-class FakeValidator implements Validator
+class FakedValidator implements Validator
 {
     protected MessageBag $bag;
     protected array $valid = [];

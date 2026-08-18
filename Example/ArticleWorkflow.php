@@ -2,7 +2,7 @@
 
 namespace Codewiser\Workflow\Example;
 
-use Codewiser\Workflow\Charge;
+use Codewiser\Workflow\Charger;
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\Transition;
@@ -57,7 +57,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 
             Transition::make(Enum::new, Enum::chargeable)
                 ->withContext(['comment' => 'nullable'])
-                ->chargeable(Charge::make(
+                ->chargeable(Charger::make(
                     function (Article $model) {
                         if (! $model->votes) {
                             $model->votes = new Collection();
