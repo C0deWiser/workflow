@@ -15,6 +15,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * @template TModel of Model
  * @template TType of \BackedEnum
+ * @template TBlueprint of WorkflowBlueprint
  */
 class StateMachine implements Arrayable
 {
@@ -68,7 +69,7 @@ class StateMachine implements Arrayable
     }
 
     /**
-     * @param  WorkflowBlueprint  $blueprint
+     * @param  TBlueprint  $blueprint
      * @param  TModel  $model
      * @param  string  $attribute
      */
