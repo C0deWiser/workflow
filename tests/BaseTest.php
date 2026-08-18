@@ -2,9 +2,14 @@
 
 namespace Tests;
 
+use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Events\ModelInitialized;
+use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\Enum;
+use Codewiser\Workflow\Example\FakeValidator;
 use Codewiser\Workflow\Exceptions\TransitionException;
+use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachine;
@@ -12,11 +17,30 @@ use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
 use Codewiser\Workflow\WorkflowObserver;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ItemNotFoundException;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\TestCase;
 
 class BaseTest extends TestCase
 {
+    public function testFakeValidator()
+    {
+        $v = new FakeValidator(['name' => 'Foo'], ['name' => 'required']);
+        $this->assertFalse($v->fails());
+        $this->assertEquals(['name' => 'Foo'], $v->validate());
+        $this->assertEquals(['name' => 'Foo'], $v->validated());
+
+        $v = new FakeValidator([], ['name' => 'nullable']);
+        $this->assertFalse($v->fails());
+        $this->assertEquals([], $v->validate());
+        $this->assertEquals([], $v->validated());
+
+        $v = new FakeValidator(['name' => ''], ['name' => 'required']);
+        $this->assertTrue($v->fails());
+        $this->assertEquals(['name' => ''], $v->failed());
+    }
+
     public function testBasics()
     {
         $post = new Article();
@@ -95,16 +119,73 @@ class BaseTest extends TestCase
         ], $transition->additional());
     }
 
-    public function testRules()
+    public function testUserdata()
     {
+        $wasCalled = ['creating' => false, 'created' => false, 'updating' => false, 'updated' => false];
+        $dispatchedEvents = [];
+        $observer = new WorkflowObserver();
+        $observer->setEventDispatcher(function ($event) use (&$dispatchedEvents) {
+            $dispatchedEvents[] = $event;
+        });
+
+        // Init
+        $post = new Article();
+        $post->state()->init(['comment' => 'optional']);
+        $state = $post->state()->getStateListing()->initial();
+
+        $state->saving(function (Model $model, Context $context) use (&$wasCalled) {
+            // Userdata was passed to callback
+            $this->assertEquals(['comment' => 'optional'], $context->data()->all());
+            $wasCalled['creating'] = true;
+        });
+        $observer->creating($post);
+
+        $state->saved(function (Model $model, Context $context) use (&$wasCalled) {
+            // Userdata was passed to callback
+            $this->assertEquals(['comment' => 'optional'], $context->data()->all());
+            $wasCalled['created'] = true;
+        });
+        $observer->created($post);
+        $this->assertInstanceOf(ModelInitialized::class, $dispatchedEvents[0]);
+
+        // Update
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::review], true);
 
-        $data = $post->state()->transitionTo(Enum::correction)->toArray();
+        $transition = $post->state()->transitionTo(Enum::correction);
+
+        $data = $transition->toArray();
 
         $this->assertArrayHasKey('rules', $data);
         $this->assertArrayHasKey('comment', $data['rules']);
         $this->assertArrayHasKey('urgency', $data['rules']); // Inherited from state
+
+        try {
+            $post->state()->transit(Enum::correction);
+        } catch (ValidationException) {
+            $this->assertTrue(true);
+        }
+
+        $post->state()->transit(Enum::correction, ['comment' => 'required']);
+
+        $transition->saving(function (Model $model, Context $context) use (&$wasCalled) {
+            // Userdata was passed to callback
+            $this->assertEquals(['comment' => 'required'], $context->data()->all());
+            $wasCalled['updating'] = true;
+        });
+        $observer->updating($post);
+
+        $post->syncChanges();
+
+        $transition->saved(function (Model $model, Context $context) use (&$wasCalled) {
+            // Userdata was passed to callback
+            $this->assertEquals(['comment' => 'required'], $context->data()->all());
+            $wasCalled['updated'] = true;
+        });
+        $observer->updated($post);
+        $this->assertInstanceOf(ModelTransited::class, $dispatchedEvents[1]);
+
+        $this->assertEquals(['creating' => true, 'created' => true, 'updating' => true, 'updated' => true], $wasCalled);
     }
 
     public function testJson()
@@ -171,11 +252,11 @@ class BaseTest extends TestCase
     public function testTransitUnauthorized()
     {
         $post = new Article();
-        $post->setRawAttributes(['state' => Enum::correction], true);
+        $post->setRawAttributes(['state' => Enum::new], true);
 
         // Transition is not authorized
         $this->expectException(AuthorizationException::class);
-        $post->state()->authorize(Enum::review, fn() => throw new AuthorizationException);
+        $post->state()->authorize(Enum::prohibited);
     }
 
     public function testTransitUnknown()
@@ -218,15 +299,27 @@ class BaseTest extends TestCase
         $this->assertEquals(0, $data['transitions'][1]['charge']['progress']);
 
         $post->state()->transit(Enum::chargeable);
+        // Vote counted
         $data = $post->state()->toArray();
         $this->assertEquals(1 / 3, $data['transitions'][1]['charge']['progress']);
+        // Context saved
+        $this->assertCount(1, $post->votes);
+        $this->assertEquals([], $post->votes[0]);
 
-        $post->state()->transit(Enum::chargeable);
+        $post->state()->transit(Enum::chargeable, ['comment' => 'one']);
+        // Vote counted
         $data = $post->state()->toArray();
         $this->assertEquals(2 / 3, $data['transitions'][1]['charge']['progress']);
+        // Context saved
+        $this->assertCount(2, $post->votes);
+        $this->assertEquals(['comment' => 'one'], $post->votes[1]);
 
-        $post->state()->transit(Enum::chargeable);
+        $post->state()->transit(Enum::chargeable, ['comment' => 'two', 'foo' => 'bar']);
+        // Transition completed
         $this->assertTrue($post->state()->is(Enum::chargeable));
+        // Context saved
+        $this->assertCount(3, $post->votes);
+        $this->assertEquals(['comment' => 'two'], $post->votes[2]);
     }
 
     public function testMergeRules()

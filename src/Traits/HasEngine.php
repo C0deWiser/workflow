@@ -8,6 +8,9 @@ trait HasEngine
 {
     protected ?StateMachine $engine = null;
 
+    /**
+     * @internal
+     */
     public function inject(StateMachine $engine): static
     {
         $this->engine = $engine;

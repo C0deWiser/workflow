@@ -12,19 +12,18 @@ trait HasAuthorization
      * Instructions to authorize transit.
      *
      * null — default authorization
-     * string — invoke policy ability
      * callable — will be invoked for authorization (may throw AuthorizationException)
      *
-     * @var null|string|callable(Model, Context): (bool|Response)
+     * @var null|callable(Model, Context): (bool|Response)
      */
     protected $authorization = null;
 
     /**
      * Authorize transition using this.
      *
-     * @param  null|string|callable(Model, Context): (bool|Response)  $authorization Ability or callable.
+     * @param  null|callable(Model, Context): (bool|Response)  $authorization May throw AuthorizationException.
      */
-    public function authorizedBy(callable|string|null $authorization): static
+    public function authorizedBy(?callable $authorization): static
     {
         $this->authorization = $authorization;
 

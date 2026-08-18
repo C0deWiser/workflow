@@ -47,6 +47,7 @@ trait HasEloquentEvents
      * Run callbacks.
      *
      * @return void|bool
+     *
      * @internal
      */
     public function invoke(Model $model, Context $context, string $event)
@@ -57,7 +58,9 @@ trait HasEloquentEvents
                     return false;
                 }
             }
-        } elseif ($event === 'saved') {
+        }
+
+        if ($event === 'saved') {
             foreach ($this->onSavedCallbacks as $callback) {
                 call_user_func($callback, $model, $context);
             }

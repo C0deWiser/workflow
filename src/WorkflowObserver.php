@@ -9,6 +9,7 @@ use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Traits\HasEngine;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ItemNotFoundException;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Initiates State Machine, watches for changes, fires Event.
@@ -16,6 +17,31 @@ use Illuminate\Support\ItemNotFoundException;
 class WorkflowObserver
 {
     use HasEngine;
+
+    /**
+     * @var callable(object): void
+     */
+    protected $eventDispatcher;
+
+    public function __construct()
+    {
+        $this->setEventDispatcher(fn(object $event) => event($event));
+    }
+
+    protected function dispatchEvent(object $event): void
+    {
+        call_user_func($this->eventDispatcher, $event);
+    }
+
+    /**
+     * For testing purposes.
+     *
+     * @internal
+     */
+    public function setEventDispatcher(callable $dispatcher): void
+    {
+        $this->eventDispatcher = $dispatcher;
+    }
 
     public function creating(Model $model): bool
     {
@@ -30,7 +56,7 @@ class WorkflowObserver
                 $model->setAttribute($engine->attribute, $state->enum);
 
                 // Context for Events
-                $context = new Context($state, $engine->getActor());
+                $context = new Context($state, $this->engine->userdata());
 
                 // Run state callbacks
                 if ($engine->state()->invoke($model, $context, 'saving') === false) {
@@ -53,10 +79,10 @@ class WorkflowObserver
                 $state = $this->wasCreated();
 
                 // Context for Events
-                $context = new Context($state, $engine->getActor());
+                $context = new Context($state, $this->engine->userdata());
 
                 // Fire event
-                event(new ModelInitialized($engine, $context));
+                $this->dispatchEvent(new ModelInitialized($engine, $context));
 
                 // Run state callbacks
                 $engine->state()->invoke($model, $context, 'saved');
@@ -83,14 +109,7 @@ class WorkflowObserver
                     }
 
                     // Context for Events
-                    $context = new Context($transition, $engine->getActor());
-
-                    // For Transition Observer
-                    if (method_exists($model, 'fireTransitionEvent')) {
-                        if ($model->fireTransitionEvent('transiting', true, $engine, $context) === false) {
-                            return false;
-                        }
-                    }
+                    $context = new Context($transition, $this->engine->userdata());
 
                     // Transition callbacks
                     if ($transition->invoke($model, $context, 'saving') === false) {
@@ -118,15 +137,10 @@ class WorkflowObserver
                 if ($transition = $this->wasTransited()) {
 
                     // Context for Events
-                    $context = new Context($transition, $engine->getActor());
-
-                    // For Transition Observer
-                    if (method_exists($model, 'fireTransitionEvent')) {
-                        $model->fresh()->fireTransitionEvent('transited', false, $engine, $context);
-                    }
+                    $context = new Context($transition, $this->engine->userdata());
 
                     // For Event Listener
-                    event(new ModelTransited($engine, $context));
+                    $this->dispatchEvent(new ModelTransited($engine, $context));
 
                     // Transition callbacks
                     $transition->invoke($model, $context, 'saved');
@@ -138,37 +152,19 @@ class WorkflowObserver
 
     protected function nowCreating(): ?State
     {
-        if ($engine = $this->engine) {
-
-            $state = $engine->state() ?? $engine->getStateListing()->initial();
-
-            // Pass context to state for validation. May throw an Exception
-            $state->context($this->restoreContext());
-
-            return $state;
-        }
-
-        return null;
+        return $this->engine->state() ?? $this->engine->getStateListing()->initial();
     }
 
     protected function wasCreated(): ?State
     {
-        if ($engine = $this->engine) {
+        $state = $this->engine->state();
 
-            $state = $engine->state();
-
-            // State must exist
-            if (! $state) {
-                throw new ItemNotFoundException('Initial state not found');
-            }
-
-            // Pass context to state, so it will be accessible in events.
-            $state->context($this->restoreContext());
-
-            return $state;
+        // State must exist
+        if (! $state) {
+            throw new ItemNotFoundException('Initial state not found');
         }
 
-        return null;
+        return $state;
     }
 
     /**
@@ -176,26 +172,19 @@ class WorkflowObserver
      */
     protected function nowTransiting(): ?Transition
     {
-        if ($engine = $this->engine) {
-            $model = $engine->model;
-            $attribute = $engine->attribute;
+        $model = $this->engine->model;
+        $attribute = $this->engine->attribute;
 
-            if ($model->isDirty($attribute) &&
-                ($source = $model->getOriginal($attribute)) &&
-                ($target = $model->getAttribute($attribute)) &&
-                $source != $target) {
+        if ($model->isDirty($attribute) &&
+            ($source = $model->getOriginal($attribute)) &&
+            ($target = $model->getAttribute($attribute)) &&
+            $source != $target) {
 
-                $transition = $engine->getTransitionListing()
-                    ->from($source)
-                    ->to($target)
-                    // Transition must exist
-                    ->sole();
-
-                // Pass context to transition for validation. May throw an Exception
-                $transition->context($this->restoreContext());
-
-                return $transition;
-            }
+            return $this->engine->getTransitionListing()
+                ->from($source)
+                ->to($target)
+                // Transition must exist
+                ->sole();
         }
 
         return null;
@@ -206,37 +195,21 @@ class WorkflowObserver
      */
     protected function wasTransited(): ?Transition
     {
-        if ($engine = $this->engine) {
-            $model = $engine->model;
-            $attribute = $engine->attribute;
+        $model = $this->engine->model;
+        $attribute = $this->engine->attribute;
 
-            if ($model->wasChanged($attribute) &&
-                ($source = $model->getOriginal($attribute)) &&
-                ($target = $model->getAttribute($attribute)) &&
-                $source != $target) {
+        if ($model->wasChanged($attribute) &&
+            ($source = $model->getOriginal($attribute)) &&
+            ($target = $model->getAttribute($attribute)) &&
+            $source != $target) {
 
-                $transition = $engine->getTransitionListing()
-                    ->from($source)
-                    ->to($target)
-                    // Transition must exist
-                    ->sole();
-
-                // Pass context to transition, so it will be accessible in events.
-                $transition->context($this->restoreContext());
-
-                return $transition;
-            }
+            return $this->engine->getTransitionListing()
+                ->from($source)
+                ->to($target)
+                // Transition must exist
+                ->sole();
         }
 
         return null;
-    }
-
-    protected function restoreContext(): array
-    {
-        if ($engine = $this->engine) {
-            return StateMachine::$context[$engine->attribute] ?? [];
-        }
-
-        return [];
     }
 }

@@ -13,10 +13,10 @@ class WorkflowServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->publishes([
-            __DIR__ . '/../database/migrations' => database_path('migrations')
+            __DIR__.'/../database/migrations' => database_path('migrations')
         ], 'workflow-migrations');
 
-        Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleModelInitialized']);
-        Event::listen(ModelTransited::class, [TransitionListener::class, 'handleModelTransited']);
+        Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleInitialization']);
+        Event::listen(ModelTransited::class, [TransitionListener::class, 'handleTransition']);
     }
 }

@@ -5,8 +5,8 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Attributes\Workflow;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ItemNotFoundException;
@@ -24,11 +24,9 @@ class StateMachine implements Arrayable
     protected ?TransitionCollection $transitions = null;
 
     /**
-     * Keep transitions context across app-flow.
-     *
-     * @var array<string, array>
+     * @var callable(array, array): Validator
      */
-    public static array $context = [];
+    protected $validator;
 
     /**
      * Get workflow listing for a model.
@@ -78,7 +76,7 @@ class StateMachine implements Arrayable
         public Model $model,
         public string $attribute
     ) {
-        //
+        $this->validator = fn(array $data, array $rules) => validator($data, $rules);
     }
 
     public function __serialize(): array
@@ -96,14 +94,6 @@ class StateMachine implements Arrayable
         $this->blueprint = unserialize($data['blueprint']);
         $this->attribute = $data['attribute'];
         $this->model = $data['model']::find($data['id']);
-    }
-
-    /**
-     * Get an authenticated user for the moment.
-     */
-    public function getActor(): ?Authorizable
-    {
-        return call_user_func($this->blueprint->actor());
     }
 
     /**
@@ -141,23 +131,27 @@ class StateMachine implements Arrayable
     /**
      * Init model's workflow with default (or any) state and optional context. Returns Model for you to save it.
      *
-     * @param  array  $context
+     * @param  array  $userdata
      * @param  null|TType  $enum  Override initial state.
      *
      * @return TModel
      */
-    public function init(array $context = [], \BackedEnum $enum = null): Model
+    public function init(array $userdata = [], \BackedEnum $enum = null): Model
     {
-        // Set initial state
-        if ($enum) {
-            $this->model->setAttribute(
-                $this->attribute,
-                $enum
-            );
-        }
+        // Get initial state
+        $state = $this->getStateListing()->initial($enum);
+
+        // Validate user data
+        $userdata = $this->validate($state->validationRules(), $userdata);
 
         // Put context for later use in observer
-        $this->keepContext($context);
+        $this->keepUserdata($userdata);
+
+        // Set initial state
+        $this->model->setAttribute(
+            $this->attribute,
+            $state->enum
+        );
 
         return $this->model;
     }
@@ -166,25 +160,28 @@ class StateMachine implements Arrayable
      * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
      * @param  TType  $enum
-     * @param  array  $context
+     * @param  array  $userdata
      *
      * @return TModel
      * @throws ValidationException
      * @throws ItemNotFoundException
      */
-    public function transit(\BackedEnum $enum, array $context = []): Model
+    public function transit(\BackedEnum $enum, array $userdata = []): Model
     {
         if ($transition = $this->transitionTo($enum)) {
+
+            // Validate user data
+            $userdata = $this->validate($transition->validationRules(), $userdata);
 
             // Chargeable transition?
             if ($charge = $transition->charge($this)) {
 
-                $transition->context($context);
-
+                // Charge transition if allowed
                 if ($charge->mayCharge($transition)) {
-                    $charge->charge($transition);
+                    $charge->charge($transition, $userdata);
                 }
 
+                // Interrupt updating model if transition not fully charged
                 if (! $charge->charged($transition)) {
                     return $this->model;
                 }
@@ -193,21 +190,15 @@ class StateMachine implements Arrayable
             throw new ItemNotFoundException();
         }
 
-        // Fire transition
+        // Put context for later use in observer
+        $this->keepUserdata($userdata);
+
         $this->model->setAttribute(
             $this->attribute,
             $enum
         );
 
-        // Put context for later use in observer
-        $this->keepContext($context);
-
         return $this->model;
-    }
-
-    protected function keepContext(array $context = []): void
-    {
-        self::$context[$this->attribute] = $context;
     }
 
     /**
@@ -277,5 +268,51 @@ class StateMachine implements Arrayable
     public function transitionTo(\BackedEnum $enum): ?Transition
     {
         return $this->state()->transitionTo($enum);
+    }
+
+    # Userdata
+
+    /**
+     * Keep transitions context across app-flow.
+     *
+     * @var array<string, array>
+     */
+    protected static array $userdata = [];
+
+    /**
+     * Store userdata for later use.
+     */
+    protected function keepUserdata(array $userdata = []): void
+    {
+        static::$userdata[$this->attribute] = $userdata;
+    }
+
+    public function userdata(): array
+    {
+        return static::$userdata[$this->attribute] ?? [];
+    }
+
+    /**
+     * For testing purposes.
+     *
+     * @internal
+     */
+    public function setValidator(callable $validator): static
+    {
+        $this->validator = $validator;
+
+        return $this;
+    }
+
+    /**
+     * Validate userdata.
+     *
+     * @throws ValidationException
+     */
+    public function validate(array $rules, array $data): array
+    {
+        $validator = call_user_func($this->validator, $data, $rules);
+
+        return $validator->validated();
     }
 }

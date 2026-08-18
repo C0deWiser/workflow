@@ -10,4 +10,5 @@ enum Enum: string
     case correction = 'correction';
     case unreacheable = 'empty';
     case chargeable = 'cumulative';
+    case prohibited = 'prohibited';
 }

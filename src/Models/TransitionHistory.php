@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Models;
 
+use Codewiser\Workflow\Context;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\Transition;
@@ -116,20 +117,28 @@ class TransitionHistory extends Model
 
         if ($engine && $source && $target) {
             try {
-                $transition = $engine->getTransitionListing()
+                return $engine->getTransitionListing()
                     ->from($source->enum)
                     ->to($target->enum)
                     ->sole();
 
-                if ($context = $this->context) {
-                    $transition->context($context);
-                }
-
-                return $transition;
-
             } catch (Exception) {
                 //
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Restore context with userdata.
+     */
+    public function context(): ?Context
+    {
+        $ctx = $this->transition() ?? $this->target();
+
+        if ($ctx) {
+            return new Context($ctx, $this->context ?? []);
         }
 
         return null;

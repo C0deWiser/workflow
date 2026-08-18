@@ -6,18 +6,18 @@ use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Models\TransitionHistory;
-use Codewiser\Workflow\StateMachine;
+use Illuminate\Database\Eloquent\Model;
 
 class TransitionListener
 {
-    protected function newRecordFor(StateMachine $engine, Context $context): TransitionHistory
+    protected function newRecordFor(Model $model, string $attribute, Context $context): TransitionHistory
     {
         $log = new TransitionHistory();
 
-        $log->blueprint = $engine->attribute;
+        $log->blueprint = $attribute;
 
-        $log->performer()->associate($engine->getActor());
-        $log->transitionable()->associate($engine->model);
+        $log->performer()->associate(auth()->user());
+        $log->transitionable()->associate($model);
 
         $log->source = $context->source()?->enum->value;
         $log->target = $context->target()->enum->value;
@@ -28,13 +28,13 @@ class TransitionListener
         return $log;
     }
 
-    public function handleModelInitialized(ModelInitialized $event): void
+    public function handleInitialization(ModelInitialized $event): void
     {
-        $this->newRecordFor($event->engine, $event->context);
+        $this->newRecordFor($event->engine->model, $event->engine->attribute, $event->context);
     }
 
-    public function handleModelTransited(ModelTransited $event): void
+    public function handleTransition(ModelTransited $event): void
     {
-        $this->newRecordFor($event->engine, $event->context);
+        $this->newRecordFor($event->engine->model, $event->engine->attribute, $event->context);
     }
 }

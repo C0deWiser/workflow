@@ -14,10 +14,8 @@ use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasEngine;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\Access\Response;
-use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Gate;
 
 /**
  * Transition between states in State Machine.
@@ -55,7 +53,7 @@ class Transition implements Arrayable, Injectable
      */
     public function __construct(public \BackedEnum $source, public \BackedEnum $target)
     {
-        $this->context = new ContextRepository;
+        //
     }
 
     public function __serialize(): array
@@ -64,7 +62,6 @@ class Transition implements Arrayable, Injectable
             'source'  => $this->source,
             'target'  => $this->target,
             'engine'  => serialize($this->engine),
-            'context' => serialize($this->context),
         ];
     }
 
@@ -73,7 +70,6 @@ class Transition implements Arrayable, Injectable
         $this->source = $data['source'];
         $this->target = $data['target'];
         $this->engine = unserialize($data['engine']);
-        $this->context = unserialize($data['context']);
     }
 
     public function toArray(): array
@@ -160,13 +156,11 @@ class Transition implements Arrayable, Injectable
     /**
      * Run this transition, passing optional context. Returns Model for you to save it.
      *
-     * @param  array  $context
-     *
      * @return TModel
      */
-    public function transit(array $context = []): Model
+    public function fire(array $userdata = []): Model
     {
-        return $this->engine()->transit($this->target, $context);
+        return $this->engine()->transit($this->target, $userdata);
     }
 
     /**
@@ -180,25 +174,18 @@ class Transition implements Arrayable, Injectable
 
         if (is_callable($authorization)) {
 
-            // Pass model and context
             $allowed = call_user_func_array($authorization, [
                 $this->engine->model,
-                new Context($this, $this->engine->getActor())
+                new Context($this)
             ]);
 
             if ($allowed instanceof Response && $allowed->denied()) {
                 throw new AuthorizationException($allowed->message());
             }
 
-            if (is_bool($allowed) && $allowed === false) {
+            if (! $allowed) {
                 throw new AuthorizationException();
             }
-        } elseif (is_string($authorization)) {
-            // Pass model and transition
-            Gate::authorize($authorization, [
-                $this->engine->model,
-                $this
-            ]);
         }
 
         return $this;

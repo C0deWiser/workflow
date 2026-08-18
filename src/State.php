@@ -11,7 +11,6 @@ use Codewiser\Workflow\Traits\HasContext;
 use Codewiser\Workflow\Traits\HasDeadEnd;
 use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasEngine;
-use Illuminate\Config\Repository as ContextRepository;
 use Illuminate\Contracts\Support\Arrayable;
 
 /**
@@ -42,7 +41,7 @@ class State implements Arrayable, Injectable
      */
     public function __construct(public \BackedEnum $enum)
     {
-        $this->context = new ContextRepository;
+        //
     }
 
     public function __serialize(): array
@@ -50,7 +49,6 @@ class State implements Arrayable, Injectable
         return [
             'enum'    => $this->enum,
             'engine'  => serialize($this->engine),
-            'context' => serialize($this->context),
         ];
     }
 
@@ -58,7 +56,6 @@ class State implements Arrayable, Injectable
     {
         $this->enum = $data['enum'];
         $this->engine = unserialize($data['engine']);
-        $this->context = unserialize($data['context']);
     }
 
     /**

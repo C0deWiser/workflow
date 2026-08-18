@@ -21,6 +21,8 @@ trait HasCharge
 
     /**
      * Get transition charge.
+     *
+     * @internal
      */
     public function charge(StateMachine $machine): ?Charge
     {

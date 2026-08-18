@@ -76,16 +76,16 @@ class Charge implements Injectable
         return $this;
     }
 
-    protected function context(Transition $transition): Context
+    protected function func_args(Transition $transition, array $userdata = []): array
     {
-        return new Context($transition, $this->engine->getActor());
+        return [$this->engine->model, new Context($transition, $userdata)];
     }
 
-    protected function func_args(Transition $transition): array
-    {
-        return [$this->engine->model, $this->context($transition)];
-    }
-
+    /**
+     * Get provided history.
+     *
+     * @internal
+     */
     public function history(Transition $transition): array
     {
         return is_callable($this->history)
@@ -95,6 +95,8 @@ class Charge implements Injectable
 
     /**
      * Check if user allowed charging the transition.
+     *
+     * @internal
      */
     public function mayCharge(Transition $transition): bool
     {
@@ -103,14 +105,18 @@ class Charge implements Injectable
 
     /**
      * Charge transition.
+     *
+     * @internal
      */
-    public function charge(Transition $transition): void
+    public function charge(Transition $transition, array $userdata = []): void
     {
-        call_user_func_array($this->callback, $this->func_args($transition));
+        call_user_func_array($this->callback, $this->func_args($transition, $userdata));
     }
 
     /**
      * Check if transition fully charged and ready to change state.
+     *
+     * @internal
      */
     public function charged(Transition $transition): bool
     {

@@ -2,47 +2,15 @@
 
 namespace Codewiser\Workflow\Traits;
 
-use Illuminate\Config\Repository as ContextRepository;
+use Illuminate\Config\Repository as UserData;
 use Illuminate\Validation\ValidationException;
 
 trait HasContext
 {
-
     /**
      * Validation rules for the additional context.
      */
     protected array $rules = [];
-
-    /**
-     * Additional context.
-     */
-    protected ContextRepository $context;
-
-    /**
-     * Get or set (and validate) additional context.
-     *
-     * @throws ValidationException
-     */
-    /**
-     * Get or set (and validate) transition additional context.
-     *
-     * @throws ValidationException
-     */
-    public function context(array $context = null): ContextRepository
-    {
-        if (is_array($context)) {
-
-            $rules = $this->validationRules();
-
-            if ($rules) {
-                $this->context = new ContextRepository(
-                    validator($context, $rules)->validate()
-                );
-            }
-        }
-
-        return $this->context;
-    }
 
     /**
      * Add requirement(s) to init/transition payload.

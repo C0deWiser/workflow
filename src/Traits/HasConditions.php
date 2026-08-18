@@ -27,6 +27,8 @@ trait HasConditions
      * Get a list of problems with a state/transition.
      *
      * @return array<int, string>
+     *
+     * @internal
      */
     public function issues(): array
     {

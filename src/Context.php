@@ -2,12 +2,11 @@
 
 namespace Codewiser\Workflow;
 
-use Illuminate\Config\Repository as ContextRepository;
-use Illuminate\Contracts\Auth\Access\Authorizable;
+use Illuminate\Config\Repository as Userdata;
 
 class Context
 {
-    public function __construct(protected Transition|State $contextual, protected ?Authorizable $actor = null)
+    public function __construct(protected Transition|State $contextual, protected array $userdata = [])
     {
         //
     }
@@ -37,18 +36,10 @@ class Context
     }
 
     /**
-     * Get authenticated user for the context.
-     */
-    public function actor(): ?Authorizable
-    {
-        return $this->actor;
-    }
-
-    /**
      * Additional context.
      */
-    public function data(): ContextRepository
+    public function data(): Userdata
     {
-        return $this->contextual->context();
+        return new Userdata($this->userdata);
     }
 }

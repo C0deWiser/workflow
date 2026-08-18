@@ -34,9 +34,14 @@ class StateCollection extends Collection
         return new static(array_values($collection), ...$args);
     }
 
-    public function initial(): State
+    /**
+     * Get initial state (could be overridden).
+     */
+    public function initial(\BackedEnum $enum = null): State
     {
-        return $this->first();
+        return $this->first(
+            fn(State $state) => $state->enum === $enum
+        ) ?? $this->first();
     }
 
     /**

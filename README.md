@@ -162,50 +162,11 @@ allowed to any user.
 When describing the workflow blueprint, you may implement `authorization` 
 method. This method is used to authorize running transitions by default.
 
+> If default authorization returns `null` — all transitions allowed to any user.
+
 You may override `authorization` for every `Transition`.
 
-```php
-use \Codewiser\Workflow\WorkflowBlueprint;
-
-class ArticleWorkflow extends WorkflowBlueprint
-{   
-    public function authorization() : null|string|callable
-    {
-        // This is default authorization for all transitions
-        return 'transit'; 
-    }
-    
-    public function transitions(): array
-    {
-        return [
-            Transition::make(Enum::new, Enum::review)
-                // This is authorization for exact transition
-                ->authorizedBy('transit');
-        ];
-    }
-}
-```
-
-When method returns a `string`, this string will be invoked as method of 
-model's policy class.
-
-It will call policy method like this:
-
-```php
-use Codewiser\Workflow\Example\Article;
-use Codewiser\Workflow\Transition;
-
-class ArticlePolicy
-{
-    public function transit(Article $article, Transition $transition)
-    {
-        return true;
-    }
-}
-```
-
-Alternatively, method may provide a `callable` with custom authorization. 
-Custom authorization may return `bool`, `Response` or throw an 
+Authorization callback may return `bool`, `Response` or throw an 
 `AuthorizationException`.
 
 ```php
@@ -215,23 +176,22 @@ use Codewiser\Workflow\WorkflowBlueprint;
 
 class ArticleWorkflow extends WorkflowBlueprint
 {   
-    public function authorization() : null|string|callable
+    public function authorization() : ?callable
     {
-        // This is default authorization for all transitions
+        // Default authorization for all transitions
+        
         return fn(Article $article, Context $context) 
-            => $context->actor()
-                ->can('transit', [$article, $context->transition()])
-        ; 
+            => Gate::authorize('transit', [$article, $context->transition()]); 
     }
     
     public function transitions(): array
     {
+        // Authorization for a single transition
+    
         return [
             Transition::make(Enum::new, Enum::review)
-                // This is authorization for exact transition
-                ->authorizedBy(
-                    fn(Article $article, Context $context) 
-                        => $article->author->is($context->actor())
+                ->authorizedBy(fn(Article $article, Context $context) 
+                    => Gate::authorize('transit', [$article, $context->transition()])
                 );
         ];
     }
@@ -414,7 +374,7 @@ public function update(Request $request, Article $article)
 The context will be validated while saving, and you may catch a 
 `ValidationException`.
 
-After all you may handle this context in [events](#events).
+After all you may handle validated user data in [events](#events).
 
 ## Additional Attributes
 

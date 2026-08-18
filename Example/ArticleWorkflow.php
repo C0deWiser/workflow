@@ -14,20 +14,11 @@ use Illuminate\Support\Collection;
  */
 class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 {
-    public function actor(): callable
-    {
-        return fn() => null;
-    }
-
-    public function authorization(): null|string|callable
-    {
-        return null;
-    }
-
     public function states(): array
     {
         return [
-            State::make(Enum::new),
+            State::make(Enum::new)
+                ->withContext(['comment' => 'nullable']),
             State::make(Enum::review)->attribute('height', 100),
             Enum::published,
             State::make(Enum::correction)->withContext([
@@ -35,6 +26,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             ]),
             Enum::unreacheable,
             Enum::chargeable,
+            Enum::prohibited,
         ];
     }
 
@@ -56,9 +48,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             Transition::make(Enum::review, Enum::published),
 
             Transition::make(Enum::review, Enum::correction)
-                ->withContext([
-                    'comment' => 'required'
-                ])
+                ->withContext(['comment' => 'required'])
                 ->saving(function (Article $model, Context $context) {
                     $model->body = $context->data()['comment'];
                 }),
@@ -66,6 +56,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             Transition::make(Enum::correction, Enum::review),
 
             Transition::make(Enum::new, Enum::chargeable)
+                ->withContext(['comment' => 'nullable'])
                 ->chargeable(Charge::make(
                     function (Article $model) {
                         if (! $model->votes) {
@@ -74,8 +65,11 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
 
                         return $model->votes->count() / 3;
                     },
-                    fn(Article $model) => $model->votes->add('voice')
-                ))
+                    fn(Article $model, Context $context) => $model->votes->add($context->data()->all())
+                )),
+
+            Transition::make(Enum::new, Enum::prohibited)
+                ->authorizedBy(fn() => false),
         ];
     }
 }
