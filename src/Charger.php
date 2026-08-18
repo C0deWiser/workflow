@@ -119,6 +119,13 @@ class Charger implements Injectable
     public function charge(Transition $transition, array $userdata): void
     {
         // Userdata here not validated
+        // Just filter it with rules keys
+
+        $userdata = array_filter($userdata,
+            fn(string $key) => in_array($key, array_keys($transition->validationRules())),
+            ARRAY_FILTER_USE_KEY
+        );
+
         call_user_func_array($this->callback, $this->func_args($transition, $userdata));
     }
 

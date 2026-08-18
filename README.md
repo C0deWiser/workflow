@@ -543,6 +543,7 @@ use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Transition;
 
 Transition::make(Enum::review, Enum::publish)
+    ->withContext(['comment' => 'nullable'])
     ->chargeable(Charger::make(
         progress: function(Article $article) {
             // Return float (0÷1) with charge progress.
@@ -550,14 +551,22 @@ Transition::make(Enum::review, Enum::publish)
         },
         callback: function(Article $article, Context $context) {
             // Store transition charge increment.
-            $article->votes->add($context->actor());
+            
+            // It wouldn't be such a bad idea
+            // to validate user data from given context.
+            $data = validator(
+                $context->data()->all(), 
+                $context->transition()->validationRules()
+            )->validate();
+            
+            $article->votes->add(auth()->user());
         })
         
         // Optional callbacks
         
         ->allow(function (Article $article, Context $context) {
             // Prevent charging twice!
-            return $article->votes->doesntContain($context->actor());
+            return $article->votes->doesntContain(auth()->user());
         })
         ->withHistory(function (Article $article, Context $context) {
             // Provide votes history to a front-end

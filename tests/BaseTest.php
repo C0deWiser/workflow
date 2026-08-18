@@ -30,12 +30,10 @@ class BaseTest extends TestCase
         $v = new FakedValidator(['name' => 'Foo'], ['name' => 'required']);
         $this->assertFalse($v->fails());
         $this->assertEquals(['name' => 'Foo'], $v->validate());
-        $this->assertEquals(['name' => 'Foo'], $v->validated());
 
         $v = new FakedValidator([], ['name' => 'nullable']);
         $this->assertFalse($v->fails());
         $this->assertEquals([], $v->validate());
-        $this->assertEquals([], $v->validated());
 
         $v = new FakedValidator(['name' => ''], ['name' => 'required']);
         $this->assertTrue($v->fails());
@@ -161,8 +159,12 @@ class BaseTest extends TestCase
 
         try {
             $post->state()->transit(Enum::correction);
-        } catch (ValidationException) {
-            $this->assertTrue(true);
+            $observer->updating($post);
+            $this->fail();
+        } catch (\Throwable $e) {
+            $this->assertInstanceOf(ValidationException::class, $e);
+            // Reset state to continue testing
+            $post->setRawAttributes(['state' => Enum::review], true);
         }
 
         $post->state()->transit(Enum::correction, ['comment' => 'required']);

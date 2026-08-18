@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ItemNotFoundException;
 
 /**
- * Initiates State Machine, watches for changes, fires Event.
+ * Initiates State Machine, watches for changes, fires events, validates user data.
  */
 class WorkflowObserver
 {

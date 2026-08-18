@@ -131,17 +131,16 @@ class StateMachine implements Arrayable
      */
     public function init(array $userdata = [], \BackedEnum $enum = null): Model
     {
-        // Get initial state
-        $state = $this->getStateListing()->initial($enum);
-
         // Put context for later validation in observer
         $this->keepUserdata($userdata);
 
-        // Set initial state
-        $this->model->setAttribute(
-            $this->attribute,
-            $state->enum
-        );
+        // Set initial state if forced
+        if ($enum) {
+            $this->model->setAttribute(
+                $this->attribute,
+                $enum
+            );
+        }
 
         return $this->model;
     }
