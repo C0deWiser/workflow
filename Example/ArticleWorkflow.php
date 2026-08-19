@@ -18,10 +18,10 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
     {
         return [
             State::make(Enum::new)
-                ->withContext(['comment' => 'nullable']),
+                ->context(['comment' => 'nullable']),
             State::make(Enum::review)->attribute('height', 100),
             Enum::published,
-            State::make(Enum::correction)->withContext([
+            State::make(Enum::correction)->context([
                 'urgency' => 'integer'
             ]),
             Enum::unreacheable,
@@ -48,7 +48,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             Transition::make(Enum::review, Enum::published),
 
             Transition::make(Enum::review, Enum::correction)
-                ->withContext(['comment' => 'required'])
+                ->context(['comment' => 'required'])
                 ->saving(function (Article $model, Context $context) {
                     $model->body = $context->data()['comment'];
                 }),
@@ -56,7 +56,7 @@ class ArticleWorkflow extends \Codewiser\Workflow\WorkflowBlueprint
             Transition::make(Enum::correction, Enum::review),
 
             Transition::make(Enum::new, Enum::chargeable)
-                ->withContext(['comment' => 'nullable'])
+                ->context(['comment' => 'nullable'])
                 ->chargeable(Charger::make(
                     function (Article $model) {
                         if (! $model->votes) {

@@ -27,9 +27,11 @@ class WorkflowObserver
     /**
      * Validate user data with given rules.
      */
-    protected function validate(array $rules): array
+    protected function validate(array $data, array $rules, array $messages = [], array $attributes = []): array
     {
-        return $this->validators->make($this->engine->userdata(), $rules)->validated();
+        return $this->validators
+            ->make($data, $rules, $messages, $attributes)
+            ->validated();
     }
 
     public function creating(Model $model): bool
@@ -45,7 +47,10 @@ class WorkflowObserver
                 $model->setAttribute($engine->attribute, $state->enum);
 
                 // Context for Events
-                $context = new Context($state, $this->validate($state->validationRules()));
+                $context = new Context($state, $this->engine->userdata());
+
+                // Validate userdata
+                $this->validate(...$context->validation());
 
                 // Run state callbacks
                 if ($engine->state()->invoke($model, $context, 'saving') === false) {
@@ -68,7 +73,10 @@ class WorkflowObserver
                 $state = $this->wasCreated();
 
                 // Context for Events
-                $context = new Context($state, $this->validate($state->validationRules()));
+                $context = new Context($state, $this->engine->userdata());
+
+                // Validate userdata
+                $this->validate(...$context->validation());
 
                 // Fire event
                 $this->events->dispatch(new ModelInitialized($engine, $context));
@@ -98,7 +106,10 @@ class WorkflowObserver
                     }
 
                     // Context for Events
-                    $context = new Context($transition, $this->validate($transition->validationRules()));
+                    $context = new Context($transition, $this->engine->userdata());
+
+                    // Validate userdata
+                    $this->validate(...$context->validation());
 
                     // Transition callbacks
                     if ($transition->invoke($model, $context, 'saving') === false) {
@@ -126,7 +137,10 @@ class WorkflowObserver
                 if ($transition = $this->wasTransited()) {
 
                     // Context for Events
-                    $context = new Context($transition, $this->validate($transition->validationRules()));
+                    $context = new Context($transition, $this->engine->userdata());
+
+                    // Validate userdata
+                    $this->validate(...$context->validation());
 
                     // For Event Listener
                     $this->events->dispatch(new ModelTransited($engine, $context));

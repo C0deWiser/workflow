@@ -7,7 +7,7 @@ use Codewiser\Workflow\Contracts\StateEnum;
 use Codewiser\Workflow\Traits\HasAttributes;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasConditions;
-use Codewiser\Workflow\Traits\HasContext;
+use Codewiser\Workflow\Traits\HasValidationRules;
 use Codewiser\Workflow\Traits\HasDeadEnd;
 use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasEngine;
@@ -18,7 +18,7 @@ use Illuminate\Contracts\Support\Arrayable;
  */
 class State implements Arrayable, Injectable
 {
-    use HasEngine, HasEloquentEvents, HasContext, HasDeadEnd, HasConditions;
+    use HasEngine, HasEloquentEvents, HasValidationRules, HasDeadEnd, HasConditions;
     use HasAttributes {
         additional as protected selfAdditional;
     }

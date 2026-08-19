@@ -8,7 +8,7 @@ use Codewiser\Workflow\Traits\HasAuthorization;
 use Codewiser\Workflow\Traits\HasCaption;
 use Codewiser\Workflow\Traits\HasCharge;
 use Codewiser\Workflow\Traits\HasConditions;
-use Codewiser\Workflow\Traits\HasContext;
+use Codewiser\Workflow\Traits\HasValidationRules;
 use Codewiser\Workflow\Traits\HasDeadEnd;
 use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasEngine;
@@ -37,10 +37,7 @@ class Transition implements Arrayable, Injectable
     use HasConditions {
         issues as protected selfIssues;
     }
-    use HasContext {
-        validationRules as protected selfValidationRules;
-    }
-    use HasEngine, HasEloquentEvents, HasCharge, HasAuthorization;
+    use HasEngine, HasValidationRules, HasEloquentEvents, HasCharge, HasAuthorization;
 
     public static function make(\BackedEnum $source, \BackedEnum $target): static
     {
@@ -82,19 +79,19 @@ class Transition implements Arrayable, Injectable
             ...$this->additional()
         ];
 
-        if ($rules = $this->validationRules()) {
-            $data['rules'] = $rules;
+        if ($validation = $this->validation()) {
+            $data['context'] = array_filter($validation->toArray());
         }
 
         if ($issues = $this->issues()) {
             $data['issues'] = $issues;
         }
 
-        if ($charge = $this->charge($this->engine)) {
+        if ($charger = $this->charger($this->engine)) {
             $data['charge'] = [
-                'progress' => $charge->charging($this),
-                'allow'    => $charge->mayCharge($this),
-                'history'  => $charge->history($this),
+                'progress' => $charger->chargingLevel($this),
+                'allow'    => $charger->mayCharge($this),
+                'history'  => $charger->getHistory($this),
             ];
         }
 
@@ -148,9 +145,19 @@ class Transition implements Arrayable, Injectable
         );
     }
 
-    public function validationRules($explode = false): array
+    /**
+     * @internal
+     */
+    public function validation(): ?Validation
     {
-        return $this->mergeRules($this->target()->validationRules());
+        $our = $this->validation;
+        $target = $this->target()->validation();
+
+        if ($our && $target) {
+            return $our->merge($target);
+        } else {
+            return $our ?? $target;
+        }
     }
 
     /**

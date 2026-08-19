@@ -94,7 +94,7 @@ class Charger implements Injectable
      *
      * @internal
      */
-    public function history(Transition $transition): array
+    public function getHistory(Transition $transition): array
     {
         return is_callable($this->history)
             ? (array) call_user_func_array($this->history, $this->func_args($transition))
@@ -121,8 +121,10 @@ class Charger implements Injectable
         // Userdata here not validated
         // Just filter it with rules keys
 
+        $validation = $transition->validation() ?? new Validation([]);
+
         $userdata = array_filter($userdata,
-            fn(string $key) => in_array($key, array_keys($transition->validationRules())),
+            fn(string $key) => in_array($key, array_keys($validation->rules)),
             ARRAY_FILTER_USE_KEY
         );
 
@@ -134,9 +136,9 @@ class Charger implements Injectable
      *
      * @internal
      */
-    public function charged(Transition $transition): bool
+    public function isCharged(Transition $transition): bool
     {
-        return $this->charging($transition) >= 1;
+        return $this->chargingLevel($transition) >= 1;
     }
 
     /**
@@ -144,7 +146,7 @@ class Charger implements Injectable
      *
      * @internal
      */
-    public function charging(Transition $transition): float
+    public function chargingLevel(Transition $transition): float
     {
         return call_user_func_array($this->progress, $this->func_args($transition));
     }

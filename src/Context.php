@@ -42,4 +42,21 @@ class Context
     {
         return new Userdata($this->userdata);
     }
+
+    /**
+     * Get data for validation user context.
+     *
+     * @return array{data: array, rules: array, messages: array, attributes: array}
+     */
+    public function validation(): array
+    {
+        $v = $this->contextual->validation() ?? new Validation([]);
+
+        return [
+            'data'       => $this->userdata,
+            'rules'      => $v->rules,
+            'messages'   => $v->messages,
+            'attributes' => $v->attributes
+        ];
+    }
 }

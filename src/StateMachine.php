@@ -159,15 +159,15 @@ class StateMachine implements Arrayable
         if ($transition = $this->transitionTo($enum)) {
 
             // Chargeable transition?
-            if ($charge = $transition->charge($this)) {
+            if ($charger = $transition->charger($this)) {
 
                 // Charge transition if allowed
-                if ($charge->mayCharge($transition)) {
-                    $charge->charge($transition, $userdata);
+                if ($charger->mayCharge($transition)) {
+                    $charger->charge($transition, $userdata);
                 }
 
                 // Interrupt updating model if transition not fully charged
-                if (! $charge->charged($transition)) {
+                if (! $charger->isCharged($transition)) {
                     return $this->model;
                 }
             }

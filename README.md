@@ -310,19 +310,29 @@ a transition again.
 Sometimes a transition requires an additional context to run.
 For example, it may be a reason why the article was rejected by the reviewer.
 
-First, declare validation rules in transition or state definition:
+First, declare validation rules in transition or state definition. You may 
+declare just validation rules as an array, or use `Validation` object.
 
 ```php
-use \Codewiser\Workflow\Example\Enum;
-use \Codewiser\Workflow\Transition;
+use Codewiser\Workflow\Example\Enum;
+use Codewiser\Workflow\Transition;
+use Codewiser\Workflow\Validation;
 
 Transition::make(Enum::review, Enum::reject)
-    ->withContext([
+    ->context([
         'reason' => 'required|string|min:100'
     ]);
+    
+Transition::make(Enum::review, Enum::reject)
+    ->context(Validation::rules([
+            'reason' => 'required|string|min:100'
+        ])->messages([
+            'reason.required' => 'Describe why you rejecting the article.'
+        ])
+    );
 ```
 
-> Transition context rules includes the context rules of target State.
+> Transition context rules includes the context rules of its target State.
 
 Next, handle the context in the controller.
 
@@ -456,8 +466,13 @@ enough to build a user interface.
       "source": "review",
       "target": "correction",
       "name": "Need correction",
-      "rules": {
-        "reason": ["required", "string", "min:100"]
+      "context": {
+          "rules": {
+            "reason": ["required", "string", "min:100"]
+          },
+          "messages": {
+            "reason.required": "Describe why you rejecting the article."
+          }
       },
       "level": "danger"
     }
@@ -482,7 +497,7 @@ use \Codewiser\Workflow\Context;
 use \Codewiser\Workflow\Transition;
 
 Transition::make(Enum::review, Enum::correcting)
-    ->withContext(['reason' => 'required|string|min:100'])
+    ->context(['reason' => 'required|string|min:100'])
     ->saving(function (Article $article, Context $context) {
         $article->last_problem = $context->data()->get('reason');
     })
@@ -543,7 +558,7 @@ use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Transition;
 
 Transition::make(Enum::review, Enum::publish)
-    ->withContext(['comment' => 'nullable'])
+    ->context(['comment' => 'required'])
     ->chargeable(Charger::make(
         progress: function(Article $article) {
             // Return float (0÷1) with charge progress.
@@ -554,10 +569,7 @@ Transition::make(Enum::review, Enum::publish)
             
             // It wouldn't be such a bad idea
             // to validate user data from given context.
-            $data = validator(
-                $context->data()->all(), 
-                $context->transition()->validationRules()
-            )->validate();
+            $data = validator(...$context->validation())->validated();
             
             $article->votes->add(auth()->user());
         })

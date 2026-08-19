@@ -7,25 +7,25 @@ use Codewiser\Workflow\StateMachine;
 
 trait HasCharge
 {
-    protected ?Charger $charge = null;
+    protected ?Charger $charger = null;
 
     /**
-     * Transition required to be charged to fire.
+     * Transition requires to be charged to fire.
      */
-    public function chargeable(Charger $charge): static
+    public function chargeable(Charger $charger): static
     {
-        $this->charge = $charge;
+        $this->charger = $charger;
 
         return $this;
     }
 
     /**
-     * Get transition charge.
+     * Get transition charger.
      *
      * @internal
      */
-    public function charge(StateMachine $machine): ?Charger
+    public function charger(StateMachine $machine): ?Charger
     {
-        return $this->charge?->inject($machine);
+        return $this->charger?->inject($machine);
     }
 }

@@ -16,6 +16,7 @@ use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
+use Codewiser\Workflow\Validation;
 use Codewiser\Workflow\WorkflowObserver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
@@ -153,11 +154,12 @@ class BaseTest extends TestCase
 
         $data = $transition->toArray();
 
-        $this->assertArrayHasKey('rules', $data);
-        $this->assertArrayHasKey('comment', $data['rules']);
-        $this->assertArrayHasKey('urgency', $data['rules']); // Inherited from state
+        $this->assertArrayHasKey('validation', $data);
+        $this->assertArrayHasKey('comment', $data['validation']['rules']);
+        $this->assertArrayHasKey('urgency', $data['validation']['rules']); // Inherited from state
 
         try {
+            // Try without required context
             $post->state()->transit(Enum::correction);
             $observer->updating($post);
             $this->fail();
@@ -331,20 +333,29 @@ class BaseTest extends TestCase
 
     public function testMergeRules()
     {
-        $state = new State(Enum::new);
-        $state->withContext([
+        $base = new Validation([
             'comment' => 'required|string',
+        ], [
+            'comment.string' => 'Should be a string.'
         ]);
 
-        $merged = $state->mergeRules([
-            'comment' => 'string|max:5',
-            'source'  => 'string|max:5',
-        ]);
+        $merged = $base->merge(
+            new Validation([
+                'comment' => 'string|max:5',
+                'source'  => 'string|max:5',
+            ], [
+                'comment.string' => 'Should be a string!!!'
+            ])
+        );
 
         $this->assertEquals([
             'comment' => 'required|string|max:5',
             'source'  => 'string|max:5',
-        ], $merged);
+        ], $merged->rules);
+
+        $this->assertEquals([
+            'comment.string' => 'Should be a string.'
+        ], $merged->messages);
     }
 
     public function testStateMachineCollector()
