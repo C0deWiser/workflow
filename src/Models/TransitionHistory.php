@@ -49,12 +49,12 @@ class TransitionHistory extends Model
 
     public function performer(): MorphTo
     {
-        return $this->morphTo();
+        return $this->morphTo()->withTrashed();
     }
 
     public function transitionable(): MorphTo
     {
-        return $this->morphTo();
+        return $this->morphTo()->withTrashed();
     }
 
     public function blueprint(): ?WorkflowBlueprint
