@@ -154,9 +154,9 @@ class BaseTest extends TestCase
 
         $data = $transition->toArray();
 
-        $this->assertArrayHasKey('validation', $data);
-        $this->assertArrayHasKey('comment', $data['validation']['rules']);
-        $this->assertArrayHasKey('urgency', $data['validation']['rules']); // Inherited from state
+        $this->assertArrayHasKey('context', $data);
+        $this->assertArrayHasKey('comment', $data['context']['rules']);
+        $this->assertArrayHasKey('urgency', $data['context']['rules']); // Inherited from state
 
         try {
             // Try without required context

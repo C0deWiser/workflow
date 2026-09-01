@@ -4,7 +4,6 @@ namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\WorkflowBlueprint;
-use Codewiser\Workflow\WorkflowObserver;
 
 /**
  * Brings workflow to Eloquent model.
@@ -12,11 +11,6 @@ use Codewiser\Workflow\WorkflowObserver;
 trait HasWorkflow
 {
     public array $state_machines = [];
-
-    public static function bootHasWorkflow(): void
-    {
-        static::observe(WorkflowObserver::class);
-    }
 
     /**
      * @param  class-string<WorkflowBlueprint>|WorkflowBlueprint  $blueprint

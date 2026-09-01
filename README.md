@@ -52,17 +52,22 @@ Use `HasWorkflow` trait and make a method(s) that will return
 workflows at the same time. Each method MUST be marked with `Workflow` 
 attribute.
 
+Do not forget to observe model with `WorkflowObserver`.
+
 ```php
 use Codewiser\Workflow\Attributes\Workflow;
 use Codewiser\Workflow\Traits\HasWorkflow;
 use Codewiser\Workflow\StateMachine;
+use Codewiser\Workflow\WorkflowObserver;
 use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 
 /**
  * @property Enum $state Current workflow state.
  */
+#[ObservedBy(WorkflowObserver::class)]
 class Article extends Model
 {   
     use HasWorkflow;
