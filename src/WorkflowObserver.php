@@ -11,6 +11,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ItemNotFoundException;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Initiates State Machine, watches for changes, fires events, validates user data.
@@ -25,12 +26,16 @@ class WorkflowObserver
     }
 
     /**
-     * Validate user data with given rules.
+     * Get validated user data.
+     *
+     * @throws ValidationException
      */
-    protected function validate(array $data, array $rules, array $messages = [], array $attributes = []): array
+    protected function validatedUserdata(Transition|State $contextual): array
     {
+        $validation = $contextual->validation() ?? new Validation([]);
+
         return $this->validators
-            ->make($data, $rules, $messages, $attributes)
+            ->make($this->engine->userdata(), $validation->rules, $validation->messages, $validation->attributes)
             ->validated();
     }
 
@@ -47,10 +52,7 @@ class WorkflowObserver
                 $model->setAttribute($engine->attribute, $state->enum);
 
                 // Context for Events
-                $context = new Context($state, $this->engine->userdata());
-
-                // Validate userdata
-                $this->validate(...$context->validation());
+                $context = new Context($state, $this->validatedUserdata($state));
 
                 // Run state callbacks
                 if ($engine->state()->invoke($model, $context, 'saving') === false) {
@@ -73,10 +75,7 @@ class WorkflowObserver
                 $state = $this->wasCreated();
 
                 // Context for Events
-                $context = new Context($state, $this->engine->userdata());
-
-                // Validate userdata
-                $this->validate(...$context->validation());
+                $context = new Context($state, $this->validatedUserdata($state));
 
                 // Fire event
                 $this->events->dispatch(new ModelInitialized($engine, $context));
@@ -106,10 +105,7 @@ class WorkflowObserver
                     }
 
                     // Context for Events
-                    $context = new Context($transition, $this->engine->userdata());
-
-                    // Validate userdata
-                    $this->validate(...$context->validation());
+                    $context = new Context($transition, $this->validatedUserdata($transition));
 
                     // Transition callbacks
                     if ($transition->invoke($model, $context, 'saving') === false) {
@@ -137,10 +133,7 @@ class WorkflowObserver
                 if ($transition = $this->wasTransited()) {
 
                     // Context for Events
-                    $context = new Context($transition, $this->engine->userdata());
-
-                    // Validate userdata
-                    $this->validate(...$context->validation());
+                    $context = new Context($transition, $this->validatedUserdata($transition));
 
                     // For Event Listener
                     $this->events->dispatch(new ModelTransited($engine, $context));
