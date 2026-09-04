@@ -634,11 +634,6 @@ Transition::make(Enum::review, Enum::publish)
         },
         callback: function(Article $article, Context $context) {
             // Store transition charge increment.
-            
-            // It wouldn't be such a bad idea
-            // to validate user data from given context.
-            $data = validator(...$context->validation())->validated();
-
             $article->votes->add(auth()->user());
         })
         

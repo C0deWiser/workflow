@@ -23,6 +23,7 @@ class Charger implements Injectable
 
     /**
      * Callback to increase charge.
+     * Receives user data, validated against the transition rules.
      *
      * @var callable(Model, Context): void
      */
@@ -113,20 +114,28 @@ class Charger implements Injectable
 
     /**
      * Charge transition.
+     * User data validated against transition rules before the callback is called.
      *
      * @internal
+     *
+     * @throws \Illuminate\Validation\ValidationException
      */
     public function charge(Transition $transition, array $userdata): void
     {
-        // Userdata here not validated
-        // Just filter it with rules keys
-
         $validation = $transition->validation() ?? new Validation([]);
 
-        $userdata = array_filter($userdata,
-            fn(string $key) => in_array($key, array_keys($validation->rules)),
-            ARRAY_FILTER_USE_KEY
-        );
+        if ($validators = $this->engine->validators()) {
+            // Validate user data and keep only data that passed validation.
+            $userdata = $validators
+                ->make($userdata, $validation->rules, $validation->messages, $validation->attributes)
+                ->validated();
+        } else {
+            // No validator factory available: just keep keys declared in the rules.
+            $userdata = array_filter($userdata,
+                fn(string $key) => in_array($key, array_keys($validation->rules)),
+                ARRAY_FILTER_USE_KEY
+            );
+        }
 
         call_user_func_array($this->callback, $this->func_args($transition, $userdata));
     }
