@@ -21,7 +21,7 @@ class TransitionListener
 
         $log->source = $context->source()?->enum->value;
         $log->target = $context->target()->enum->value;
-        $log->context = $context->data()->all() ?: null;
+        $log->context = $context->storable() ?: null;
 
         $log->save();
 

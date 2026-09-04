@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow;
 
 use Illuminate\Config\Repository as Userdata;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class Context
 {
@@ -43,6 +44,33 @@ class Context
     public function data(): Userdata
     {
         return $this->userdata;
+    }
+
+    /**
+     * Get context data, that is safe to persist (e.g. into transition_history).
+     * Uploaded files (and any other objects) are filtered out recursively.
+     *
+     * @return array<int|string, mixed>
+     */
+    public function storable(): array
+    {
+        return $this->filterObjects($this->userdata->all());
+    }
+
+    protected function filterObjects(array $data): array
+    {
+        foreach ($data as $key => $value) {
+
+            if ($value instanceof UploadedFile) {
+                unset($data[$key]);
+            } elseif (is_object($value)) {
+                unset($data[$key]);
+            } elseif (is_array($value)) {
+                $data[$key] = $this->filterObjects($value);
+            }
+        }
+
+        return $data;
     }
 
     /**

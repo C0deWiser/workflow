@@ -20,6 +20,7 @@ use Codewiser\Workflow\Validation;
 use Codewiser\Workflow\WorkflowObserver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\TestCase;
@@ -364,5 +365,40 @@ class BaseTest extends TestCase
 
         $this->assertCount(1, $machines);
         $this->assertEquals('state', $machines->first()->attribute);
+    }
+
+    public function testValidatedUserdataReachesSavingCallback()
+    {
+        $seen = null;
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+
+        // Init with full userdata: 'comment' is declared in rules, 'file' is not
+        $post = new Article();
+        $post->state()->init(['comment' => 'optional', 'file' => 'stored-file']);
+
+        $state = $post->state()->getStateListing()->initial();
+        $state->saving(function (Model $model, Context $context) use (&$seen) {
+            $seen = $context->data()->all();
+        });
+        $observer->creating($post);
+
+        // Only the validated subset reaches the callback
+        $this->assertEquals(['comment' => 'optional'], $seen);
+    }
+
+    public function testFilesAreFilteredOutOfStorableContext()
+    {
+        $file = UploadedFile::fake()->create('attachment.txt', 0);
+
+        $context = new Context(State::make(Enum::new), [
+            'file'     => $file,
+            'nested'   => ['file' => $file, 'comment' => 'x'],
+            'comment'  => 'y',
+        ]);
+
+        $this->assertEquals([
+            'nested'  => ['comment' => 'x'],
+            'comment' => 'y',
+        ], $context->storable());
     }
 }

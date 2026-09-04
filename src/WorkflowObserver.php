@@ -26,8 +26,10 @@ class WorkflowObserver
     }
 
     /**
-     * Get validated user data.
+     * Validate user data against contextual validation rules.
+     * Returns only the data, that passed validation.
      *
+     * @return array<string, mixed>
      * @throws ValidationException
      */
     protected function validatedUserdata(Transition|State $contextual): array
