@@ -10,6 +10,8 @@ use Codewiser\Workflow\WorkflowBlueprint;
  */
 trait HasWorkflow
 {
+    public array $state_machines = [];
+
     /**
      * @param  class-string<WorkflowBlueprint>|WorkflowBlueprint  $blueprint
      * @param  string  $attribute May be as attribute name, as __METHOD__ (when method is same-named as an attribute).
@@ -25,9 +27,14 @@ trait HasWorkflow
             $attribute = substr($attribute, $sep + strlen($needle));
         }
 
-        // Instantiate Blueprint object
-        $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : app($blueprint);
+        if (! isset($this->state_machines[$attribute])) {
 
-        return new StateMachine($blueprint, $this, $attribute);
+            // Instantiate Blueprint object
+            $blueprint = $blueprint instanceof WorkflowBlueprint ? $blueprint : app($blueprint);
+
+            $this->state_machines[$attribute] = new StateMachine($blueprint, $this, $attribute);
+        }
+
+        return $this->state_machines[$attribute];
     }
 }
