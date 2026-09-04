@@ -386,6 +386,26 @@ class BaseTest extends TestCase
         $this->assertEquals(['comment' => 'optional'], $seen);
     }
 
+    public function testContextValidationIsVariadic()
+    {
+        $context = new Context(
+            State::make(Enum::new)->context(['comment' => 'nullable']),
+            ['comment' => 'Hello']
+        );
+
+        // Mimic validator(array $data, array $rules, array $messages, array $attributes)
+        $validator = fn(array $data, array $rules, array $messages = [], array $attributes = []) => [
+            $data, $rules, $messages, $attributes
+        ];
+
+        [$data, $rules, $messages, $attributes] = $validator(...$context->validation());
+
+        $this->assertEquals(['comment' => 'Hello'], $data);
+        $this->assertEquals(['comment' => 'nullable'], $rules);
+        $this->assertEquals([], $messages);
+        $this->assertEquals([], $attributes);
+    }
+
     public function testFilesAreFilteredOutOfStorableContext()
     {
         $file = UploadedFile::fake()->create('attachment.txt', 0);

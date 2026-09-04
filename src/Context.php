@@ -74,19 +74,23 @@ class Context
     }
 
     /**
-     * Get data for validation user context.
+     * Get data and rules for validating user context.
      *
-     * @return array{data: array, rules: array, messages: array, attributes: array}
+     * Returns arguments for
+     * `validator(array $data, array $rules, array $messages, array $attributes)`,
+     * so it may be used as variadic: `validator(...$context->validation())`.
+     *
+     * @return array{0: array<int|string, mixed>, 1: array<array-key, string>, 2: array<array-key, string>, 3: array<array-key, string>}
      */
     public function validation(): array
     {
         $v = $this->contextual->validation() ?? new Validation([]);
 
         return [
-            'data'       => $this->userdata->all(),
-            'rules'      => $v->rules,
-            'messages'   => $v->messages,
-            'attributes' => $v->attributes
+            $this->userdata->all(),
+            $v->rules,
+            $v->messages,
+            $v->attributes
         ];
     }
 }

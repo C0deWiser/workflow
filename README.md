@@ -17,8 +17,8 @@
 
 Package provides workflow functionality to Eloquent Models.
 
-Workflow is a sequence of states, document evolve through.
-Transitions between states inflicts the evolution road.
+Workflow is a sequence of states, a document evolves through.
+Transitions between states inflict the evolution road.
 
 ## Setup
 
@@ -117,7 +117,7 @@ $article->save();
 
 ## State and Transition objects
 
-In an example above we describe blueprint with enum values, but actually they 
+In the example above we describe blueprint with enum values, but actually they 
 will be transformed to the special objects. Those objects bring some additional 
 functionality to the states and transitions, such as human-readable captions, 
 routing rules, pre- and post-transition callbacks etc...
@@ -209,23 +209,25 @@ class ArticleWorkflow extends WorkflowBlueprint
 When accepting user request, do not forget to authorize workflow state changing.
 
 ```php
-use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Example\Article;
-use Codewiser\Workflow\Transition;
+use Codewiser\Workflow\Example\Enum;
 use Illuminate\Http\Request;
 
 public function update(Request $request, Article $article)
 {
     // Authorize update
     Gate::authorize('update', $article);
-    
+
     if ($state = $request->enum('state', Enum::class)) {
         // Authorize transition to a new state
         $article->state()->authorize($state);
+
+        // Apply the state change; save() will verify the transition
+        $article->state = $state;
     }
-    
+
     $article->fill($request->validated());
-    
+
     $article->save();
 }
 ```
@@ -281,7 +283,7 @@ User will see only one possible transition depending on order amount value.
 ### Conditional transitions
 
 Transition may have some conditions to run.
-If model fits this conditions then the transition is possible.
+If the model fits these conditions then the transition is possible.
 
 If transition doesn't meet the condition, the callback should return 
 human-readable description of a problem.
@@ -316,7 +318,7 @@ a transition again.
 Sometimes a transition requires an additional context to run.
 For example, it may be a reason why the article was rejected by the reviewer.
 
-First, declare validation rules in transition or state definition. You may 
+First, declare validation rules in the transition or state definition. You may 
 declare just validation rules as an array, or use `Validation` object.
 
 ```php
@@ -338,7 +340,7 @@ Transition::make(Enum::review, Enum::reject)
     );
 ```
 
-> Transition context rules includes the context rules of its target State.
+> Transition context rules include the context rules of its target State.
 
 Next, handle the context in the controller.
 
@@ -390,7 +392,7 @@ public function update(Request $request, Article $article)
 The context will be validated while saving, and you may catch a 
 `ValidationException`.
 
-After all you may handle validated user data in [events](#events).
+After that you may handle validated user data in [events](#events).
 
 ### File Uploads
 
@@ -521,7 +523,7 @@ enough to build a user interface.
   "transitions": [
     {
       "source": "review",
-      "target": "publish",
+      "target": "published",
       "name": "Publish",
       "issues": [
         "Publisher should provide a foreword."
@@ -550,11 +552,11 @@ enough to build a user interface.
 
 ### Callbacks
 
-You may define state callback(s), that will be called then state is reached. 
-Callback is a `callable` with `Model` and optional `Context` arguments. 
-Callback may be defined as on `Transition`, as on `State`.
+You may define state callback(s), that will be called when the state is reached. 
+A callback is a `callable` with `Model` and optional `Context` arguments.
+A callback may be defined on a `Transition` as well as on a `State`.
 
-There are two type of callbacks: `saving` and `saved`. It is absolutely the 
+There are two types of callbacks: `saving` and `saved`. It is absolutely the 
 same as well-known Eloquent events.
 
 ```php
@@ -576,7 +578,7 @@ Transition::make(Enum::review, Enum::correcting)
     }); 
 ```
 
-You may define few callbacks to a single transition.
+You may define a few callbacks to a single transition.
 
 > State machine will invoke both sets of callbacks: from Transition and from 
 > its target State.
@@ -584,7 +586,7 @@ You may define few callbacks to a single transition.
 ### EventListener
 
 Transition generates `ModelInitialized` and `ModelTransited` events.
-You may define listener to handle it.
+You may define listeners to handle them.
 
 ```php
 use \Codewiser\Workflow\Example\Enum;
@@ -598,7 +600,7 @@ class ModelTransitedListener
             $article = $event->model;
 
             if ($event->context->target()->is(Enum::correction)) {
-                // Article was send to correction, the reason described in context
+                // Article was sent to correction, the reason described in context
                 $article->author->notify(
                     new ArticleHasProblemNotification(
                         $article, $event->context->data()->get('reason')
@@ -612,9 +614,9 @@ class ModelTransitedListener
 
 ## Chargeable Transitions
 
-Chargeable transition will fire only then accumulates some charge.
-For example, we may want to publish an article only then at least three
-editors has accepted it.
+A chargeable transition fires only when some charge accumulates.
+For example, we may want to publish an article only after at least three
+editors have accepted it.
 
 ```php
 use Codewiser\Workflow\Example\Article;
@@ -636,7 +638,7 @@ Transition::make(Enum::review, Enum::publish)
             // It wouldn't be such a bad idea
             // to validate user data from given context.
             $data = validator(...$context->validation())->validated();
-            
+
             $article->votes->add(auth()->user());
         })
         
@@ -669,9 +671,9 @@ It's done.
 To get historical records, add `\Codewiser\Workflow\Traits\HasTransitionHistory` 
 to a `Model` with workflow. It brings `transitions` relation.
 
-Historical records presented by `\Codewiser\Workflow\Models\TransitionHistory` 
-model, that holds information about transition performer, source and target 
-states and a context, if it were provided.
+Historical records are presented by `\Codewiser\Workflow\Models\TransitionHistory` 
+model, that holds information about the transition performer, source and target 
+states, and the context, if it was provided.
 
 Sometimes you may need to eager load the latest transition:
 
