@@ -7,6 +7,7 @@
     * [Forbidden Transitions](#forbidden-transitions)
     * [Conditional Transitions](#conditional-transitions)
     * [User Provided Data](#additional-context)
+    * [File Uploads](#file-uploads)
 * [JSON](#json-serialization)
 * [Events](#events)
     * [Callbacks](#callbacks)
@@ -390,6 +391,66 @@ The context will be validated while saving, and you may catch a
 `ValidationException`.
 
 After all you may handle validated user data in [events](#events).
+
+### File Uploads
+
+Context may contain uploaded files, e.g. an article cover image or a proof
+document for a claim.
+
+First, declare the file key in the state or transition validation rules.
+A key without a declared rule will not pass validation, so it never reaches
+your callbacks.
+
+```php
+use Codewiser\Workflow\Example\Enum;
+use Codewiser\Workflow\Transition;
+
+Transition::make(Enum::new, Enum::review)
+    ->context([
+        'cover' => 'file|image|max:2048'
+    ]);
+```
+
+Pass the request with uploaded files to the state machine as usual:
+
+```php
+public function store(Request $request)
+{
+    $article = new Article();
+    $article->fill($request->validated());
+
+    $article->state()->init($request->all());
+
+    $article->save();
+}
+```
+
+> **Warning!** Uploaded files are NOT persisted. You MUST store the file
+> yourself and put the resulting file handler (e.g. a path) into the context.
+> The raw `UploadedFile` (and any other object) is filtered out of the
+> context before it is written to the
+> [transition history](#transition-history), so an unstored file would
+> silently vanish from the log.
+
+Handle the uploaded file in the `saving` callback:
+
+```php
+use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Transition;
+
+Transition::make(Enum::new, Enum::review)
+    ->context(['cover' => 'file|image|max:2048'])
+    ->saving(function (Article $article, Context $context) {
+        // Move the file to permanent storage
+        $path = $context->data()->get('cover')->store('covers', 'public');
+
+        // Replace the raw file with the stored handler
+        $context->data()->set('cover', $path);
+    });
+```
+
+After the model is saved, the context and the transition history record
+will hold the file path instead of the raw uploaded file.
 
 ## Additional Attributes
 
