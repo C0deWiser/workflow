@@ -267,7 +267,7 @@ class StateMachine implements Arrayable
     /**
      * Store userdata for later use.
      */
-    protected function keepUserdata(array $userdata = []): void
+    public function keepUserdata(array $userdata = []): void
     {
         static::$userdata[$this->attribute] = $userdata;
     }

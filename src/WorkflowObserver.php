@@ -59,6 +59,9 @@ class WorkflowObserver
                     return false;
                 }
 
+                // Keep (possibly modified) context for 'created' event
+                $engine->keepUserdata($context->data()->all());
+
                 return true;
             })
             // Empty means there are no failures
@@ -74,8 +77,8 @@ class WorkflowObserver
 
                 $state = $this->wasCreated();
 
-                // Context for Events
-                $context = new Context($state, $this->validatedUserdata($state));
+                // Context for Events (validated on creating, may be modified by saving callbacks)
+                $context = new Context($state, $this->engine->userdata());
 
                 // Fire event
                 $this->events->dispatch(new ModelInitialized($engine, $context));
@@ -115,6 +118,9 @@ class WorkflowObserver
                     if ($transition->target()->invoke($model, $context, 'saving') === false) {
                         return false;
                     }
+
+                    // Keep (possibly modified) context for 'updated' event
+                    $engine->keepUserdata($context->data()->all());
                 }
 
                 return true;
@@ -132,8 +138,8 @@ class WorkflowObserver
 
                 if ($transition = $this->wasTransited()) {
 
-                    // Context for Events
-                    $context = new Context($transition, $this->validatedUserdata($transition));
+                    // Context for Events (validated on updating, may be modified by saving callbacks)
+                    $context = new Context($transition, $this->engine->userdata());
 
                     // For Event Listener
                     $this->events->dispatch(new ModelTransited($engine, $context));

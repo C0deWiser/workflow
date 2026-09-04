@@ -6,9 +6,11 @@ use Illuminate\Config\Repository as Userdata;
 
 class Context
 {
-    public function __construct(protected Transition|State $contextual, protected array $userdata = [])
+    public function __construct(protected Transition|State $contextual, protected array|Userdata $userdata = [])
     {
-        //
+        if (is_array($this->userdata)) {
+            $this->userdata = new Userdata($this->userdata);
+        }
     }
 
     /**
@@ -40,7 +42,7 @@ class Context
      */
     public function data(): Userdata
     {
-        return new Userdata($this->userdata);
+        return $this->userdata;
     }
 
     /**
@@ -53,7 +55,7 @@ class Context
         $v = $this->contextual->validation() ?? new Validation([]);
 
         return [
-            'data'       => $this->userdata,
+            'data'       => $this->userdata->all(),
             'rules'      => $v->rules,
             'messages'   => $v->messages,
             'attributes' => $v->attributes
