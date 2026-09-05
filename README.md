@@ -433,27 +433,34 @@ public function store(Request $request)
 > store the file and replace it with the resulting handler (e.g. a path).
 
 The best place to do it is a `storing` callback. It runs right before the
-context is persisted into the transition history and may mutate the context:
+context is written to the transition history. By the time the callback runs,
+the history record is already persisted, so you may reference it — e.g. to
+save files knowing their owner:
 
 ```php
 use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\Transition;
 
 Transition::make(Enum::new, Enum::review)
     ->context(['cover' => 'file|image|max:2048'])
     // May be defined on a Transition, as on a State
-    ->storing(function (Article $article, Context $context) {
-        // Move the file to permanent storage
-        $path = $context->data()->get('cover')->store('covers', 'public');
+    ->storing(function (Article $article, Context $context, TransitionHistory $log) {
+        // Move the file to permanent storage, keeping the record as an owner
+        $path = $context->data()->get('cover')
+            ->store("covers/{$log->getKey()}", 'public');
 
-        // Replace the raw file with the stored handler
-        $context->data()->set('cover', $path);
+        // Return a new context, replacing the raw file with the stored handler
+        return array_merge($context->data()->all(), [
+            'cover' => $path
+        ]);
     });
 ```
 
-> A `storing` callback does not affect the model or the `saving`/`saved`
-> callbacks — it only tailors the context written to
-> [transition history](#transition-history). If you need the path earlier
+> A `storing` callback does not mutate the incoming context and does not
+> affect the model or the `saving`/`saved` callbacks — it only returns the
+> context written to [transition history](#transition-history). Returning
+> `NULL` keeps the persisted context unchanged. If you need the path earlier
 > (e.g. to attach it to the model), handle the file in a
 > [`saving`](#callbacks) callback instead and put the path into the context
 > the same way.

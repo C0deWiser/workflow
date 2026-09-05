@@ -12,10 +12,6 @@ class TransitionListener
 {
     protected function newRecordFor(Model $model, string $attribute, Context $context): TransitionHistory
     {
-        // Let the contextual transition (or state) process the context:
-        // e.g. store uploaded files and replace them with the paths.
-        $context->store($model);
-
         $log = new TransitionHistory();
 
         $log->blueprint = $attribute;
@@ -25,9 +21,21 @@ class TransitionListener
 
         $log->source = $context->source()?->enum->value;
         $log->target = $context->target()->enum->value;
-        $log->context = $context->storable() ?: null;
 
+        // Persist the record with the context as is (files already filtered out),
+        // so storing callbacks may reference the record as an owner.
+        $log->context = $storable = $context->storable() ?: null;
         $log->save();
+
+        // Let the contextual transition (or state) process the context:
+        // e.g. store uploaded files and replace them with the paths.
+        $updated = $context->prepareForStoring($model, $log);
+
+        // Update the record only if the context was changed.
+        if (($updated = $updated ?: null) != $storable) {
+            $log->context = $updated;
+            $log->save();
+        }
 
         return $log;
     }

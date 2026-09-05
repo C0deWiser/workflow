@@ -13,6 +13,7 @@ use Codewiser\Workflow\Example\FakedDispatcher;
 use Codewiser\Workflow\Example\FakedFactory;
 use Codewiser\Workflow\Example\FakedValidator;
 use Codewiser\Workflow\Exceptions\TransitionException;
+use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachine;
@@ -467,39 +468,66 @@ class BaseTest extends TestCase
         ], $context->storable());
     }
 
-    public function testStoringCallbacksMutateContext()
+    public function testStorableFilterIsAppliedByPrepareForStoring()
+    {
+        $file = UploadedFile::fake()->create('x.txt', 0);
+
+        $state = State::make(Enum::new)->storing(function (Model $model, Context $context, TransitionHistory $log) {
+            // Returned context still holds the raw file
+            return $context->data()->all();
+        });
+
+        $stored = (new Context($state, ['comment' => 'y', 'file' => $file]))
+            ->prepareForStoring(new Article(), new TransitionHistory());
+
+        // Only comment survives the filter
+        $this->assertEquals(['comment' => 'y'], $stored);
+    }
+
+    public function testStoringCallbacksReturnContext()
     {
         $seen = [];
 
-        $state = State::make(Enum::new)->storing(function (Model $model, Context $context) use (&$seen) {
+        $state = State::make(Enum::new)->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
             $seen[] = 'state';
-            $context->data()->set('file', 'covers/photo.jpg');
+
+            return array_merge($context->data()->all(), ['file' => 'covers/photo.jpg']);
         });
 
         // A transition and its target state both process the context
         $transition = Transition::make(Enum::new, Enum::review)
             ->inject(new StateMachine(new ArticleWorkflow(), new Article(), 'state'))
-            ->storing(function (Model $model, Context $context) use (&$seen) {
+            ->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
                 $seen[] = 'transition';
-                $context->data()->set('transition', 'processed');
+
+                return array_merge($context->data()->all(), ['transition' => 'processed']);
             });
-        $transition->target()->storing(function (Model $model, Context $context) use (&$seen) {
+        $transition->target()->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
             $seen[] = 'target';
-            $context->data()->set('target', 'processed');
+
+            return array_merge($context->data()->all(), ['target' => 'processed']);
         });
 
         $post = new Article();
 
-        // State named as a contextual
-        $context = new Context($state, ['comment' => 'y', 'file' => UploadedFile::fake()->create('x.txt', 0)]);
-        $context->store($post);
+        // State as a contextual
+        $file = UploadedFile::fake()->create('x.txt', 0);
+        $context = new Context($state, ['comment' => 'y', 'file' => $file]);
+
+        $stored = $context->prepareForStoring($post, new TransitionHistory());
+
         $this->assertEquals(['state'], $seen);
-        $this->assertEquals(['comment' => 'y', 'file' => 'covers/photo.jpg'], $context->storable());
+        $this->assertEquals(['comment' => 'y', 'file' => 'covers/photo.jpg'], $stored);
+        // Original context is not mutated
+        $this->assertEquals(['comment' => 'y', 'file' => $file], $context->data()->all());
 
         // Transition as a contextual
         $context = new Context($transition, ['comment' => 'y']);
-        $context->store($post);
+
+        $stored = $context->prepareForStoring($post, new TransitionHistory());
+
         $this->assertEquals(['state', 'transition', 'target'], $seen);
-        $this->assertEquals(['comment' => 'y', 'transition' => 'processed', 'target' => 'processed'], $context->storable());
+        // Target callback receives the transition's result
+        $this->assertEquals(['comment' => 'y', 'transition' => 'processed', 'target' => 'processed'], $stored);
     }
 }

@@ -2,9 +2,9 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Models\TransitionHistory;
 use Illuminate\Config\Repository as Userdata;
 use Illuminate\Database\Eloquent\Model;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class Context
 {
@@ -50,6 +50,7 @@ class Context
     /**
      * Get context data, that is safe to persist (e.g. into transition_history).
      * Uploaded files (and any other objects) are filtered out recursively.
+     * Any given data is passed through the same filter.
      *
      * @return array<int|string, mixed>
      */
@@ -60,27 +61,32 @@ class Context
 
     /**
      * Run storing callbacks of the contextual transition (and its target state)
-     * or of a state, mutating the context right before it is persisted
+     * or of a state, returning the context as an array, prepared to persist
      * into the transition history.
+     *
+     * The record is persisted by the caller, so callbacks may reference
+     * it as the owner of the files they store.
+     *
+     * @return array<int|string, mixed>
      *
      * @internal
      */
-    public function store(Model $model): void
+    public function prepareForStoring(Model $model, TransitionHistory $log): array
     {
-        $this->contextual->store($model, $this);
+        $data = $this->contextual->prepareForStoring($this->userdata->all(), $model, $log);
 
         if ($transition = $this->transition()) {
-            $transition->target()->store($model, $this);
+            $data = $transition->target()->prepareForStoring($data, $model, $log);
         }
+
+        return $this->filterObjects($data);
     }
 
     protected function filterObjects(array $data): array
     {
         foreach ($data as $key => $value) {
 
-            if ($value instanceof UploadedFile) {
-                unset($data[$key]);
-            } elseif (is_object($value)) {
+            if (is_object($value)) {
                 unset($data[$key]);
             } elseif (is_array($value)) {
                 $data[$key] = $this->filterObjects($value);

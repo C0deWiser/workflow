@@ -3,40 +3,49 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Models\TransitionHistory;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 
 trait HasStoringCallbacks
 {
     /**
-     * Callable collection, that would be invoked when the context is persisted
+     * Callback, that would be invoked when the context is persisted
      * into the transition history.
+     *
+     * @var null|callable
      */
-    protected array $onStoringCallbacks = [];
+    protected $onStoringCallbacks = null;
 
     /**
      * Callback will run right before the context is stored into
-     * `transition_history`. It may mutate the context, e.g. store uploaded
-     * files and replace them with the paths.
-     * You may define few callbacks.
+     * `transition_history`. The record is already persisted by that time,
+     * so the callback may reference it as the owner of stored files.
+     * Callback receives the current context and returns a new context as
+     * an array (e.g. store uploaded files and replace them with the paths).
+     * Returning NULL keeps the context unchanged.
      *
-     * @param  callable(Model, Context): void  $callback
+     * @param  callable(Model, Context, TransitionHistory): ?array  $callback
      */
     public function storing(callable $callback): static
     {
-        $this->onStoringCallbacks[] = $callback;
+        $this->onStoringCallbacks = $callback;
 
         return $this;
     }
 
     /**
-     * Run storing callbacks, mutating the given context.
+     * Run the storing callback. Returns the resulting context as an array.
+     * The callback may return a new context array to replace the previous one.
      *
      * @internal
      */
-    public function store(Model $model, Context $context): void
+    public function prepareForStoring(array $data, Model $model, TransitionHistory $log): array
     {
-        foreach ($this->onStoringCallbacks as $callback) {
-            call_user_func($callback, $model, $context);
+        if (is_callable($this->onStoringCallbacks)) {
+            return call_user_func($this->onStoringCallbacks, $model, new Context($this, $data), $log) ?? $data;
         }
+
+        return $data;
     }
 }
