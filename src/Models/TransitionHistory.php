@@ -43,6 +43,39 @@ class TransitionHistory extends Model
 
     protected ?StateMachine $engine = null;
 
+    /**
+     * Model, storing transition history records, when overridden
+     * with TransitionHistory::useModel().
+     *
+     * @var null|class-string<static>
+     */
+    protected static ?string $model = null;
+
+    /**
+     * Set the model, storing the transition history. It must extend
+     * TransitionHistory.
+     *
+     * @param  class-string<static>  $model
+     */
+    public static function useModel(string $model): void
+    {
+        static::$model = $model;
+    }
+
+    /**
+     * Model, that stores the transition history records.
+     * It may be replaced with an extended model with
+     * TransitionHistory::useModel(), e.g. from the AppServiceProvider.
+     *
+     * @return class-string<static>
+     */
+    public static function model(): string
+    {
+        $model = static::$model ?? static::class;
+
+        return is_a($model, static::class, true) ? $model : static::class;
+    }
+
     protected static function booted(): void
     {
         static::addGlobalScope('latest', fn(Builder $builder) => $builder->latest());

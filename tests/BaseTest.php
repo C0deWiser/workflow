@@ -8,12 +8,14 @@ use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\ArticleWorkflow;
+use Codewiser\Workflow\Example\CustomHistory;
 use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Example\FakedDispatcher;
 use Codewiser\Workflow\Example\FakedFactory;
 use Codewiser\Workflow\Example\FakedValidator;
 use Codewiser\Workflow\Example\Order;
 use Codewiser\Workflow\Exceptions\TransitionException;
+use Codewiser\Workflow\Listeners\TransitionListener;
 use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
@@ -26,7 +28,9 @@ use Codewiser\Workflow\WorkflowObserver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Validation\Factory;
+use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Validation\ValidationException;
@@ -34,6 +38,24 @@ use PHPUnit\Framework\TestCase;
 
 class BaseTest extends TestCase
 {
+    public static function setUpBeforeClass(): void
+    {
+        $capsule = new Capsule();
+        $capsule->addConnection(['driver' => 'sqlite', 'database' => ':memory:']);
+        $capsule->bootEloquent();
+
+        $capsule->getConnection()->getSchemaBuilder()->create('transition_history', function (Blueprint $table) {
+            $table->id();
+            $table->nullableMorphs('performer');
+            $table->nullableMorphs('transitionable');
+            $table->string('blueprint')->nullable();
+            $table->string('source')->nullable();
+            $table->string('target')->nullable();
+            $table->text('context')->nullable();
+            $table->timestamps();
+        });
+    }
+
     public function testFakeValidator()
     {
         $v = new FakedValidator(['name' => 'Foo'], ['name' => 'required']);
@@ -568,5 +590,67 @@ class BaseTest extends TestCase
         $this->assertEquals(['state', 'transition', 'target'], $seen);
         // Target callback receives the transition's result
         $this->assertEquals(['comment' => 'y', 'transition' => 'processed', 'target' => 'processed'], $stored);
+    }
+
+    public function testCustomHistoryModelResolution()
+    {
+        $this->assertEquals(TransitionHistory::class, TransitionHistory::model());
+
+        TransitionHistory::useModel(CustomHistory::class);
+        $this->assertEquals(CustomHistory::class, TransitionHistory::model());
+
+        TransitionHistory::useModel(TransitionHistory::class);
+        $this->assertEquals(TransitionHistory::class, TransitionHistory::model());
+    }
+
+    public function testTransitionsRelationUsesConfiguredHistoryModel()
+    {
+        TransitionHistory::useModel(CustomHistory::class);
+
+        $post = new Article();
+
+        $this->assertInstanceOf(CustomHistory::class, $post->transitions()->getRelated());
+        $this->assertInstanceOf(CustomHistory::class, $post->latest_transition()->getRelated());
+
+        TransitionHistory::useModel(TransitionHistory::class);
+    }
+
+    public function testListenerStoresExtendedHistoryModel()
+    {
+        TransitionHistory::useModel(CustomHistory::class);
+
+        // fake the auth facade (auth()->user())
+        Container::getInstance()->instance(\Illuminate\Contracts\Auth\Factory::class, new class()
+        {
+            public function guard($name = null)
+            {
+                return $this;
+            }
+
+            public function user()
+            {
+                return null;
+            }
+        });
+
+        $seen = null;
+        $state = State::make(Enum::new)->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
+            // The extended history record is in use here
+            $seen = $log;
+        });
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $context = new Context($state, ['comment' => 'y']);
+
+        (new TransitionListener())->handleTransition(new ModelTransited($post->state(), $context));
+
+        $this->assertInstanceOf(CustomHistory::class, $seen);
+        $this->assertNotNull($seen->getKey());
+        $this->assertSame($post, $seen->transitionable);
+        $this->assertEquals(['comment' => 'y'], $seen->context);
+
+        TransitionHistory::useModel(TransitionHistory::class);
     }
 }

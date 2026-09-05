@@ -718,6 +718,35 @@ Historical records are presented by `\Codewiser\Workflow\Models\TransitionHistor
 model, that holds information about the transition performer, source and target 
 states, and the context, if it was provided.
 
+### Extending TransitionHistory
+
+You may extend `TransitionHistory` to add columns, casts and accessors of your
+own, and register your model with `TransitionHistory::useModel()` — e.g. from
+the `AppServiceProvider`:
+
+```php
+<?php
+
+namespace App\Providers;
+
+use Codewiser\Workflow\Example\CustomHistory;
+use Codewiser\Workflow\Models\TransitionHistory;
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        TransitionHistory::useModel(CustomHistory::class);
+    }
+}
+```
+
+Every record, the package stores (and every `transitions`/`latest_transition`
+relation), is an instance of your model now. The `storing` callback receives
+it, too — e.g. to save files under the record's key before the context is
+persisted.
+
 Sometimes you may need to eager load the latest transition:
 
 ```php

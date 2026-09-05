@@ -12,7 +12,7 @@ class TransitionListener
 {
     protected function newRecordFor(Model $model, string $attribute, Context $context): TransitionHistory
     {
-        $log = new TransitionHistory();
+        $log = new (TransitionHistory::model())();
 
         $log->blueprint = $attribute;
 

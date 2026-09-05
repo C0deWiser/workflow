@@ -17,13 +17,13 @@ trait HasTransitionHistory
 {
     public function transitions(): MorphMany
     {
-        return $this->morphMany(TransitionHistory::class, 'transitionable');
+        return $this->morphMany(TransitionHistory::model(), 'transitionable');
     }
 
     public function latest_transition(): MorphOne
     {
         return $this
-            ->morphOne(TransitionHistory::class, 'transitionable')
+            ->morphOne(TransitionHistory::model(), 'transitionable')
             ->latestOfMany();
     }
 
