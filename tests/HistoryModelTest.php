@@ -17,6 +17,7 @@ use Illuminate\Container\Container;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\UploadedFile;
 use PHPUnit\Framework\TestCase;
 
 class HistoryModelTest extends TestCase
@@ -138,6 +139,85 @@ class HistoryModelTest extends TestCase
         $this->assertEquals('new', $record->target);
         $this->assertEquals(['comment' => 'y'], $record->context);
         $this->assertEquals($post->getKey(), $record->transitionable->getKey());
+    }
+
+    protected function fakeAuth(): void
+    {
+        Container::getInstance()->instance(\Illuminate\Contracts\Auth\Factory::class, new class()
+        {
+            public function guard($name = null)
+            {
+                return $this;
+            }
+
+            public function user()
+            {
+                return null;
+            }
+        });
+    }
+
+    public function testListenerFiltersRawFilesOutOfHistoryContext()
+    {
+        $this->fakeAuth();
+
+        $file = UploadedFile::fake()->create('x.txt', 0);
+
+        $state = State::make(Enum::new)->storing(function (Model $model, Context $context, TransitionHistory $log) {
+            // Returned context still holds the raw file
+            return $context->data()->all();
+        });
+
+        $post = new Article();
+        $post->state = Enum::new;
+        $post->save();
+
+        $context = new Context($state, ['comment' => 'y', 'file' => $file]);
+
+        (new TransitionListener())->handleInitialization(new ModelInitialized($post->state(), $context));
+
+        $record = $post->transitions()->first();
+
+        $this->assertNotNull($record);
+        // Only comment survives the filter
+        $this->assertEquals(['comment' => 'y'], $record->context);
+    }
+
+    public function testListenerChainsStoringCallbacksThroughTransition()
+    {
+        $this->fakeAuth();
+
+        $order = [];
+        $record = null;
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $transition = $post->state()->transitionTo(Enum::review);
+        $transition->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$order, &$record) {
+            $order[] = 'transition';
+            $record = $log;
+
+            return array_merge($context->data()->all(), ['transition' => 'processed']);
+        });
+        $transition->target()->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$order, &$transition) {
+            $order[] = 'target';
+            // Target callback receives the transition as the contextual
+            $this->assertSame($transition, $context->transition());
+
+            return array_merge($context->data()->all(), ['target' => 'processed']);
+        });
+
+        $context = new Context($transition, ['comment' => 'y']);
+
+        (new TransitionListener())->handleTransition(new ModelTransited($post->state(), $context));
+
+        $this->assertEquals(['transition', 'target'], $order);
+        $this->assertNotNull($record->getKey());
+        $this->assertEquals('new', $record->source);
+        $this->assertEquals('review', $record->target);
+        // Target callback receives the transition's result
+        $this->assertEquals(['comment' => 'y', 'transition' => 'processed', 'target' => 'processed'], $record->context);
     }
 
     public function testEngineSerializationRoundTrip()

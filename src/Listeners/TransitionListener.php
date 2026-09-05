@@ -6,6 +6,7 @@ use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Models\TransitionHistory;
+use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
 
 class TransitionListener
@@ -22,22 +23,49 @@ class TransitionListener
         $log->source = $context->source()?->enum->value;
         $log->target = $context->target()->enum->value;
 
-        // Persist the record with the context as is (files already filtered out),
-        // so storing callbacks may reference the record as an owner.
-        $log->context = $storable = $context->storable() ?: null;
+        // Store safe userdata.
+        $userdata = $this->filterStorable($context->data()->all()) ?: null;
+        $log->context = $userdata;
+
         $log->save();
 
-        // Let the contextual transition (or state) process the context:
-        // e.g. store uploaded files and replace them with the paths.
-        $updated = $context->prepareForStoring($model, $log);
+        // Call user callback to prepare context for storing.
+        $updated = $this->invokeStorableCallbacks($model, $context, $log);
 
         // Update the record only if the context was changed.
-        if (($updated = $updated ?: null) != $storable) {
+        if (($updated = $updated ?: null) != $userdata) {
             $log->context = $updated;
             $log->save();
         }
 
         return $log;
+    }
+
+    protected function invokeStorableCallbacks(Model $model, Context $context, TransitionHistory $log): array
+    {
+        $contextual = $context->transition() ?? $context->target();
+
+        $data = $contextual->prepareForStoring($model, $context, $log);
+
+        if ($contextual instanceof Transition) {
+            $data = $contextual->target()->prepareForStoring($model, new Context($contextual, $data), $log);
+        }
+
+        return $this->filterStorable($data);
+    }
+
+    protected function filterStorable(array $data): array
+    {
+        foreach ($data as $key => $value) {
+
+            if (is_object($value)) {
+                unset($data[$key]);
+            } elseif (is_array($value)) {
+                $data[$key] = $this->filterStorable($value);
+            }
+        }
+
+        return $data;
     }
 
     public function handleInitialization(ModelInitialized $event): void

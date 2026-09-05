@@ -4,15 +4,11 @@ namespace Tests;
 
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Example\Article;
-use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
-use Codewiser\Workflow\StateMachine;
-use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\Validation;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\UploadedFile;
 use PHPUnit\Framework\TestCase;
 
 class ContextTest extends TestCase
@@ -37,83 +33,55 @@ class ContextTest extends TestCase
         $this->assertEquals([], $attributes);
     }
 
-    public function testFilesAreFilteredOutOfStorableContext()
+    public function testStoringCallbackResultOverridesStorableContext()
     {
-        $file = UploadedFile::fake()->create('attachment.txt', 0);
-
-        $context = new Context(State::make(Enum::new), [
-            'file'     => $file,
-            'nested'   => ['file' => $file, 'comment' => 'x'],
-            'comment'  => 'y',
-        ]);
-
-        $this->assertEquals([
-            'nested'  => ['comment' => 'x'],
-            'comment' => 'y',
-        ], $context->storable());
-    }
-
-    public function testStorableFilterIsAppliedByPrepareForStoring()
-    {
-        $file = UploadedFile::fake()->create('x.txt', 0);
-
         $state = State::make(Enum::new)->storing(function (Model $model, Context $context, TransitionHistory $log) {
             // Returned context still holds the raw file
             return $context->data()->all();
         });
 
-        $stored = (new Context($state, ['comment' => 'y', 'file' => $file]))
-            ->prepareForStoring(new Article(), new TransitionHistory());
+        $result = $state->prepareForStoring(
+            new Article(),
+            new Context($state, ['comment' => 'y', 'file' => 'covers/photo.jpg']),
+            new TransitionHistory()
+        );
 
-        // Only comment survives the filter
-        $this->assertEquals(['comment' => 'y'], $stored);
+        $this->assertEquals(['comment' => 'y', 'file' => 'covers/photo.jpg'], $result);
     }
 
-    public function testStoringCallbacksReturnContext()
+    public function testStoringCallbackNullKeepsStorableContext()
     {
-        $seen = [];
-
-        $state = State::make(Enum::new)->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
-            $seen[] = 'state';
-
-            return array_merge($context->data()->all(), ['file' => 'covers/photo.jpg']);
+        $state = State::make(Enum::new)->storing(function (Model $model, Context $context, TransitionHistory $log) {
+            return null;
         });
 
-        // A transition and its target state both process the context
-        $transition = Transition::make(Enum::new, Enum::review)
-            ->inject(new StateMachine(new ArticleWorkflow(), new Article(), 'state'))
-            ->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
-                $seen[] = 'transition';
+        $result = $state->prepareForStoring(
+            new Article(),
+            new Context($state, ['comment' => 'y']),
+            new TransitionHistory()
+        );
 
-                return array_merge($context->data()->all(), ['transition' => 'processed']);
-            });
-        $transition->target()->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
-            $seen[] = 'target';
+        $this->assertEquals(['comment' => 'y'], $result);
+    }
 
-            return array_merge($context->data()->all(), ['target' => 'processed']);
+    public function testStoringCallbackReceivesContext()
+    {
+        $state = State::make(Enum::new)->context(['comment' => 'nullable']);
+
+        $seen = null;
+        $state->storing(function (Model $model, Context $context, TransitionHistory $log) use (&$seen) {
+            $seen = $context;
+
+            return null;
         });
 
-        $post = new Article();
+        $original = new Context($state, ['comment' => 'Hello']);
 
-        // State as a contextual
-        $file = UploadedFile::fake()->create('x.txt', 0);
-        $context = new Context($state, ['comment' => 'y', 'file' => $file]);
+        $state->prepareForStoring(new Article(), $original, new TransitionHistory());
 
-        $stored = $context->prepareForStoring($post, new TransitionHistory());
-
-        $this->assertEquals(['state'], $seen);
-        $this->assertEquals(['comment' => 'y', 'file' => 'covers/photo.jpg'], $stored);
-        // Original context is not mutated
-        $this->assertEquals(['comment' => 'y', 'file' => $file], $context->data()->all());
-
-        // Transition as a contextual
-        $context = new Context($transition, ['comment' => 'y']);
-
-        $stored = $context->prepareForStoring($post, new TransitionHistory());
-
-        $this->assertEquals(['state', 'transition', 'target'], $seen);
-        // Target callback receives the transition's result
-        $this->assertEquals(['comment' => 'y', 'transition' => 'processed', 'target' => 'processed'], $stored);
+        $this->assertSame($original, $seen);
+        $this->assertSame($state, $seen->target());
+        $this->assertNull($seen->transition());
     }
 
     public function testStateContextAccessors(): void

@@ -40,10 +40,12 @@ trait HasStoringCallbacks
      *
      * @internal
      */
-    public function prepareForStoring(array $data, Model $model, TransitionHistory $log): array
+    public function prepareForStoring(Model $model, Context $context, TransitionHistory $log): array
     {
+        $data = $context->data()->all();
+
         if (is_callable($this->onStoringCallbacks)) {
-            return call_user_func($this->onStoringCallbacks, $model, new Context($this, $data), $log) ?? $data;
+            return call_user_func($this->onStoringCallbacks, $model, $context, $log) ?? $data;
         }
 
         return $data;

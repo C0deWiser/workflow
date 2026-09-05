@@ -2,9 +2,7 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Models\TransitionHistory;
 use Illuminate\Config\Repository as Userdata;
-use Illuminate\Database\Eloquent\Model;
 
 class Context
 {
@@ -45,55 +43,6 @@ class Context
     public function data(): Userdata
     {
         return $this->userdata;
-    }
-
-    /**
-     * Get context data, that is safe to persist (e.g. into transition_history).
-     * Uploaded files (and any other objects) are filtered out recursively.
-     * Any given data is passed through the same filter.
-     *
-     * @return array<int|string, mixed>
-     */
-    public function storable(): array
-    {
-        return $this->filterObjects($this->userdata->all());
-    }
-
-    /**
-     * Run storing callbacks of the contextual transition (and its target state)
-     * or of a state, returning the context as an array, prepared to persist
-     * into the transition history.
-     *
-     * The record is persisted by the caller, so callbacks may reference
-     * it as the owner of the files they store.
-     *
-     * @return array<int|string, mixed>
-     *
-     * @internal
-     */
-    public function prepareForStoring(Model $model, TransitionHistory $log): array
-    {
-        $data = $this->contextual->prepareForStoring($this->userdata->all(), $model, $log);
-
-        if ($transition = $this->transition()) {
-            $data = $transition->target()->prepareForStoring($data, $model, $log);
-        }
-
-        return $this->filterObjects($data);
-    }
-
-    protected function filterObjects(array $data): array
-    {
-        foreach ($data as $key => $value) {
-
-            if (is_object($value)) {
-                unset($data[$key]);
-            } elseif (is_array($value)) {
-                $data[$key] = $this->filterObjects($value);
-            }
-        }
-
-        return $data;
     }
 
     /**
