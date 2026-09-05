@@ -97,9 +97,13 @@ class Charger implements Injectable
      */
     public function getHistory(Transition $transition): array
     {
-        return is_callable($this->history)
-            ? (array) call_user_func_array($this->history, $this->func_args($transition))
-            : [];
+        if (! is_callable($this->history)) {
+            return [];
+        }
+
+        $history = call_user_func_array($this->history, $this->func_args($transition));
+
+        return $history instanceof Arrayable ? $history->toArray() : (array) $history;
     }
 
     /**

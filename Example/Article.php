@@ -32,14 +32,11 @@ class Article extends Model
         'votes' => '[]'
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'state'     => Enum::class,
-            'condition' => 'boolean',
-            'votes'     => AsCollection::class,
-        ];
-    }
+    protected $casts = [
+        'state'     => Enum::class,
+        'condition' => 'boolean',
+        'votes'     => AsCollection::class,
+    ];
 
     /**
      * @return StateMachine<self, Enum>

@@ -22,12 +22,9 @@ class Order extends Model
         'status' => null,
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'status' => Enum::class,
-        ];
-    }
+    protected $casts = [
+        'status' => Enum::class,
+    ];
 
     /**
      * State is stored in the 'status' attribute, not in the method name.
@@ -38,5 +35,16 @@ class Order extends Model
     public function lifecycle(): StateMachine
     {
         return $this->workflow(ArticleWorkflow::class, 'status');
+    }
+
+    /**
+     * Second workflow of the same model, stored in the 'notify' attribute.
+     *
+     * @return StateMachine<self, Enum>
+     */
+    #[Workflow('notify')]
+    public function notifications(): StateMachine
+    {
+        return $this->workflow(ArticleWorkflow::class, 'notify');
     }
 }
