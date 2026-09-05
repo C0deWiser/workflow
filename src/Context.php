@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow;
 
 use Illuminate\Config\Repository as Userdata;
+use Illuminate\Database\Eloquent\Model;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class Context
@@ -55,6 +56,22 @@ class Context
     public function storable(): array
     {
         return $this->filterObjects($this->userdata->all());
+    }
+
+    /**
+     * Run storing callbacks of the contextual transition (and its target state)
+     * or of a state, mutating the context right before it is persisted
+     * into the transition history.
+     *
+     * @internal
+     */
+    public function store(Model $model): void
+    {
+        $this->contextual->store($model, $this);
+
+        if ($transition = $this->transition()) {
+            $transition->target()->store($model, $this);
+        }
     }
 
     protected function filterObjects(array $data): array

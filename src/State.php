@@ -11,6 +11,7 @@ use Codewiser\Workflow\Traits\HasValidationRules;
 use Codewiser\Workflow\Traits\HasDeadEnd;
 use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasEngine;
+use Codewiser\Workflow\Traits\HasStoringCallbacks;
 use Illuminate\Contracts\Support\Arrayable;
 
 /**
@@ -18,7 +19,7 @@ use Illuminate\Contracts\Support\Arrayable;
  */
 class State implements Arrayable, Injectable
 {
-    use HasEngine, HasEloquentEvents, HasValidationRules, HasDeadEnd, HasConditions;
+    use HasEngine, HasEloquentEvents, HasValidationRules, HasDeadEnd, HasConditions, HasStoringCallbacks;
     use HasAttributes {
         additional as protected selfAdditional;
     }

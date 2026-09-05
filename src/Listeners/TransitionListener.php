@@ -12,6 +12,10 @@ class TransitionListener
 {
     protected function newRecordFor(Model $model, string $attribute, Context $context): TransitionHistory
     {
+        // Let the contextual transition (or state) process the context:
+        // e.g. store uploaded files and replace them with the paths.
+        $context->store($model);
+
         $log = new TransitionHistory();
 
         $log->blueprint = $attribute;

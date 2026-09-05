@@ -12,6 +12,7 @@ use Codewiser\Workflow\Traits\HasValidationRules;
 use Codewiser\Workflow\Traits\HasDeadEnd;
 use Codewiser\Workflow\Traits\HasEloquentEvents;
 use Codewiser\Workflow\Traits\HasEngine;
+use Codewiser\Workflow\Traits\HasStoringCallbacks;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Support\Arrayable;
@@ -37,7 +38,7 @@ class Transition implements Arrayable, Injectable
     use HasConditions {
         issues as protected selfIssues;
     }
-    use HasEngine, HasValidationRules, HasEloquentEvents, HasCharge, HasAuthorization;
+    use HasEngine, HasValidationRules, HasEloquentEvents, HasCharge, HasAuthorization, HasStoringCallbacks;
 
     public static function make(\BackedEnum $source, \BackedEnum $target): static
     {

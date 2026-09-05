@@ -7,6 +7,7 @@ use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Example\Article;
+use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Example\FakedDispatcher;
 use Codewiser\Workflow\Example\FakedFactory;
@@ -464,5 +465,41 @@ class BaseTest extends TestCase
             'nested'  => ['comment' => 'x'],
             'comment' => 'y',
         ], $context->storable());
+    }
+
+    public function testStoringCallbacksMutateContext()
+    {
+        $seen = [];
+
+        $state = State::make(Enum::new)->storing(function (Model $model, Context $context) use (&$seen) {
+            $seen[] = 'state';
+            $context->data()->set('file', 'covers/photo.jpg');
+        });
+
+        // A transition and its target state both process the context
+        $transition = Transition::make(Enum::new, Enum::review)
+            ->inject(new StateMachine(new ArticleWorkflow(), new Article(), 'state'))
+            ->storing(function (Model $model, Context $context) use (&$seen) {
+                $seen[] = 'transition';
+                $context->data()->set('transition', 'processed');
+            });
+        $transition->target()->storing(function (Model $model, Context $context) use (&$seen) {
+            $seen[] = 'target';
+            $context->data()->set('target', 'processed');
+        });
+
+        $post = new Article();
+
+        // State named as a contextual
+        $context = new Context($state, ['comment' => 'y', 'file' => UploadedFile::fake()->create('x.txt', 0)]);
+        $context->store($post);
+        $this->assertEquals(['state'], $seen);
+        $this->assertEquals(['comment' => 'y', 'file' => 'covers/photo.jpg'], $context->storable());
+
+        // Transition as a contextual
+        $context = new Context($transition, ['comment' => 'y']);
+        $context->store($post);
+        $this->assertEquals(['state', 'transition', 'target'], $seen);
+        $this->assertEquals(['comment' => 'y', 'transition' => 'processed', 'target' => 'processed'], $context->storable());
     }
 }

@@ -427,14 +427,13 @@ public function store(Request $request)
 }
 ```
 
-> **Warning!** Uploaded files are NOT persisted. You MUST store the file
-> yourself and put the resulting file handler (e.g. a path) into the context.
-> The raw `UploadedFile` (and any other object) is filtered out of the
-> context before it is written to the
-> [transition history](#transition-history), so an unstored file would
-> silently vanish from the log.
+> **Warning!** Uploaded files are NOT persisted themselves. The raw
+> `UploadedFile` (and any other object) is filtered out of the context before
+> it is written to the [transition history](#transition-history). You MUST
+> store the file and replace it with the resulting handler (e.g. a path).
 
-Handle the uploaded file in the `saving` callback:
+The best place to do it is a `storing` callback. It runs right before the
+context is persisted into the transition history and may mutate the context:
 
 ```php
 use Codewiser\Workflow\Context;
@@ -442,7 +441,8 @@ use Codewiser\Workflow\Transition;
 
 Transition::make(Enum::new, Enum::review)
     ->context(['cover' => 'file|image|max:2048'])
-    ->saving(function (Article $article, Context $context) {
+    // May be defined on a Transition, as on a State
+    ->storing(function (Article $article, Context $context) {
         // Move the file to permanent storage
         $path = $context->data()->get('cover')->store('covers', 'public');
 
@@ -451,8 +451,12 @@ Transition::make(Enum::new, Enum::review)
     });
 ```
 
-After the model is saved, the context and the transition history record
-will hold the file path instead of the raw uploaded file.
+> A `storing` callback does not affect the model or the `saving`/`saved`
+> callbacks — it only tailors the context written to
+> [transition history](#transition-history). If you need the path earlier
+> (e.g. to attach it to the model), handle the file in a
+> [`saving`](#callbacks) callback instead and put the path into the context
+> the same way.
 
 ## Additional Attributes
 
