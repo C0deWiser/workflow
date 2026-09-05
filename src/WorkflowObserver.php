@@ -20,8 +20,11 @@ class WorkflowObserver
 {
     use HasEngine;
 
-    public function __construct(protected Dispatcher $events, protected Factory $validators)
-    {
+    public function __construct(
+        protected Dispatcher $events,
+        protected Factory $validators,
+        protected StateMachineResolver $resolver
+    ) {
         //
     }
 
@@ -43,7 +46,7 @@ class WorkflowObserver
 
     public function creating(Model $model): bool
     {
-        return StateMachine::collect($model)
+        return $this->resolver->collect($model)
             ->reject(function (StateMachine $engine) use ($model) {
 
                 $this->inject($engine);
@@ -72,7 +75,7 @@ class WorkflowObserver
 
     public function created(Model $model): void
     {
-        StateMachine::collect($model)
+        $this->resolver->collect($model)
             ->each(function (StateMachine $engine) use ($model) {
 
                 $this->inject($engine);
@@ -93,7 +96,7 @@ class WorkflowObserver
     public function updating(Model $model): bool
     {
         // If one transition is invalid, all update is invalid
-        return StateMachine::collect($model)
+        return $this->resolver->collect($model)
             // Rejecting successful validations
             ->reject(function (StateMachine $engine) use ($model) {
 
@@ -133,7 +136,7 @@ class WorkflowObserver
 
     public function updated(Model $model): void
     {
-        StateMachine::collect($model)
+        $this->resolver->collect($model)
             ->each(function (StateMachine $engine) use ($model) {
 
                 $this->inject($engine);

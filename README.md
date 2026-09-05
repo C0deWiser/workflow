@@ -91,6 +91,43 @@ class Article extends Model
 }
 ```
 
+The model attribute, storing the state, is resolved from the `Workflow`
+attribute. It defaults to the name of the marked method, but you may bind
+a workflow to any attribute explicitly:
+
+```php
+/**
+ * @property Enum $status Current workflow state.
+ */
+#[ObservedBy(WorkflowObserver::class)]
+class Order extends Model
+{
+    use HasWorkflow;
+
+    protected function casts(): array
+    {
+        return [
+            'status' => Enum::class
+        ];
+    }
+
+    /**
+     * A workflow, bound to the 'status' attribute.
+     *
+     * @return StateMachine<self, Enum>
+     */
+    #[Workflow('status')]
+    public function lifecycle(): StateMachine
+    {
+        return $this->workflow(ArticleWorkflow::class, 'status');
+    }
+}
+```
+
+When a workflow is restored (e.g. from the transition history), only the
+method, bound to the attribute, gets instantiated — declared workflows
+are matched statically, without running all of them.
+
 ## Consistency
 
 `WorkflowObserver` observes Model and keeps state machine consistency healthy.

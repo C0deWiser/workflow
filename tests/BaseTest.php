@@ -12,11 +12,13 @@ use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Example\FakedDispatcher;
 use Codewiser\Workflow\Example\FakedFactory;
 use Codewiser\Workflow\Example\FakedValidator;
+use Codewiser\Workflow\Example\Order;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateCollection;
 use Codewiser\Workflow\StateMachine;
+use Codewiser\Workflow\StateMachineResolver;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\TransitionCollection;
 use Codewiser\Workflow\Validation;
@@ -50,7 +52,7 @@ class BaseTest extends TestCase
     public function testBasics()
     {
         $post = new Article();
-        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory(), new StateMachineResolver());
 
         $this->assertNull($post->state, 'State is not initialized');
 
@@ -130,7 +132,7 @@ class BaseTest extends TestCase
     {
         $wasCalled = ['creating' => false, 'created' => false, 'updating' => false, 'updated' => false];
         $dispatcher = new FakedDispatcher();
-        $observer = new WorkflowObserver($dispatcher, new FakedFactory());
+        $observer = new WorkflowObserver($dispatcher, new FakedFactory(), new StateMachineResolver());
 
         // Init
         $post = new Article();
@@ -238,7 +240,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory(), new StateMachineResolver());
 
         $post->condition = true;
         $post->state = Enum::review;
@@ -253,7 +255,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory(), new StateMachineResolver());
 
         $post->state = Enum::published;
 
@@ -277,7 +279,7 @@ class BaseTest extends TestCase
         $post = new Article();
         $post->setRawAttributes(['state' => Enum::new], true);
 
-        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory(), new StateMachineResolver());
 
         $post->state = Enum::unreacheable;
 
@@ -407,16 +409,53 @@ class BaseTest extends TestCase
 
     public function testStateMachineCollector()
     {
-        $machines = StateMachine::collect(new Article());
+        $machines = (new StateMachineResolver())->collect(new Article());
 
         $this->assertCount(1, $machines);
         $this->assertEquals('state', $machines->first()->attribute);
     }
 
+    public function testStateMachineRestoreByDeclaredAttribute()
+    {
+        $order = new Order();
+
+        $engine = (new StateMachineResolver())->restore($order, 'status');
+
+        $this->assertInstanceOf(StateMachine::class, $engine);
+        $this->assertEquals('status', $engine->attribute);
+        $this->assertSame($order, $engine->model);
+    }
+
+    public function testStateMachineRestoreByMethodNamedAttribute()
+    {
+        $post = new Article();
+
+        $engine = (new StateMachineResolver())->restore($post, 'state');
+
+        $this->assertInstanceOf(StateMachine::class, $engine);
+        $this->assertEquals('state', $engine->attribute);
+        $this->assertSame($post, $engine->model);
+    }
+
+    public function testStateMachineRestoreByLegacyBlueprintClass()
+    {
+        $post = new Article();
+
+        $engine = (new StateMachineResolver())->restore($post, ArticleWorkflow::class);
+
+        $this->assertInstanceOf(StateMachine::class, $engine);
+        $this->assertEquals('state', $engine->attribute);
+    }
+
+    public function testStateMachineRestoreReturnsNullForUnknownAttribute()
+    {
+        $this->assertNull((new StateMachineResolver())->restore(new Article(), 'unknown'));
+    }
+
     public function testValidatedUserdataReachesSavingCallback()
     {
         $seen = null;
-        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory());
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory(), new StateMachineResolver());
 
         // Init with full userdata: 'comment' is declared in rules, 'file' is not
         $post = new Article();

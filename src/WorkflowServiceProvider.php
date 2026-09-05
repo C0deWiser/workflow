@@ -10,6 +10,11 @@ use Illuminate\Support\ServiceProvider;
 
 class WorkflowServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        $this->app->singleton(StateMachineResolver::class);
+    }
+
     public function boot(): void
     {
         $this->publishes([

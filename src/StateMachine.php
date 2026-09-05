@@ -3,12 +3,10 @@
 
 namespace Codewiser\Workflow;
 
-use Codewiser\Workflow\Attributes\Workflow;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Illuminate\Support\ItemNotFoundException;
 
 /**
@@ -23,44 +21,6 @@ class StateMachine implements Arrayable
     protected ?TransitionCollection $transitions = null;
 
     protected ?Factory $validators = null;
-
-    /**
-     * Get workflow listing for a model.
-     *
-     * @return Collection<int, static>
-     */
-    public static function collect(Model $model): Collection
-    {
-        $engines = [];
-
-        $reflect = new \ReflectionClass($model);
-
-        foreach ($reflect->getMethods() as $method) {
-            $is_workflow = array_filter(
-                $method->getAttributes(),
-                fn(\ReflectionAttribute $attribute) => $attribute->getName() === Workflow::class
-            );
-
-            if ($is_workflow) {
-                $engines[] = $method->invoke($model);
-            }
-        }
-
-        return new Collection($engines);
-    }
-
-    /**
-     * Try to restore engine for a given blueprint.
-     *
-     * @param  TModel  $model
-     * @param  string  $blueprint  Blueprint or attribute.
-     */
-    public static function restore(Model $model, string $blueprint): ?static
-    {
-        return static::collect($model)->first(
-            fn(self $engine) => get_class($engine->blueprint) === $blueprint || $engine->attribute === $blueprint
-        );
-    }
 
     /**
      * @param  TBlueprint  $blueprint

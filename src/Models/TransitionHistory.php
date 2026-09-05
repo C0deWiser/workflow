@@ -5,6 +5,7 @@ namespace Codewiser\Workflow\Models;
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachine;
+use Codewiser\Workflow\StateMachineResolver;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Exception;
@@ -65,7 +66,11 @@ class TransitionHistory extends Model
     protected function engine(): ?StateMachine
     {
         if (! $this->engine) {
-            $this->engine = StateMachine::restore($this->transitionable, $this->blueprint);
+            $resolver = function_exists('app')
+                ? app(StateMachineResolver::class)
+                : new StateMachineResolver();
+
+            $this->engine = $resolver->restore($this->transitionable, $this->blueprint);
         }
 
         return $this->engine;
