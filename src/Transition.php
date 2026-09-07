@@ -38,7 +38,10 @@ class Transition implements Arrayable, Injectable
     use HasConditions {
         issues as protected selfIssues;
     }
-    use HasEngine, HasValidationRules, HasEloquentEvents, HasCharge, HasAuthorization, HasStoringCallbacks;
+    use HasValidationRules {
+        validation as protected selfValidation;
+    }
+    use HasEngine, HasEloquentEvents, HasCharge, HasAuthorization, HasStoringCallbacks;
 
     public static function make(\BackedEnum $source, \BackedEnum $target): static
     {
@@ -151,7 +154,7 @@ class Transition implements Arrayable, Injectable
      */
     public function validation(): ?Validation
     {
-        $our = $this->validation;
+        $our = $this->selfValidation();
         $target = $this->target()->validation();
 
         if ($our && $target) {

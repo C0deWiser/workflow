@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No tagged releases yet.
 
+## [5.1.6] - 2026-09-07
+
+### Changed
+- Context may be defined in a callback.
+
 ## [5.1.5] - 2026-09-07
 
 ### Added
