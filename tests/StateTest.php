@@ -80,6 +80,20 @@ class StateTest extends TestCase
         $this->assertEquals(['comment' => 'Comment'], $validation->attributes);
     }
 
+    public function testContextAcceptsRequestClassName()
+    {
+        $post = new Article();
+
+        $state = State::make(Enum::new)
+            ->context(\Tests\ArticleCommentRequest::class)
+            ->inject(new StateMachine(new ArticleWorkflow(), $post, 'state'));
+
+        $validation = $state->validation();
+
+        $this->assertInstanceOf(Validation::class, $validation);
+        $this->assertEquals(['comment' => 'required|string'], $validation->rules);
+    }
+
     public function testContextAcceptsCallableReturningArray()
     {
         $post = new Article();

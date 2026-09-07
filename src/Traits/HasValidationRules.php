@@ -11,16 +11,16 @@ trait HasValidationRules
     /**
      * Validation rules for the additional context.
      *
-     * @var null|array|Validation|Request|callable
+     * @var null|array|Validation|Request|class-string<Request>|callable
      */
     protected $validation = null;
 
     /**
      * Add requirement(s) to init/transition payload.
      *
-     * @param  array|Validation|Request|callable(Model): (array|Validation|Request)  $rules
+     * @param  array|Validation|Request|class-string<Request>|callable(Model): (array|Validation|Request|class-string<Request>)  $rules
      */
-    public function context(array|Validation|Request|callable $rules): static
+    public function context(array|Validation|Request|string|callable $rules): static
     {
         $this->validation = $rules;
 
@@ -38,7 +38,7 @@ trait HasValidationRules
             $validation = call_user_func($validation, $this->engine()->model);
         }
 
-        if ($validation instanceof Request) {
+        if ($validation instanceof Request || is_string($validation)) {
             $validation = Validation::fromRequest($validation);
         } elseif (is_array($validation)) {
             $validation = new Validation($validation);

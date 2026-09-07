@@ -4,6 +4,7 @@ namespace Codewiser\Workflow;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use RuntimeException;
 
 class Validation implements Arrayable
@@ -23,13 +24,16 @@ class Validation implements Arrayable
      * Objects are not allowed in rules; a rule defined as an object instance
      * (e.g. `Rule::exists()`) is rejected with a `RuntimeException`.
      *
-     * @param  Request  $request
+     * @param  Request|class-string<Request>  $request
      * @param  array<string, string|array>|null  $rules  Validation rules to use instead of the request ones.
      *
      * @throws \RuntimeException When rules contain object instances.
+     * @throws \InvalidArgumentException When the given class name is not a `Request`.
      */
-    public static function fromRequest(Request $request, ?array $rules = null): static
+    public static function fromRequest(Request|string $request, ?array $rules = null): static
     {
+        $request = self::resolveRequest($request);
+
         $rules = $rules ?? (method_exists($request, 'rules') ? $request->rules() : []);
 
         self::assertNoObjects($rules);
@@ -45,6 +49,30 @@ class Validation implements Arrayable
         }
 
         return $instance;
+    }
+
+    /**
+     * Instantiate a request class (given as a name).
+     *
+     * @param  Request|class-string<Request>  $request
+     *
+     * @throws \InvalidArgumentException When the given class name is not a `Request`.
+     */
+    protected static function resolveRequest(Request|string $request): Request
+    {
+        if (is_string($request)) {
+            if (! is_a($request, Request::class, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    'The given class "%s" is not a %s.',
+                    $request,
+                    Request::class
+                ));
+            }
+
+            $request = new $request();
+        }
+
+        return $request;
     }
 
     /**
@@ -94,14 +122,14 @@ class Validation implements Arrayable
 
     public function messages(array $messages): static
     {
-        $this->messages = $messages;
+        $this->messages = array_merge($this->messages, $messages);
 
         return $this;
     }
 
     public function attributes(array $attributes): static
     {
-        $this->attributes = $attributes;
+        $this->attributes = array_merge($this->attributes, $attributes);
 
         return $this;
     }
