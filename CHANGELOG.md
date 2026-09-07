@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No tagged releases yet.
 
+## [5.1.5] - 2026-09-07
+
+### Added
+- Validation may be instantiated right from Request object.
+
 ## [5.1.4] - 2026-09-05
 
 ### Changed
