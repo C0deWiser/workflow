@@ -46,6 +46,13 @@ class Charger implements Injectable
      */
     protected $history = null;
 
+    /**
+     * Callback to inspect if transition is fully charged.
+     *
+     * @var null|callable
+     */
+    protected $premature = null;
+
     protected ?Factory $validators = null;
 
     protected ?Dispatcher $dispatcher = null;
@@ -98,6 +105,20 @@ class Charger implements Injectable
     }
 
     /**
+     * Optional callback, that forces transition to fire prematurely even if it is not fully charge.
+     *
+     * Return TRUE for transition to fire prematurely.
+     *
+     * @param  callable(Model, Context): bool  $callback
+     */
+    public function premature(callable $callback): static
+    {
+        $this->premature = $callback;
+
+        return $this;
+    }
+
+    /**
      * Get provided history.
      *
      * @internal
@@ -127,9 +148,9 @@ class Charger implements Injectable
      * Charge transition.
      * User data validated against transition rules before the callback is called.
      *
+     * @throws \Illuminate\Validation\ValidationException
      * @internal
      *
-     * @throws \Illuminate\Validation\ValidationException
      */
     public function charge(Transition $transition, array $userdata): void
     {
@@ -224,6 +245,14 @@ class Charger implements Injectable
      */
     public function isCharged(Transition $transition): bool
     {
+        if (is_callable($this->premature)) {
+            $premature = call_user_func_array($this->premature, $this->func_args($transition));
+
+            if ($premature === true) {
+                return true;
+            }
+        }
+
         return $this->chargingLevel($transition) >= 1;
     }
 

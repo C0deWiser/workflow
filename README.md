@@ -672,28 +672,34 @@ use Codewiser\Workflow\Example\Enum;
 use Codewiser\Workflow\Charger;
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Transition;
+use Illuminate\Contracts\Support\Arrayable;
 
 Transition::make(Enum::review, Enum::publish)
     ->context(['comment' => 'required'])
     ->chargeable(Charger::make(
-        progress: function(Article $article) {
-            // Return float (0÷1) with charge progress.
+        progress: function(Article $article): float {
+            // Return current charge progress.
             return $article->votes->count() / 3;
         },
-        callback: function(Article $article, Context $context) {
+        callback: function(Article $article, Context $context): void {
             // Store transition charge increment.
             $article->votes->add(auth()->user());
         })
         
         // Optional callbacks
         
-        ->allow(function (Article $article, Context $context) {
+        ->allow(function (Article $article, Context $context): bool {
             // Prevent charging twice!
             return $article->votes->doesntContain(auth()->user());
         })
-        ->withHistory(function (Article $article, Context $context) {
+        ->withHistory(function (Article $article, Context $context): Arrayable {
             // Provide votes history to a front-end
             return $article->votes->toArray();
+        })
+        ->premature(function (Article $article, Context $context): bool {
+            // Force the transition to fire even if charge is not complete.
+            // This is useful for admin overrides or time-based fallbacks.
+            return $article->force_publish;
         })
     );
 ```

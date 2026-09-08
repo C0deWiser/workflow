@@ -115,6 +115,145 @@ class ChargerTest extends TestCase
         $this->assertEquals(Enum::chargeable, $post->state);
     }
 
+    public function testPrematureReturnsTrueMakesIsChargedReturnTrue()
+    {
+        $charger = Charger::make(
+            progress: fn() => 0.3,
+            callback: fn() => null,
+        )->premature(fn() => true);
+
+        $charged = $charger->inject(new StateMachine(
+            new ArticleWorkflow(),
+            new Article(),
+            'state'
+        ));
+
+        $transition = new Transition(Enum::new, Enum::chargeable);
+
+        $this->assertTrue($charged->isCharged($transition));
+        $this->assertEquals(0.3, $charged->chargingLevel($transition));
+    }
+
+    public function testPrematureReturnsFalseFallsBackToChargingLevel()
+    {
+        $charger = Charger::make(
+            progress: fn() => 0.5,
+            callback: fn() => null,
+        )->premature(fn() => false);
+
+        $charged = $charger->inject(new StateMachine(
+            new ArticleWorkflow(),
+            new Article(),
+            'state'
+        ));
+
+        $transition = new Transition(Enum::new, Enum::chargeable);
+
+        $this->assertFalse($charged->isCharged($transition));
+    }
+
+    public function testPrematureReturnsTrueAllowsTransitWithoutFullCharge()
+    {
+        $charged = false;
+
+        $charger = Charger::make(
+            progress: fn() => 0.2,
+            callback: function () use (&$charged) {
+                $charged = true;
+            },
+        )->premature(fn() => true);
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $engine = new StateMachine($this->chargeableBlueprint($charger), $post, 'state');
+
+        $engine->transit(Enum::chargeable);
+
+        $this->assertTrue($charged);
+        $this->assertEquals(Enum::chargeable, $post->state);
+    }
+
+    public function testPrematureDoesNotDispatchEventWhenTriggered()
+    {
+        $dispatched = false;
+
+        $charger = Charger::make(
+            progress: fn() => 0.5,
+            callback: fn() => null,
+        )->premature(fn() => true)->dispatchWith($this->transitionChargedDispatcher($dispatched));
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $engine = new StateMachine($this->chargeableBlueprint($charger), $post, 'state');
+
+        $engine->transitionTo(Enum::chargeable)->charger($engine)->charge(
+            $engine->transitionTo(Enum::chargeable), []
+        );
+
+        // When premature triggers, isCharged returns true, so no TransitionCharged event
+        $this->assertFalse($dispatched);
+    }
+
+    public function testWithoutPrematureNoEventWhenFullyCharged()
+    {
+        $dispatched = false;
+
+        $charger = Charger::make(
+            progress: fn() => 1.0,
+            callback: fn() => null,
+        )->dispatchWith($this->transitionChargedDispatcher($dispatched));
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $engine = new StateMachine($this->chargeableBlueprint($charger), $post, 'state');
+
+        $engine->transitionTo(Enum::chargeable)->charger($engine)->charge(
+            $engine->transitionTo(Enum::chargeable), []
+        );
+
+        // Fully charged: no TransitionCharged event (it completed the transition)
+        $this->assertFalse($dispatched);
+    }
+
+    public function testWithoutPrematureDispatchesEventWhenNotFullyCharged()
+    {
+        $dispatched = false;
+
+        $charger = Charger::make(
+            progress: fn() => 0.5,
+            callback: fn() => null,
+        )->dispatchWith($this->transitionChargedDispatcher($dispatched));
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $engine = new StateMachine($this->chargeableBlueprint($charger), $post, 'state');
+
+        $engine->transitionTo(Enum::chargeable)->charger($engine)->charge(
+            $engine->transitionTo(Enum::chargeable), []
+        );
+
+        // Not fully charged: TransitionCharged event dispatched
+        $this->assertTrue($dispatched);
+    }
+
+    private function transitionChargedDispatcher(bool &$dispatched): \Illuminate\Events\Dispatcher
+    {
+        $dispatcher = new \Illuminate\Events\Dispatcher();
+
+        $dispatcher->listen(
+            \Codewiser\Workflow\Events\TransitionCharged::class,
+            function () use (&$dispatched) {
+                $dispatched = true;
+            }
+        );
+
+        return $dispatcher;
+    }
+
     private function chargeableBlueprint(Charger $charger): WorkflowBlueprint
     {
         return new class($charger) extends WorkflowBlueprint

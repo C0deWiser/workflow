@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No tagged releases yet.
 
+## [5.1.9] - 2026-09-08
+
+### Added
+- Charger may fire a transition prematurely.
+
 ## [5.1.8] - 2026-09-08
 
 ### Added
