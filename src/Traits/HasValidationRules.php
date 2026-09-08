@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Validation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ trait HasValidationRules
     /**
      * Add requirement(s) to init/transition payload.
      *
-     * @param  array|Validation|Request|class-string<Request>|callable(Model): (array|Validation|Request|class-string<Request>)  $rules
+     * @param  array|Validation|Request|class-string<Request>|callable(Model, Context): (array|Validation|Request|class-string<Request>)  $rules
      */
     public function context(array|Validation|Request|string|callable $rules): static
     {
@@ -35,7 +36,7 @@ trait HasValidationRules
         $validation = $this->validation;
 
         if (is_callable($validation)) {
-            $validation = call_user_func($validation, $this->engine()->model);
+            $validation = call_user_func($validation, $this->engine()->model, new Context($this));
         }
 
         if ($validation instanceof Request || is_string($validation)) {

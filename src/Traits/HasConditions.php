@@ -2,6 +2,7 @@
 
 namespace Codewiser\Workflow\Traits;
 
+use Codewiser\Workflow\Context;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -14,7 +15,7 @@ trait HasConditions
     /**
      * State/transition may run if meet given condition.
      *
-     * @param  callable(Model): (null|string)  $callback Should return string to describe condition to a user.
+     * @param  callable(Model, Context): (null|string)  $callback Should return string to describe condition to a user.
      */
     public function condition(callable $callback): static
     {
@@ -33,7 +34,7 @@ trait HasConditions
     public function issues(): array
     {
         return collect($this->conditions)
-            ->map(fn(callable $callback) => call_user_func($callback, $this->engine()->model))
+            ->map(fn(callable $callback) => call_user_func($callback, $this->engine()->model, new Context($this)))
             ->filter()
             ->values()
             ->toArray();
