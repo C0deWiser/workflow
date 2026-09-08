@@ -5,7 +5,6 @@ namespace Codewiser\Workflow;
 
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ItemNotFoundException;
 
@@ -19,8 +18,6 @@ class StateMachine implements Arrayable
     protected ?StateCollection $states = null;
 
     protected ?TransitionCollection $transitions = null;
-
-    protected ?Factory $validators = null;
 
     /**
      * @param  TBlueprint  $blueprint
@@ -238,36 +235,6 @@ class StateMachine implements Arrayable
     public function userdata(): array
     {
         return static::$userdata[$this->attribute] ?? [];
-    }
-
-    /**
-     * Set a validator factory, used to validate user data of chargeable transitions.
-     * By default, a factory is resolved from the application container.
-     */
-    public function validateWith(Factory $validators): static
-    {
-        $this->validators = $validators;
-
-        return $this;
-    }
-
-    /**
-     * Get a validator factory, if any available.
-     *
-     * @internal
-     */
-    public function validators(): ?Factory
-    {
-        if (is_null($this->validators) && function_exists('app')) {
-
-            $factory = app()->bound(Factory::class)
-                ? app(Factory::class)
-                : null;
-
-            $this->validators = $factory;
-        }
-
-        return $this->validators;
     }
 
 }

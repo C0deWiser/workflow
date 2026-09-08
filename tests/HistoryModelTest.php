@@ -5,6 +5,7 @@ namespace Tests;
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
+use Codewiser\Workflow\Events\TransitionCharged;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\CustomHistory;
@@ -14,9 +15,11 @@ use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachine;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Events\Dispatcher as EventDispatcher;
 use Illuminate\Http\UploadedFile;
 use PHPUnit\Framework\TestCase;
 
@@ -141,6 +144,27 @@ class HistoryModelTest extends TestCase
         $this->assertEquals($post->getKey(), $record->transitionable->getKey());
     }
 
+    public function testChargerDispatchesWithInjectedDispatcher()
+    {
+        $this->fakeAuth();
+
+        $post = new Article();
+        $post->state = Enum::new;
+        $post->save();
+
+        $dispatcher = new EventDispatcher(Container::getInstance());
+        $dispatcher->listen(TransitionCharged::class, [TransitionListener::class, 'handleCharged']);
+
+        $transition = $post->state()->transitionTo(Enum::chargeable);
+        $charger = $transition->charger($post->state())->dispatchWith($dispatcher);
+
+        $charger->charge($transition, ['comment' => 'one']);
+
+        $this->assertCount(1, $post->transitions()->get());
+        $this->assertEquals('new', $post->transitions()->first()->source);
+        $this->assertEquals(['comment' => 'one'], $post->transitions()->first()->context);
+    }
+
     protected function fakeAuth(): void
     {
         Container::getInstance()->instance(\Illuminate\Contracts\Auth\Factory::class, new class()
@@ -155,6 +179,71 @@ class HistoryModelTest extends TestCase
                 return null;
             }
         });
+    }
+
+    public function testHandlingChargedWritesHistoryRecord()
+    {
+        $this->fakeAuth();
+
+        $post = new Article();
+        $post->state = Enum::new;
+        $post->save();
+
+        $transition = $post->state()->transitionTo(Enum::chargeable);
+        $context = new Context($transition, ['comment' => 'one']);
+
+        (new TransitionListener())->handleCharged(new TransitionCharged($post->state(), $context));
+
+        $record = $post->transitions()->first();
+
+        $this->assertNotNull($record);
+        $this->assertEquals('new', $record->source);
+        $this->assertEquals(Enum::chargeable->value, $record->target);
+        $this->assertEquals(['comment' => 'one'], $record->context);
+        $this->assertEquals($post->getKey(), $record->transitionable->getKey());
+    }
+
+    public function testChargingLeavesHistoryFootprints()
+    {
+        $this->fakeAuth();
+
+        $post = new Article();
+        $post->state = Enum::new;
+        $post->save();
+
+        // Route TransitionCharged to the listener, like the service provider does.
+        $dispatcher = new EventDispatcher(Container::getInstance());
+        $dispatcher->listen(TransitionCharged::class, [TransitionListener::class, 'handleCharged']);
+        Container::getInstance()->instance(Dispatcher::class, $dispatcher);
+
+        try {
+            $state = $post->state();
+
+            // Increments that do not complete the transition are logged.
+            $state->transit(Enum::chargeable, ['comment' => 'one']);
+            $state->transit(Enum::chargeable, ['comment' => 'two']);
+
+            $this->assertTrue($state->is(Enum::new));
+
+            $charges = $post->transitions()->get();
+
+            $this->assertCount(2, $charges);
+            foreach ($charges as $charge) {
+                $this->assertEquals('new', $charge->source);
+                $this->assertEquals(Enum::chargeable->value, $charge->target);
+            }
+            $this->assertEquals(['comment' => 'one'], $charges[0]->context);
+            $this->assertEquals(['comment' => 'two'], $charges[1]->context);
+
+            // The increment that completes the transition is covered by
+            // the transition itself, so no further charge row is created.
+            $state->transit(Enum::chargeable, ['comment' => 'three']);
+
+            $this->assertTrue($state->is(Enum::chargeable));
+            $this->assertCount(2, $post->transitions()->get());
+        } finally {
+            Container::getInstance()->forgetInstance(Dispatcher::class);
+        }
     }
 
     public function testListenerFiltersRawFilesOutOfHistoryContext()

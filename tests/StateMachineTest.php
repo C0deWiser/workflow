@@ -5,14 +5,11 @@ namespace Tests;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;
-use Codewiser\Workflow\Example\FakedFactory;
 use Codewiser\Workflow\State;
 use Codewiser\Workflow\StateMachine;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\WorkflowBlueprint;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Container\Container;
-use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Support\ItemNotFoundException;
 use PHPUnit\Framework\TestCase;
 
@@ -112,20 +109,6 @@ class StateMachineTest extends TestCase
         $post->state()->transitionTo(Enum::published)->fire();
 
         $this->assertEquals(Enum::published, $post->state);
-    }
-
-    public function testValidateWithOverridesContainerFactory()
-    {
-        Container::getInstance()->forgetInstance(Factory::class);
-
-        $engine = new StateMachine(new ArticleWorkflow(), new Article(), 'state');
-
-        $this->assertNull($engine->validators());
-
-        $factory = new FakedFactory();
-        $engine->validateWith($factory);
-
-        $this->assertSame($factory, $engine->validators());
     }
 
     public function testAuthorizeUsesBlueprintAuthorization()

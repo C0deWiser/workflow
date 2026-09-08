@@ -4,6 +4,7 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
+use Codewiser\Workflow\Events\TransitionCharged;
 use Codewiser\Workflow\Listeners\TransitionListener;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -23,5 +24,6 @@ class WorkflowServiceProvider extends ServiceProvider
 
         Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleInitialization']);
         Event::listen(ModelTransited::class, [TransitionListener::class, 'handleTransition']);
+        Event::listen(TransitionCharged::class, [TransitionListener::class, 'handleCharged']);
     }
 }

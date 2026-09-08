@@ -67,7 +67,7 @@ class ChargeableTest extends TestCase
             ->chargeable($charger)
             ->inject($post->state());
 
-        // Provide FakedValidator through the container, so the engine may resolve it
+        // Provide FakedValidator through the container, so the charger may resolve it
         $container = Container::getInstance();
         $container->instance(Factory::class, new FakedFactory());
 
@@ -87,5 +87,32 @@ class ChargeableTest extends TestCase
         } finally {
             $container->forgetInstance(Factory::class);
         }
+    }
+
+    public function testChargeValidatesUserdataWithInjectedFactory()
+    {
+        $seen = null;
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $charger = Charger::make(
+            progress: fn(Article $model) => 0,
+            callback: function (Article $model, Context $context) use (&$seen) {
+                $seen = $context->data()->all();
+            }
+        );
+
+        $transition = Transition::make(Enum::new, Enum::published)
+            ->context(['comment' => 'required'])
+            ->chargeable($charger)
+            ->inject($post->state());
+
+        $charger = $transition->charger($post->state())
+            ->validateWith(new FakedFactory());
+
+        $charger->charge($transition, ['comment' => 'yes', 'foo' => 'bar']);
+
+        $this->assertEquals(['comment' => 'yes'], $seen);
     }
 }

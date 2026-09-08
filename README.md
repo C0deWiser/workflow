@@ -718,6 +718,11 @@ Historical records are presented by `\Codewiser\Workflow\Models\TransitionHistor
 model, that holds information about the transition performer, source and target 
 states, and the context, if it was provided.
 
+Every increment to [chargeable transition](#chargeable-transitions), 
+that does not complete the transition, is recorded too: a row is stored with 
+the current state as the source and the chargeable state as the target, 
+along with the validated context.
+
 ### Extending TransitionHistory
 
 You may extend `TransitionHistory` to add columns, casts and accessors of your

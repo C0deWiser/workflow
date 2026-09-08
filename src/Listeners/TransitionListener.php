@@ -5,6 +5,7 @@ namespace Codewiser\Workflow\Listeners;
 use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
+use Codewiser\Workflow\Events\TransitionCharged;
 use Codewiser\Workflow\Models\TransitionHistory;
 use Codewiser\Workflow\Transition;
 use Illuminate\Database\Eloquent\Model;
@@ -74,6 +75,11 @@ class TransitionListener
     }
 
     public function handleTransition(ModelTransited $event): void
+    {
+        $this->newRecordFor($event->engine->model, $event->engine->attribute, $event->context);
+    }
+
+    public function handleCharged(TransitionCharged $event): void
     {
         $this->newRecordFor($event->engine->model, $event->engine->attribute, $event->context);
     }

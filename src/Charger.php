@@ -3,8 +3,11 @@
 namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Injectable;
+use Codewiser\Workflow\Events\TransitionCharged;
 use Codewiser\Workflow\Traits\HasEngine;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -42,6 +45,10 @@ class Charger implements Injectable
      * @var null|callable
      */
     protected $history = null;
+
+    protected ?Factory $validators = null;
+
+    protected ?Dispatcher $dispatcher = null;
 
     /**
      * Every callback receives Model and Transition arguments.
@@ -128,7 +135,7 @@ class Charger implements Injectable
     {
         $validation = $transition->validation() ?? new Validation([]);
 
-        if ($validators = $this->engine->validators()) {
+        if ($validators = $this->validators()) {
             // Validate user data and keep only data that passed validation.
             $userdata = $validators
                 ->make($userdata, $validation->rules, $validation->messages, $validation->attributes)
@@ -142,6 +149,72 @@ class Charger implements Injectable
         }
 
         call_user_func_array($this->callback, $this->func_args($transition, $userdata));
+
+        // Footprint the increment in the transition history,
+        // unless it completed the transition.
+        // A completed transition is covered by the ModelTransited record.
+        if (! $this->isCharged($transition) && $dispatcher = $this->dispatcher()) {
+
+            $dispatcher->dispatch(
+                new TransitionCharged($this->engine, new Context($transition, $userdata))
+            );
+        }
+    }
+
+    /**
+     * Set a validator factory, used to validate user data of chargeable transitions.
+     * By default, a factory is resolved from the application container.
+     */
+    public function validateWith(Factory $validators): static
+    {
+        $this->validators = $validators;
+
+        return $this;
+    }
+
+    /**
+     * Get a validator factory, if any available.
+     */
+    protected function validators(): ?Factory
+    {
+        if (is_null($this->validators) && function_exists('app')) {
+
+            $validators = app()->bound(Factory::class)
+                ? app(Factory::class)
+                : null;
+
+            $this->validators = $validators;
+        }
+
+        return $this->validators;
+    }
+
+    /**
+     * Set a dispatcher, used to dispatch events of chargeable transitions.
+     * By default, a dispatcher is resolved from the application container.
+     */
+    public function dispatchWith(Dispatcher $dispatcher): static
+    {
+        $this->dispatcher = $dispatcher;
+
+        return $this;
+    }
+
+    /**
+     * Get an event dispatcher, if any available.
+     */
+    protected function dispatcher(): ?Dispatcher
+    {
+        if (is_null($this->dispatcher) && function_exists('app')) {
+
+            $dispatcher = app()->bound(Dispatcher::class)
+                ? app(Dispatcher::class)
+                : null;
+
+            $this->dispatcher = $dispatcher;
+        }
+
+        return $this->dispatcher;
     }
 
     /**
