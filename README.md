@@ -696,10 +696,63 @@ Transition::make(Enum::review, Enum::publish)
             // Provide votes history to a front-end
             return $article->votes->toArray();
         })
+    );
+```
+
+### Redirecting a Target State
+
+Sometimes a single chargeable transition may lead to different states, depending
+on the business rules. E.g. an article is published when three editors approve it,
+but a single veto sends it to correction instead.
+
+Declare the callback with `redirectTo`. It is called when the charge is full and
+the transition is ready to fire, and returns the state the model should end up in.
+
+```php
+Transition::make(Enum::review, Enum::published)
+    ->context(['comment' => 'required'])
+    ->chargeable(Charger::make(
+        progress: fn(Article $article) => $article->votes->count() / 3,
+        callback: fn(Article $article, Context $context) => $article->votes->add(auth()->user()),
+        )
+        ->redirectTo(function (Article $article, Context $context): \BackedEnum {
+            // A single veto beats three approvals
+            if ($article->votes->contains('veto', true)) {
+                return Enum::correction;
+            }
+
+            return $context->target()->enum;
+        })
+    );
+```
+
+Callbacks can ask which state they are dealing with:
+
+```php
+Charger::make(...)
+    ->redirectTo(function (Article $article, Context $context): \BackedEnum {
+        // `target()` is still the state this transition declares,
+        // `landedIn()` the state the model ends up in.
+        return $context->landedIn()->enum;
+    })
+```
+
+### Premature Chargeable Transitions
+
+Sometimes a chargeable transition must fire before the charge is complete — an
+admin override, a deadline, a fallback for when nobody acted for too long.
+Declare a `premature` callback: it is asked whether the charge is full, and
+returning `TRUE` makes the transition fire anyway.
+
+```php
+Transition::make(Enum::review, Enum::published)
+    ->chargeable(Charger::make(
+        progress: fn(Article $article) => $article->votes->count() / 3,
+        callback: fn(Article $article, Context $context) => $article->votes->add(auth()->user()),
+        )
         ->premature(function (Article $article, Context $context): bool {
-            // Force the transition to fire even if charge is not complete.
-            // This is useful for admin overrides or time-based fallbacks.
-            return $article->force_publish;
+            // An editor may force the publication after a week of silence
+            return $article->deadline->isPast();
         })
     );
 ```

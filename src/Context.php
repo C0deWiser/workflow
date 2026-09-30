@@ -6,8 +6,11 @@ use Illuminate\Config\Repository as Userdata;
 
 class Context
 {
-    public function __construct(protected Transition|State $contextual, protected array|Userdata $userdata = [])
-    {
+    public function __construct(
+        protected Transition|State $contextual,
+        protected array|Userdata $userdata = [],
+        protected ?State $redirectedTo = null
+    ) {
         if (is_array($this->userdata)) {
             $this->userdata = new Userdata($this->userdata);
         }
@@ -31,10 +34,37 @@ class Context
 
     /**
      * Target state.
+     *
+     * For a redirected chargeable transition this is still the state the
+     * transition declares, not the state the model landed in. Use
+     * `landedIn()` to get the latter.
      */
     public function target(): State
     {
         return $this->transition()?->target() ?? $this->contextual;
+    }
+
+    /**
+     * State a chargeable transition was redirected to.
+     *
+     * NULL unless this context belongs to a live, redirected transition.
+     * A context rebuilt from the transition history has none: it stores
+     * the state that was landed in, and `target()` returns it.
+     */
+    public function redirectedTo(): ?State
+    {
+        return $this->redirectedTo;
+    }
+
+    /**
+     * State the model lands in.
+     *
+     * State-level callbacks belong here: a redirected transition lands in its
+     * redirected state, so that state's callbacks are the ones to run.
+     */
+    public function landedIn(): State
+    {
+        return $this->redirectedTo ?? $this->target();
     }
 
     /**

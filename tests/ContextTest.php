@@ -110,6 +110,49 @@ class ContextTest extends TestCase
         $this->assertEquals(Enum::review, $context->target()->enum);
     }
 
+    public function testNotRedirectedContextLandsInItsTarget(): void
+    {
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $transition = $post->state()->transitionTo(Enum::review);
+
+        $context = new Context($transition);
+
+        $this->assertNull($context->redirectedTo());
+        $this->assertSame($context->target(), $context->landedIn());
+    }
+
+    public function testRedirectedContextLandsInTheRedirectedState(): void
+    {
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new], true);
+
+        $engine = $post->state();
+        $transition = $engine->transitionTo(Enum::review);
+        $correction = $engine->getStateListing()->one(Enum::correction);
+
+        $context = new Context($transition, ['comment' => 'y'], $correction);
+
+        $this->assertSame($correction, $context->redirectedTo());
+
+        // The transition still reports its own target: a `redirectTo` callback
+        // relies on it to return the default outcome.
+        $this->assertEquals(Enum::review, $context->target()->enum);
+
+        $this->assertSame($correction, $context->landedIn());
+    }
+
+    public function testStateContextLandsInItself(): void
+    {
+        $state = State::make(Enum::correction);
+
+        $context = new Context($state);
+
+        $this->assertNull($context->redirectedTo());
+        $this->assertSame($state, $context->landedIn());
+    }
+
     public function testMergeAttributes(): void
     {
         $base = new Validation(

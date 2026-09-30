@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No tagged releases yet.
 
+## [5.1.11] - 2026-09-30
+
+### Added
+- Charger may override target state.
+
 ## [5.1.10] - 2026-09-08
 
 ### Added

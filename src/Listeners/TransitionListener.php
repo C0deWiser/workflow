@@ -7,22 +7,26 @@ use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Events\TransitionCharged;
 use Codewiser\Workflow\Models\TransitionHistory;
-use Codewiser\Workflow\Transition;
+use Codewiser\Workflow\StateMachine;
 use Illuminate\Database\Eloquent\Model;
 
 class TransitionListener
 {
-    protected function newRecordFor(Model $model, string $attribute, Context $context): TransitionHistory
+    protected function newRecordFor(StateMachine $engine, Context $context): TransitionHistory
     {
+        $model = $engine->model;
         $log = new (TransitionHistory::model())();
 
-        $log->blueprint = $attribute;
+        $log->blueprint = $engine->attribute;
 
         $log->performer()->associate(auth()->user());
         $log->transitionable()->associate($model);
 
         $log->source = $context->source()?->enum->value;
-        $log->target = $context->target()->enum->value;
+
+        // A chargeable transition may have been redirected, so the model landed in
+        // another state than the one its transition declares as its target.
+        $log->target = $context->landedIn()->enum->value;
 
         // Store safe userdata.
         $userdata = $this->filterStorable($context->data()->all()) ?: null;
@@ -44,15 +48,19 @@ class TransitionListener
 
     protected function invokeStorableCallbacks(Model $model, Context $context, TransitionHistory $log): array
     {
-        $contextual = $context->transition() ?? $context->target();
+        $state = $context->landedIn();
 
-        $data = $contextual->prepareForStoring($model, $context, $log);
-
-        if ($contextual instanceof Transition) {
-            $data = $contextual->target()->prepareForStoring($model, new Context($contextual, $data), $log);
+        // The model was only initialized in a state.
+        if (! $transition = $context->transition()) {
+            return $this->filterStorable($state->prepareForStoring($model, $context, $log));
         }
 
-        return $this->filterStorable($data);
+        $data = $transition->prepareForStoring($model, $context, $log);
+
+        // State callbacks, of the state the model landed in.
+        $contextual = new Context($transition, $data, $context->redirectedTo());
+
+        return $this->filterStorable($state->prepareForStoring($model, $contextual, $log));
     }
 
     protected function filterStorable(array $data): array
@@ -71,16 +79,16 @@ class TransitionListener
 
     public function handleInitialization(ModelInitialized $event): void
     {
-        $this->newRecordFor($event->engine->model, $event->engine->attribute, $event->context);
+        $this->newRecordFor($event->engine, $event->context);
     }
 
     public function handleTransition(ModelTransited $event): void
     {
-        $this->newRecordFor($event->engine->model, $event->engine->attribute, $event->context);
+        $this->newRecordFor($event->engine, $event->context);
     }
 
     public function handleCharged(TransitionCharged $event): void
     {
-        $this->newRecordFor($event->engine->model, $event->engine->attribute, $event->context);
+        $this->newRecordFor($event->engine, $event->context);
     }
 }

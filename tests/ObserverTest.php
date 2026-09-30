@@ -189,4 +189,156 @@ class ObserverTest extends TestCase
         $this->expectException(ItemNotFoundException::class);
         $observer->updating($post);
     }
+
+    public function testRedirectedTransitionKeepsRunningItsOwnTransition()
+    {
+        $wasCalled = ['saving' => false, 'saved' => false];
+        $dispatcher = new FakedDispatcher();
+        $observer = new WorkflowObserver($dispatcher, new FakedFactory(), new StateMachineResolver());
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new, 'votes' => '[]'], true);
+
+        $engine = $post->state();
+
+        // The chargeable transition is redirected to `correction`, a state
+        // reachable from `new` by no declared transition at all.
+        $chargeable = $engine->transitionTo(Enum::chargeable);
+        $chargeable->charger($engine)->redirectTo(fn() => Enum::correction);
+
+        $chargeable->saving(function () use (&$wasCalled) {
+            $wasCalled['saving'] = true;
+        });
+        $chargeable->saved(function () use (&$wasCalled) {
+            $wasCalled['saved'] = true;
+        });
+
+        // Three votes fill the charge, the third one fires the transition
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable);
+
+        $this->assertEquals(Enum::correction, $post->state, 'Model landed in the redirected state');
+        $this->assertEquals(Enum::correction, $engine->redirectedTo());
+
+        // The observer keeps the chargeable transition running,
+        // not the one the model would be looked up by.
+        $this->assertTrue($observer->updating($post));
+
+        $post->syncChanges();
+        $observer->updated($post);
+
+        $this->assertEquals(['saving' => true, 'saved' => true], $wasCalled,
+            'The chargeable transition ran its own callbacks'
+        );
+
+        $transited = $dispatcher->dispatched[0];
+        $this->assertInstanceOf(ModelTransited::class, $transited);
+        $this->assertEquals(Enum::chargeable, $transited->context->target()->enum,
+            'The running transition still reports its own target'
+        );
+    }
+
+    public function testRedirectedTransitionStillValidatesItsOwnContext()
+    {
+        $observer = new WorkflowObserver(new FakedDispatcher(), new FakedFactory(), new StateMachineResolver());
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new, 'votes' => '[]'], true);
+
+        $engine = $post->state();
+
+        // `new => correction` requires a comment
+        $engine->getTransitionListing()
+            ->from(Enum::new)
+            ->to(Enum::correction);
+
+        $chargeable = $engine->transitionTo(Enum::chargeable);
+        $chargeable->charger($engine)->redirectTo(fn() => Enum::correction);
+
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable, ['comment' => 'a comment']);
+
+        $this->assertEquals(Enum::correction, $post->state);
+
+        // The chargeable transition declares `comment` as nullable, so it passes.
+        // Validation belongs to the running transition, not to the redirected state.
+        $this->assertTrue($observer->updating($post));
+    }
+
+    public function testRedirectedTransitionRunsTheStateItLandedIn()
+    {
+        $wasCalled = [];
+        $dispatcher = new FakedDispatcher();
+        $observer = new WorkflowObserver($dispatcher, new FakedFactory(), new StateMachineResolver());
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new, 'votes' => '[]'], true);
+
+        $engine = $post->state();
+
+        $chargeable = $engine->transitionTo(Enum::chargeable);
+        $chargeable->charger($engine)->redirectTo(fn() => Enum::correction);
+
+        // The state the transition declares, and the state it lands in.
+        $engine->getStateListing()->one(Enum::chargeable)->saving(function () use (&$wasCalled) {
+            $wasCalled[] = 'chargeable saving';
+        });
+        $engine->getStateListing()->one(Enum::chargeable)->saved(function () use (&$wasCalled) {
+            $wasCalled[] = 'chargeable saved';
+        });
+        $engine->getStateListing()->one(Enum::correction)->saving(function () use (&$wasCalled) {
+            $wasCalled[] = 'correction saving';
+        });
+        $engine->getStateListing()->one(Enum::correction)->saved(function () use (&$wasCalled) {
+            $wasCalled[] = 'correction saved';
+        });
+
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable);
+
+        $this->assertEquals(Enum::correction, $post->state);
+
+        $this->assertTrue($observer->updating($post));
+
+        $post->syncChanges();
+        $observer->updated($post);
+
+        $this->assertEquals(['correction saving', 'correction saved'], $wasCalled,
+            'The state the model landed in ran its own callbacks, not the declared target'
+        );
+    }
+
+    public function testTransitedEventContextExposesTheRedirect()
+    {
+        $dispatcher = new FakedDispatcher();
+        $observer = new WorkflowObserver($dispatcher, new FakedFactory(), new StateMachineResolver());
+
+        $post = new Article();
+        $post->setRawAttributes(['state' => Enum::new, 'votes' => '[]'], true);
+
+        $engine = $post->state();
+
+        $chargeable = $engine->transitionTo(Enum::chargeable);
+        $chargeable->charger($engine)->redirectTo(fn() => Enum::correction);
+
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable);
+        $engine->transit(Enum::chargeable);
+
+        $this->assertTrue($observer->updating($post));
+
+        $post->syncChanges();
+        $observer->updated($post);
+
+        $context = $dispatcher->dispatched[0]->context;
+
+        $this->assertEquals(Enum::chargeable, $context->target()->enum,
+            'The running transition still reports its own target'
+        );
+        $this->assertEquals(Enum::correction, $context->redirectedTo()->enum);
+        $this->assertEquals(Enum::correction, $context->landedIn()->enum);
+    }
 }

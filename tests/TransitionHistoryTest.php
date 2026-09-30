@@ -36,4 +36,22 @@ class TransitionHistoryTest extends TestCase
 
         $this->assertEquals(['name' => 'Foo'], $history->context()->data()->all());
     }
+
+    public function testRestoredContextLandsInTheStoredTarget(): void
+    {
+        $history = new TransitionHistory();
+
+        $history->source = Enum::review;
+        $history->target = Enum::correction;
+        $history->blueprint = ArticleWorkflow::class;
+        $history->transitionable = new Article();
+
+        // A stored record keeps the state the model landed in, and knows
+        // nothing about a redirect that got it there.
+        $context = $history->context();
+
+        $this->assertNull($context->redirectedTo());
+        $this->assertEquals(Enum::correction, $context->target()->enum);
+        $this->assertSame($context->target(), $context->landedIn());
+    }
 }

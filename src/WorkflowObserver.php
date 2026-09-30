@@ -7,6 +7,7 @@ use Codewiser\Workflow\Events\ModelInitialized;
 use Codewiser\Workflow\Events\ModelTransited;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Traits\HasEngine;
+use Closure;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -113,14 +114,18 @@ class WorkflowObserver
                     }
 
                     // Context for Events
-                    $context = new Context($transition, $this->validatedUserdata($transition));
+                    $context = new Context(
+                        $transition,
+                        $this->validatedUserdata($transition),
+                        $this->engine->redirectedState()
+                    );
 
                     // Transition callbacks
                     if ($transition->invoke($model, $context, 'saving') === false) {
                         return false;
                     }
-                    // State callbacks
-                    if ($transition->target()->invoke($model, $context, 'saving') === false) {
+                    // State callbacks, of the state the model lands in
+                    if ($context->landedIn()->invoke($model, $context, 'saving') === false) {
                         return false;
                     }
 
@@ -144,15 +149,19 @@ class WorkflowObserver
                 if ($transition = $this->wasTransited()) {
 
                     // Context for Events (validated on updating, may be modified by saving callbacks)
-                    $context = new Context($transition, $this->engine->userdata());
+                    $context = new Context(
+                        $transition,
+                        $this->engine->userdata(),
+                        $this->engine->redirectedState()
+                    );
 
                     // For Event Listener
                     $this->events->dispatch(new ModelTransited($engine, $context));
 
                     // Transition callbacks
                     $transition->invoke($model, $context, 'saved');
-                    // State callbacks
-                    $transition->target()->invoke($model, $context, 'saved');
+                    // State callbacks, of the state the model landed in
+                    $context->landedIn()->invoke($model, $context, 'saved');
                 }
             });
     }
@@ -179,22 +188,10 @@ class WorkflowObserver
      */
     protected function nowTransiting(): ?Transition
     {
-        $model = $this->engine->model;
-        $attribute = $this->engine->attribute;
-
-        if ($model->isDirty($attribute) &&
-            ($source = $model->getOriginal($attribute)) &&
-            ($target = $model->getAttribute($attribute)) &&
-            $source != $target) {
-
-            return $this->engine->getTransitionListing()
-                ->from($source)
-                ->to($target)
-                // Transition must exist
-                ->sole();
-        }
-
-        return null;
+        return $this->changedTransition(
+            fn() => $this->engine->model->isDirty($this->engine->attribute),
+            fn() => $this->engine->model->getOriginal($this->engine->attribute)
+        );
     }
 
     /**
@@ -202,17 +199,37 @@ class WorkflowObserver
      */
     protected function wasTransited(): ?Transition
     {
+        return $this->changedTransition(
+            fn() => $this->engine->model->wasChanged($this->engine->attribute),
+            fn() => $this->engine->model->getOriginal($this->engine->attribute)
+        );
+    }
+
+    /**
+     * Resolve the transition the model attribute was changed by.
+     *
+     * A chargeable transition may have fired to a redirected state, while staying
+     * the running transition. It is returned as is, so its rules, callbacks and
+     * history stay attached to it.
+     */
+    protected function changedTransition(Closure $changed, Closure $source): ?Transition
+    {
         $model = $this->engine->model;
         $attribute = $this->engine->attribute;
 
-        if ($model->wasChanged($attribute) &&
-            ($source = $model->getOriginal($attribute)) &&
-            ($target = $model->getAttribute($attribute)) &&
-            $source != $target) {
+        if ($changed() &&
+            ($from = $source()) &&
+            ($to = $model->getAttribute($attribute)) &&
+            $from != $to) {
+
+            // Redirected transition keeps running as itself
+            if ($redirected = $this->engine->redirectedTransition()) {
+                return $redirected;
+            }
 
             return $this->engine->getTransitionListing()
-                ->from($source)
-                ->to($target)
+                ->from($from)
+                ->to($to)
                 // Transition must exist
                 ->sole();
         }

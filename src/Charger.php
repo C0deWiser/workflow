@@ -4,6 +4,7 @@ namespace Codewiser\Workflow;
 
 use Codewiser\Workflow\Contracts\Injectable;
 use Codewiser\Workflow\Events\TransitionCharged;
+use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\Traits\HasEngine;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Support\Arrayable;
@@ -45,6 +46,13 @@ class Charger implements Injectable
      * @var null|callable
      */
     protected $history = null;
+
+    /**
+     * Callback to redirect a fired transition to another target state.
+     *
+     * @var null|callable
+     */
+    protected $redirectTo = null;
 
     /**
      * Callback to inspect if transition is fully charged.
@@ -119,6 +127,23 @@ class Charger implements Injectable
     }
 
     /**
+     * Optional callback to redirect a fired transition to another target state.
+     *
+     * The transition itself still runs: its rules, callbacks and history stay attached
+     * to it, only the state the model ends up in changes.
+     *
+     * Return an enum to redirect the transition target.
+     *
+     * @param  callable(Model, Context): \BackedEnum  $callback
+     */
+    public function redirectTo(callable $callback): static
+    {
+        $this->redirectTo = $callback;
+
+        return $this;
+    }
+
+    /**
      * Get provided history.
      *
      * @internal
@@ -177,7 +202,7 @@ class Charger implements Injectable
         if (! $this->isCharged($transition) && $dispatcher = $this->dispatcher()) {
 
             $dispatcher->dispatch(
-                new TransitionCharged($this->engine, new Context($transition, $userdata))
+                new TransitionCharged($this->engine, new Context($transition, $userdata, $this->engine->redirectedState()))
             );
         }
     }
@@ -257,6 +282,56 @@ class Charger implements Injectable
     }
 
     /**
+     * When the charge is full, the transition may fire not to its own target,
+     * but to another one.
+     *
+     * Returns NULL when the transition keeps its declared target.
+     *
+     * @internal
+     * @throws TransitionException
+     */
+    public function resolveTarget(Transition $transition): ?\BackedEnum
+    {
+        if (! is_callable($this->redirectTo)) {
+            return null;
+        }
+
+        $target = call_user_func_array($this->redirectTo, $this->func_args($transition));
+
+        $subject = "Transition {$transition->source->value} => {$transition->target->value}";
+
+        if (! $target instanceof \BackedEnum) {
+            throw new TransitionException(
+                "$subject is redirected to a value, that is not a backed enum."
+            );
+        }
+
+        $targetClass = $transition->target::class;
+        $redirectClass = $target::class;
+
+        if ($redirectClass !== $targetClass) {
+            throw new TransitionException(
+                "$subject is redirected to $redirectClass, while it runs on $targetClass."
+            );
+        }
+
+        if (! $this->engine->getStateListing()->contains(fn(State $state) => $state->is($target))) {
+            throw new TransitionException(
+                "$subject is redirected to an undeclared state: {$target->value}."
+            );
+        }
+
+        // The observer skips a transition, that does not change the state.
+        if ($target === $transition->source) {
+            throw new TransitionException(
+                "$subject is redirected to its own source state: {$target->value}."
+            );
+        }
+
+        return $target;
+    }
+
+    /**
      * Check transition charging level (0÷1).
      *
      * @internal
@@ -268,6 +343,11 @@ class Charger implements Injectable
 
     protected function func_args(Transition $transition, array $userdata = []): array
     {
-        return [$this->engine->model, new Context($transition, $userdata)];
+        // A redirect is resolved once the charge is full, so it is not known
+        // while charging, unless the transition was already redirected.
+        return [
+            $this->engine->model,
+            new Context($transition, $userdata, $this->engine->redirectedState())
+        ];
     }
 }

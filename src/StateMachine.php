@@ -3,6 +3,7 @@
 
 namespace Codewiser\Workflow;
 
+use Codewiser\Workflow\Exceptions\TransitionException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,19 @@ class StateMachine implements Arrayable
     protected ?StateCollection $states = null;
 
     protected ?TransitionCollection $transitions = null;
+
+    /**
+     * Transition, that fired redirected to a state other than its own target.
+     *
+     * It stays the running transition: its rules, callbacks and history
+     * remain attached to it, while `redirectedTo` is the state it landed in.
+     */
+    protected ?Transition $redirected = null;
+
+    /**
+     * State the redirected transition landed in.
+     */
+    protected ?\BackedEnum $redirectedTo = null;
 
     /**
      * @param  TBlueprint  $blueprint
@@ -94,6 +108,9 @@ class StateMachine implements Arrayable
         // Put context for later validation in observer
         $this->keepUserdata($userdata);
 
+        // A previous redirect belongs to another transition
+        $this->forgetRedirect();
+
         // Set initial state if forced
         if ($enum) {
             $this->model->setAttribute(
@@ -106,6 +123,15 @@ class StateMachine implements Arrayable
     }
 
     /**
+     * Forget a redirect of a previous transition.
+     */
+    protected function forgetRedirect(): void
+    {
+        $this->redirected = null;
+        $this->redirectedTo = null;
+    }
+
+    /**
      * Change model's state to a new value, passing optional context. Returns Model for you to save it.
      *
      * @param  TType  $enum
@@ -113,9 +139,12 @@ class StateMachine implements Arrayable
      *
      * @return TModel
      * @throws ItemNotFoundException
+     * @throws TransitionException
      */
     public function transit(\BackedEnum $enum, array $userdata = []): Model
     {
+        $this->forgetRedirect();
+
         if ($transition = $this->transitionTo($enum)) {
 
             // Chargeable transition?
@@ -129,6 +158,15 @@ class StateMachine implements Arrayable
                 // Interrupt updating model if transition not fully charged
                 if (! $charger->isCharged($transition)) {
                     return $this->model;
+                }
+
+                // The charge is full: the transition may fire to another state.
+                // It stays the running one, so the observer resolves it by itself.
+                if ($redirect = $charger->resolveTarget($transition)) {
+                    $this->redirected = $transition;
+                    $this->redirectedTo = $redirect;
+
+                    $enum = $redirect;
                 }
             }
         } else {
@@ -183,6 +221,37 @@ class StateMachine implements Arrayable
     public function is(\BackedEnum $enum): bool
     {
         return $this->state()?->is($enum);
+    }
+
+    /**
+     * State the running transition was redirected to, if any.
+     *
+     * Lets the observer keep resolving a redirected transition by itself,
+     * and the history record the state the model actually landed in.
+     *
+     * @return null|\BackedEnum
+     */
+    public function redirectedTo(): ?\BackedEnum
+    {
+        return $this->redirectedTo;
+    }
+
+    /**
+     * Running transition, if it was redirected to another state.
+     */
+    public function redirectedTransition(): ?Transition
+    {
+        return $this->redirected;
+    }
+
+    /**
+     * State the running transition landed in, if it was redirected.
+     *
+     * @return null|State<TType>
+     */
+    public function redirectedState(): ?State
+    {
+        return $this->redirectedTo ? $this->getStateListing()->one($this->redirectedTo) : null;
     }
 
     /**
