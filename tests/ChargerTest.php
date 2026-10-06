@@ -7,10 +7,14 @@ use Codewiser\Workflow\Context;
 use Codewiser\Workflow\Example\Article;
 use Codewiser\Workflow\Example\ArticleWorkflow;
 use Codewiser\Workflow\Example\Enum;
+use Codewiser\Workflow\Example\FakedDispatcher;
+use Codewiser\Workflow\Example\FakedFactory;
 use Codewiser\Workflow\Exceptions\TransitionException;
 use Codewiser\Workflow\StateMachine;
+use Codewiser\Workflow\StateMachineResolver;
 use Codewiser\Workflow\Transition;
 use Codewiser\Workflow\WorkflowBlueprint;
+use Codewiser\Workflow\WorkflowObserver;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -410,6 +414,137 @@ class ChargerTest extends TestCase
         $this->assertNull($engine->redirectedTo());
     }
 
+    public function testFullChargeIsRedirectedToCorrectionWhenItGotVotes()
+    {
+        $post = new Article();
+        $engine = $this->reviewingEngine($post);
+
+        // A single vote is a vote for one target only, ...
+        $engine->transit(Enum::correction, ['comment' => 'typo']);
+        $this->assertCount(1, $post->votes);
+        $this->assertEquals(Enum::review, $post->state, 'The charge is not full yet');
+
+        // ... but it charges both transitions, whichever one is voted for.
+        $this->assertEquals(1 / 3, $this->chargingLevel($engine, Enum::published));
+        $this->assertEquals(1 / 3, $this->chargingLevel($engine, Enum::correction));
+
+        $engine->transit(Enum::published, ['comment' => 'looks good']);
+        $this->assertEquals(Enum::review, $post->state, 'The charge is not full yet');
+
+        // The charge is full now, and there are votes for `correction`
+        $engine->transit(Enum::published, ['comment' => 'also good']);
+
+        $this->assertCount(3, $post->votes);
+        $this->assertEquals(Enum::correction, $post->state, 'Redirected to the voted target');
+        $this->assertEquals(Enum::correction, $engine->redirectedTo());
+
+        // The transition is still the one that got the last vote
+        $fired = $engine->redirectedTransition();
+        $this->assertEquals(Enum::review, $fired->source);
+        $this->assertEquals(Enum::published, $fired->target);
+
+        $seen = null;
+        $fired->saving(function (Article $model, Context $context) use (&$seen) {
+            $seen = [$context->target()->enum, $context->landedIn()->enum];
+        });
+
+        // The observer validates that very transition, and not the one
+        // the model would be looked up by in the state it landed in.
+        $this->assertTrue($this->observer()->updating($post));
+
+        $this->assertEquals([Enum::published, Enum::correction], $seen,
+            'The fired transition kept its own target and landed in the redirected state'
+        );
+    }
+
+    public function testFullChargeIsRedirectedToPublishedWithoutCorrectionVotes()
+    {
+        $post = new Article();
+        $engine = $this->reviewingEngine($post);
+
+        // Three votes for `published`, none for `correction`
+        $engine->transit(Enum::published, ['comment' => 'one']);
+        $this->assertEquals(Enum::review, $post->state, 'The charge is not full yet');
+
+        $engine->transit(Enum::published, ['comment' => 'two']);
+        $this->assertEquals(Enum::review, $post->state, 'The charge is not full yet');
+
+        $engine->transit(Enum::published, ['comment' => 'three']);
+
+        $this->assertCount(3, $post->votes);
+        $this->assertEquals(Enum::published, $post->state);
+        $this->assertEquals(Enum::published, $engine->redirectedTo());
+
+        $fired = $engine->redirectedTransition();
+        $this->assertEquals(Enum::published, $fired->target);
+
+        $seen = null;
+        $fired->saving(function (Article $model, Context $context) use (&$seen) {
+            $seen = [$context->target()->enum, $context->landedIn()->enum];
+        });
+
+        $this->assertTrue($this->observer()->updating($post));
+
+        $this->assertEquals([Enum::published, Enum::published], $seen,
+            'Without votes for `correction` the fired transition lands in `published`'
+        );
+    }
+
+    public function testFullChargeOfCorrectionTransitionRedirectsToCorrection()
+    {
+        $post = new Article();
+        $engine = $this->reviewingEngine($post);
+
+        // Three votes for `correction` itself
+        $engine->transit(Enum::correction, ['comment' => 'one']);
+        $engine->transit(Enum::correction, ['comment' => 'two']);
+        $engine->transit(Enum::correction, ['comment' => 'three']);
+
+        $this->assertCount(3, $post->votes);
+        $this->assertEquals(Enum::correction, $post->state);
+        $this->assertEquals(Enum::correction, $engine->redirectedTo());
+
+        $fired = $engine->redirectedTransition();
+        $this->assertEquals(Enum::correction, $fired->target);
+
+        $seen = null;
+        $fired->saving(function (Article $model, Context $context) use (&$seen) {
+            $seen = [$context->target()->enum, $context->landedIn()->enum];
+        });
+
+        $this->assertTrue($this->observer()->updating($post));
+
+        $this->assertEquals([Enum::correction, Enum::correction], $seen);
+    }
+
+    /**
+     * A reviewing engine, bound to a fresh article in the `review` state.
+     *
+     * The engine is registered as the model workflow as well, so that the
+     * observer, resolving workflows through the `#[Workflow]` methods of a
+     * model, gets this very engine back.
+     */
+    private function reviewingEngine(Article $post): StateMachine
+    {
+        $post->setRawAttributes(['state' => Enum::review, 'votes' => '[]'], true);
+
+        $post->state_machines['state'] = $engine = new StateMachine($this->reviewingBlueprint(), $post, 'state');
+
+        return $engine;
+    }
+
+    private function observer(): WorkflowObserver
+    {
+        return new WorkflowObserver(new FakedDispatcher(), new FakedFactory(), new StateMachineResolver());
+    }
+
+    private function chargingLevel(StateMachine $engine, \BackedEnum $target): float
+    {
+        $transition = $engine->transitionTo($target);
+
+        return $transition->charger($engine)->chargingLevel($transition);
+    }
+
     private function transitionChargedDispatcher(bool &$dispatched): \Illuminate\Events\Dispatcher
     {
         $dispatcher = new \Illuminate\Events\Dispatcher();
@@ -504,6 +639,59 @@ class ChargerTest extends TestCase
                     // a redirect only requires the target to be a declared state.
                     Transition::make(Enum::published, Enum::correction),
                 ];
+            }
+        };
+    }
+
+    /**
+     * Two chargeable transitions out of `review`, sharing a single charge.
+     *
+     * Both charges are filled by the same votes, so that a user voting for
+     * `published` charges the way to `correction` as well, and the other way
+     * around. Once the charge is full, the fired transition lands in
+     * `correction` if anybody voted for it, and in `published` otherwise.
+     */
+    private function reviewingBlueprint(): WorkflowBlueprint
+    {
+        return new class extends WorkflowBlueprint
+        {
+            public function states(): array
+            {
+                return [Enum::review, Enum::published, Enum::correction];
+            }
+
+            public function transitions(): array
+            {
+                return [
+                    Transition::make(Enum::review, Enum::published)
+                        ->context(['comment' => 'required'])
+                        ->chargeable($this->charge()),
+
+                    Transition::make(Enum::review, Enum::correction)
+                        ->context(['comment' => 'required'])
+                        ->chargeable($this->charge()),
+                ];
+            }
+
+            /**
+             * A charge, shared by both transitions.
+             */
+            private function charge(): Charger
+            {
+                return Charger::make(
+                    // A vote for any of the targets charges every transition
+                    progress: fn(Article $model) => $model->votes->count() / 3,
+
+                    // A single vote, cast for the target it was cast through
+                    callback: fn(Article $model, Context $context) => $model->votes
+                        ->add(['for' => $context->target()->enum->value, 'by' => $context->data()->get('comment')]),
+                )
+
+                    // A veto wins over the approvals collected so far
+                    ->redirectTo(fn(Article $model) => $model->votes
+                        ->contains('for', Enum::correction->value)
+                        ? Enum::correction
+                        : Enum::published);
             }
         };
     }
