@@ -22,6 +22,12 @@ class WorkflowServiceProvider extends ServiceProvider
             __DIR__.'/../database/migrations' => database_path('migrations')
         ], 'workflow-migrations');
 
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                Console\ShowWorkflowCommand::class,
+            ]);
+        }
+
         Event::listen(ModelInitialized::class, [TransitionListener::class, 'handleInitialization']);
         Event::listen(ModelTransited::class, [TransitionListener::class, 'handleTransition']);
         Event::listen(TransitionCharged::class, [TransitionListener::class, 'handleCharged']);

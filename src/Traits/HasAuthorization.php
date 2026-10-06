@@ -21,7 +21,7 @@ trait HasAuthorization
     /**
      * Authorize transition using this.
      *
-     * @param  null|callable(Model, Context): (bool|Response)  $authorization May throw AuthorizationException.
+     * @param  null|callable(Model, Context): (void|bool|Response)  $authorization  May throw AuthorizationException intead of returning a result.
      */
     public function authorizedBy(?callable $authorization): static
     {

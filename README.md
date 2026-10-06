@@ -14,6 +14,7 @@
     * [EventListener](#eventlistener)
 * [Chargeable Transitions](#chargeable-transitions)
 * [Log Transitions](#transition-history) 
+* [Console Command](#console-command)
 
 Package provides workflow functionality to Eloquent Models.
 
@@ -315,6 +316,11 @@ Transition::make(Enum::new, Enum::to_region_manager)
 
 User will see only one possible transition depending on order amount value.
 
+Instead of returning a result, the callback may throw 
+`TransitionFatalException` (carrying an optional description of the reason).
+The transition becomes forbidden then, both `when` and `unless` callbacks 
+may throw it.
+
 > Transition becomes forbidden if its target State is forbidden too.
 
 ### Conditional transitions
@@ -322,19 +328,23 @@ User will see only one possible transition depending on order amount value.
 Transition may have some conditions to run.
 If the model fits these conditions then the transition is possible.
 
-If transition doesn't meet the condition, the callback should return 
-human-readable description of a problem.
+If transition doesn't meet the condition, the callback should either return 
+human-readable problem description or throw 
+`TransitionRecoverableException` with problem description.
 
 Here is an example of problems user may resolve.
 
 ```php
 use \Codewiser\Workflow\Example\Enum;
 use \Codewiser\Workflow\Transition;
+use \Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 
 Transition::make(Enum::new, Enum::review)
     ->condition(function(Article $model) {
         if (strlen($model->body) < 1000) {
-            return 'Your article should contain at least 1000 symbols. Then you may send it to review.'
+            throw new TransitionRecoverableException(
+                'Your article should contain at least 1000 symbols. Then you may send it to review.'
+            );
         }
     })
     ->condition(function(Article $model) {
@@ -701,40 +711,25 @@ Transition::make(Enum::review, Enum::publish)
 
 ### Redirecting a Target State
 
-Sometimes a single chargeable transition may lead to different states, depending
-on the business rules. E.g. an article is published when three editors approve it,
+Sometimes a single charger may be assigned to a few transitions at the same 
+time. E.g. an article is published when all three editors approve it,
 but a single veto sends it to correction instead.
 
-Declare the callback with `redirectTo`. It is called when the charge is full and
-the transition is ready to fire, and returns the state the model should end up in.
+Declare the charger callback with `redirectTo`. It is called when the charge is 
+full and the transition is ready to fire, and returns the state the model 
+should end up in.
 
 ```php
-Transition::make(Enum::review, Enum::published)
-    ->context(['comment' => 'required'])
-    ->chargeable(Charger::make(
-        progress: fn(Article $article) => $article->votes->count() / 3,
-        callback: fn(Article $article, Context $context) => $article->votes->add(auth()->user()),
-        )
-        ->redirectTo(function (Article $article, Context $context): \BackedEnum {
-            // A single veto beats three approvals
-            if ($article->votes->contains('veto', true)) {
-                return Enum::correction;
-            }
-
-            return $context->target()->enum;
-        })
-    );
-```
-
-Callbacks can ask which state they are dealing with:
-
-```php
-Charger::make(...)
-    ->redirectTo(function (Article $article, Context $context): \BackedEnum {
-        // `target()` is still the state this transition declares,
-        // `landedIn()` the state the model ends up in.
-        return $context->landedIn()->enum;
-    })
+Charger::make(
+    progress: fn(Article $article) => $article->votes->count() / 3,
+    callback: fn(Article $article) => $article->votes->add(auth()->user()),
+)
+->redirectTo(function (Article $article): \BackedEnum {
+    // A single veto beats all approvals
+    return $article->votes->contains('veto', true)
+        ? Enum::correction
+        : Enum::published;
+});
 ```
 
 ### Premature Chargeable Transitions
@@ -745,16 +740,14 @@ Declare a `premature` callback: it is asked whether the charge is full, and
 returning `TRUE` makes the transition fire anyway.
 
 ```php
-Transition::make(Enum::review, Enum::published)
-    ->chargeable(Charger::make(
-        progress: fn(Article $article) => $article->votes->count() / 3,
-        callback: fn(Article $article, Context $context) => $article->votes->add(auth()->user()),
-        )
-        ->premature(function (Article $article, Context $context): bool {
-            // An editor may force the publication after a week of silence
-            return $article->deadline->isPast();
-        })
-    );
+Charger::make(
+    progress: fn(Article $article) => $article->votes->count() / 3,
+    callback: fn(Article $article) => $article->votes->add(auth()->user()),
+)
+->premature(function (Article $article): bool {
+    // An editor may force the publication after a week of silence
+    return $article->deadline->isPast();
+});
 ```
 
 ## Transition History
@@ -831,3 +824,26 @@ Article::query()->withLatestTransition(
     transitionable: fn(MorphTo $builder) => $builder->withTrashed()
 );
 ```
+
+## Console Command
+
+`workflow:show` prints the current state and transitions of a model:
+
+    php artisan workflow:show article#1
+
+The model is referenced by a morph alias or by a class name, with the id 
+embedded into the reference (`article#1`, `App\Models\User#1`):
+
+    php artisan workflow:show article#1
+    php artisan workflow:show "App\Models\User#1"
+
+A model with a few workflows prints a block per workflow. Use `--attr=` 
+to limit the output:
+
+    php artisan workflow:show article#1 --attr=status
+
+Authorization is evaluated from the point of view of the authenticated user. 
+Use `--as=` to inspect the workflow as an [Authenticatable](#authorization):
+
+    php artisan workflow:show article#1 --as=user#2
+

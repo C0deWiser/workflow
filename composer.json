@@ -1,6 +1,6 @@
 {
     "name": "codewiser/workflow",
-    "description": "Model Workflow Laravel package",
+    "description": "Model Workflow for Laravel",
     "keywords": ["workflow", "laravel", "state machine"],
     "license": "MIT",
     "authors": [

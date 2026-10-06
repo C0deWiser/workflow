@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Exceptions\TransitionFatalException;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -18,7 +19,7 @@ trait HasDeadEnd
     /**
      * Hide state/transition if condition is false.
      *
-     * @param  callable(Model, Context): bool  $callback
+     * @param  callable(Model, Context): (void|bool)  $callback  May throw TransitionFatalException instead of returning false.
      */
     public function when(callable $callback): static
     {
@@ -30,7 +31,7 @@ trait HasDeadEnd
     /**
      * Hide state/transition if condition is true.
      *
-     * @param  callable(Model, Context): bool  $callback
+     * @param  callable(Model, Context): (void|bool)  $callback  May throw TransitionFatalException instead of returning true.
      */
     public function unless(callable $callback): static
     {
@@ -49,13 +50,21 @@ trait HasDeadEnd
         $context = new Context($this);
 
         foreach ($this->deadEnds['when'] as $when) {
-            if (false === call_user_func($when, $this->engine()->model, $context)) {
+            try {
+                if (false === call_user_func($when, $this->engine()->model, $context)) {
+                    return true;
+                }
+            } catch (TransitionFatalException) {
                 return true;
             }
         }
 
         foreach ($this->deadEnds['unless'] as $unless) {
-            if (true === call_user_func($unless, $this->engine()->model, $context)) {
+            try {
+                if (true === call_user_func($unless, $this->engine()->model, $context)) {
+                    return true;
+                }
+            } catch (TransitionFatalException) {
                 return true;
             }
         }

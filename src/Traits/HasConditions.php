@@ -3,6 +3,7 @@
 namespace Codewiser\Workflow\Traits;
 
 use Codewiser\Workflow\Context;
+use Codewiser\Workflow\Exceptions\TransitionRecoverableException;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -15,7 +16,7 @@ trait HasConditions
     /**
      * State/transition may run if meet given condition.
      *
-     * @param  callable(Model, Context): (null|string)  $callback Should return string to describe condition to a user.
+     * @param  callable(Model, Context): (void|string)  $callback  Should either return string with description or throw TransitionRecoverableException.
      */
     public function condition(callable $callback): static
     {
@@ -34,7 +35,13 @@ trait HasConditions
     public function issues(): array
     {
         return collect($this->conditions)
-            ->map(fn(callable $callback) => call_user_func($callback, $this->engine()->model, new Context($this)))
+            ->map(function (callable $callback) {
+                try {
+                    return call_user_func($callback, $this->engine()->model, new Context($this));
+                } catch (TransitionRecoverableException $e) {
+                    return $e->getMessage();
+                }
+            })
             ->filter()
             ->values()
             ->toArray();

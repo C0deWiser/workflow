@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No tagged releases yet.
 
+## [5.1.12] - 2026-10-06
+
+### Added
+- `workflow:show` command, that shows the current state and transitions of a 
+  model, optionally `--as` an Authenticatable.
+
 ## [5.1.11] - 2026-09-30
 
 ### Added
